@@ -6,9 +6,11 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
+    const companyId = formData.get('companyId') as string;
 
-    // UUID v4/v0 válido exigido pelo Zod e pelo banco
-    const validCompanyId = '00000000-0000-0000-0000-000000000000';
+    if (!companyId) {
+      return NextResponse.json({ error: 'O ID da empresa (companyId) é obrigatório.' }, { status: 400 });
+    }
 
     if (!file) {
       return NextResponse.json({ error: 'Nenhum arquivo enviado.' }, { status: 400 });
@@ -23,7 +25,7 @@ export async function POST(request: Request) {
     for (const item of importResult.successfulImports) {
       try {
         const newProduct = await ProductsService.create({
-          companyId: validCompanyId,
+          companyId, // Utiliza o ID dinâmico vindo da requisição
           description: item.description,
           unit: item.unit,
           internalCode: item.internalCode,
