@@ -3,6 +3,7 @@ import { ProductsService } from '@/modules/products/products.service';
 import { db } from '@/db/db';
 import { products } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { productSchema } from '@/types/productSchema';
 
 // GET: Lista todos os produtos da empresa (tenant)
 export async function GET(request: NextRequest) {
@@ -29,33 +30,39 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { 
-      companyId, code, description, brand, category, 
-      unit, boxQuantity, costPrice, salePrice, ncm, cest, origin 
-    } = body;
 
-    if (!companyId || !description) {
+    // Valida os dados de entrada usando o Zod
+    const validationResult = productSchema.safeParse(body);
+
+    if (!validationResult.success) {
       return NextResponse.json(
-        { error: 'Os campos companyId e description são obrigatórios.' },
+        { error: 'Dados inválidos.', details: validationResult.error.format() },
         { status: 400 }
       );
     }
 
+    const data = validationResult.data;
+
     const [newProduct] = await db
       .insert(products)
       .values({
-        companyId,
-        internalCode: code || null,
-        description,
-        brand: brand || null,
-        category: category || null,
-        unit: unit || 'UN',
-        boxQuantity: boxQuantity ? Number(boxQuantity) : 1,
-        costPrice: costPrice !== undefined && costPrice !== '' ? String(costPrice) : '0.00',
-        salePrice: salePrice !== undefined && salePrice !== '' ? String(salePrice) : '0.00',
-        ncm: ncm || null,
-        cest: cest || null,
-        origin: origin || '0',
+        companyId: data.companyId,
+        internalCode: data.code || null,
+        description: data.description,
+        brand: data.brand || null,
+        category: data.category || null,
+        unit: data.unit,
+        boxQuantity: data.boxQuantity,
+        costPrice: data.costPrice,
+        salePrice: data.salePrice,
+        ncm: data.ncm || null,
+        cest: data.cest || null,
+        origin: data.origin,
+        imageUrl: body.imageUrl || null,
+        stockCurrent: body.stockCurrent ?? 0,
+        stockMin: body.stockMin ?? 0,
+        stockIdeal: body.stockIdeal ?? 0,
+        stockMax: body.stockMax ?? 0,
       })
       .returning();
 
@@ -74,29 +81,47 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { 
-      id, companyId, code, description, brand, category, 
-      costPrice, salePrice, ncm, cest 
-    } = body;
+    const { id } = body;
 
-    if (!id || !companyId) {
-      return NextResponse.json({ error: 'ID e companyId são obrigatórios para atualização.' }, { status: 400 });
+    if (!id) {
+      return NextResponse.json({ error: 'O ID é obrigatório para atualização.' }, { status: 400 });
     }
+
+    // Valida os dados utilizando o Zod
+    const validationResult = productSchema.safeParse(body);
+
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: 'Dados inválidos.', details: validationResult.error.format() },
+        { status: 400 }
+      );
+    }
+
+    const data = validationResult.data;
 
     const [updated] = await db
       .update(products)
       .set({
-        internalCode: code || null,
-        description,
-        brand: brand || null,
-        category: category || null,
-        costPrice: costPrice ? String(costPrice) : '0.00',
-        salePrice: salePrice ? String(salePrice) : '0.00',
-        ncm: ncm || null,
-        cest: cest || null,
+        internalCode: data.code || null,
+        description: data.description,
+        brand: data.brand || null,
+        category: data.category || null,
+        costPrice: data.costPrice,
+        salePrice: data.salePrice,
+        ncm: data.ncm || null,
+        cest: data.cest || null,
+        imageUrl: body.imageUrl || null,
+        stockCurrent: body.stockCurrent ?? 0,
+        stockMin: body.stockMin ?? 0,
+        stockIdeal: body.stockIdeal ?? 0,
+        stockMax: body.stockMax ?? 0,
       })
-      .where(and(eq(products.id, id), eq(products.companyId, companyId)))
+      .where(and(eq(products.id, id), eq(products.companyId, data.companyId)))
       .returning();
+
+    if (!updated) {
+      return NextResponse.json({ error: 'Produto não encontrado ou empresa inválida.' }, { status: 404 });
+    }
 
     return NextResponse.json({ success: true, product: updated });
   } catch (error) {

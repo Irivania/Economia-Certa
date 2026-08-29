@@ -1,10 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
+
+interface Product {
+  id: string;
+  description: string;
+  internalCode?: string;
+  stockCurrent?: number;
+  stockMin?: number;
+}
 
 export default function DashboardPage() {
   const [productCount, setProductCount] = useState(0);
   const [quotationCount, setQuotationCount] = useState(0);
+  const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   // UUID real e oficial da Melo Perfumaria
@@ -20,8 +30,14 @@ export default function DashboardPage() {
         ]);
 
         if (pRes.ok) {
-          const products = await pRes.json();
+          const products: Product[] = await pRes.json();
           setProductCount(Array.isArray(products) ? products.length : 0);
+
+          // Filtra produtos com estoque crítico (atual <= mínimo)
+          const criticalItems = products.filter(
+            (p) => (p.stockCurrent ?? 0) <= (p.stockMin ?? 0) && (p.stockMin ?? 0) > 0
+          );
+          setLowStockProducts(criticalItems);
         }
 
         if (qRes.ok) {
@@ -55,6 +71,26 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Alerta Inteligente de Estoque Crítico */}
+        {!loading && lowStockProducts.length > 0 && (
+          <div className="bg-rose-50 border border-rose-200 rounded-xl p-6 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h3 className="text-sm font-bold text-rose-800 flex items-center gap-2">
+                <span>🚨</span> Alerta de Reposição Urgente ({lowStockProducts.length} itens críticos)
+              </h3>
+              <p className="text-xs text-rose-600 mt-1">
+                Existem produtos com estoque atual igual ou abaixo do mínimo estabelecido. Recomendamos iniciar uma cotação.
+              </p>
+            </div>
+            <Link
+              href="/produtos"
+              className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
+            >
+              Verificar Produtos &rarr;
+            </Link>
+          </div>
+        )}
+
         {/* Cards de Métricas Rápidas */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
@@ -65,9 +101,9 @@ export default function DashboardPage() {
               </h3>
             </div>
             <div className="mt-4">
-              <a href="/produtos" className="text-blue-600 hover:text-blue-800 text-xs font-semibold">
+              <Link href="/produtos" className="text-blue-600 hover:text-blue-800 text-xs font-semibold">
                 Ver catálogo completo &rarr;
-              </a>
+              </Link>
             </div>
           </div>
 
@@ -79,9 +115,9 @@ export default function DashboardPage() {
               </h3>
             </div>
             <div className="mt-4">
-              <a href="/cotacoes" className="text-blue-600 hover:text-blue-800 text-xs font-semibold">
+              <Link href="/cotacoes" className="text-blue-600 hover:text-blue-800 text-xs font-semibold">
                 Gerenciar cotações &rarr;
-              </a>
+              </Link>
             </div>
           </div>
 
@@ -91,9 +127,9 @@ export default function DashboardPage() {
               <h3 className="text-lg font-bold text-slate-700 mt-2">Planilhas & Dados</h3>
             </div>
             <div className="mt-4">
-              <a href="/importar" className="text-blue-600 hover:text-blue-800 text-xs font-semibold">
+              <Link href="/importar" className="text-blue-600 hover:text-blue-800 text-xs font-semibold">
                 Acessar importador &rarr;
-              </a>
+              </Link>
             </div>
           </div>
         </div>
@@ -102,29 +138,29 @@ export default function DashboardPage() {
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
           <h2 className="text-lg font-bold text-slate-800 mb-4">Acessos Rápidos do Sistema</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            <a
+            <Link
               href="/cotacoes"
               className="p-4 rounded-lg border border-slate-200 hover:border-blue-500 hover:bg-blue-50/30 transition-all group"
             >
               <h3 className="font-bold text-slate-800 group-hover:text-blue-600 text-sm">📊 Comparador de Preços</h3>
               <p className="text-xs text-slate-500 mt-1">Cruze cotações e descubra o melhor fornecedor.</p>
-            </a>
+            </Link>
 
-            <a
+            <Link
               href="/produtos"
               className="p-4 rounded-lg border border-slate-200 hover:border-blue-500 hover:bg-blue-50/30 transition-all group"
             >
               <h3 className="font-bold text-slate-800 group-hover:text-blue-600 text-sm">📦 Catálogo de Produtos</h3>
-              <p className="text-xs text-slate-500 mt-1">Visualize itens e preços cadastrados.</p>
-            </a>
+              <p className="text-xs text-slate-500 mt-1">Visualize itens, imagens e estoques cadastrados.</p>
+            </Link>
 
-            <a
+            <Link
               href="/importar"
               className="p-4 rounded-lg border border-slate-200 hover:border-blue-500 hover:bg-blue-50/30 transition-all group"
             >
               <h3 className="font-bold text-slate-800 group-hover:text-blue-600 text-sm">📥 Central de Importação</h3>
               <p className="text-xs text-slate-500 mt-1">Importe produtos e dados em lote.</p>
-            </a>
+            </Link>
           </div>
         </div>
 

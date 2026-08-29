@@ -22,7 +22,7 @@ export const users = pgTable('users', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
-// 3. Tabela de Produtos da Loja (Profissional com Dados Fiscais)
+// 3. Tabela de Produtos da Loja (Profissional com Dados Fiscais, Imagem e Estoque)
 export const products = pgTable('products', {
   id: uuid('id').defaultRandom().primaryKey(),
   companyId: uuid('company_id')
@@ -41,6 +41,12 @@ export const products = pgTable('products', {
   ncm: text('ncm'), // Nomenclatura Comum do Mercosul
   cest: text('cest'), // Código Especificador da Substituição Tributária
   origin: text('origin').default('0'), // 0: Nacional, 1: Estrangeiro, etc.
+  imageUrl: text('image_url'), 
+  // Parâmetros de Estoque
+  stockCurrent: integer('stock_current').default(0).notNull(),
+  stockMin: integer('stock_min').default(0).notNull(),
+  stockIdeal: integer('stock_ideal').default(0).notNull(),
+  stockMax: integer('stock_max').default(0).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
