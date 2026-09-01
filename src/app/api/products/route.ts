@@ -31,7 +31,6 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Valida os dados de entrada usando o Zod
     const validationResult = productSchema.safeParse(body);
 
     if (!validationResult.success) {
@@ -42,27 +41,21 @@ export async function POST(request: NextRequest) {
     }
 
     const data = validationResult.data;
+    const productId = crypto.randomUUID();
 
     const [newProduct] = await db
       .insert(products)
       .values({
+        id: productId,
         companyId: data.companyId,
-        internalCode: data.code || null,
+        ean: data.code || null,
         description: data.description,
         brand: data.brand || null,
         category: data.category || null,
-        unit: data.unit,
-        boxQuantity: data.boxQuantity,
-        costPrice: data.costPrice,
-        salePrice: data.salePrice,
-        ncm: data.ncm || null,
-        cest: data.cest || null,
-        origin: data.origin,
-        imageUrl: body.imageUrl || null,
-        stockCurrent: body.stockCurrent ?? 0,
-        stockMin: body.stockMin ?? 0,
-        stockIdeal: body.stockIdeal ?? 0,
-        stockMax: body.stockMax ?? 0,
+        unit: data.unit || 'UN',
+        boxQuantity: data.boxQuantity ?? 1,
+        costPrice: data.costPrice ? String(data.costPrice) : null,
+        salePrice: data.salePrice ? String(data.salePrice) : null,
       })
       .returning();
 
@@ -87,7 +80,6 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'O ID é obrigatório para atualização.' }, { status: 400 });
     }
 
-    // Valida os dados utilizando o Zod
     const validationResult = productSchema.safeParse(body);
 
     if (!validationResult.success) {
@@ -102,19 +94,14 @@ export async function PUT(request: NextRequest) {
     const [updated] = await db
       .update(products)
       .set({
-        internalCode: data.code || null,
+        ean: data.code || null,
         description: data.description,
         brand: data.brand || null,
         category: data.category || null,
-        costPrice: data.costPrice,
-        salePrice: data.salePrice,
-        ncm: data.ncm || null,
-        cest: data.cest || null,
-        imageUrl: body.imageUrl || null,
-        stockCurrent: body.stockCurrent ?? 0,
-        stockMin: body.stockMin ?? 0,
-        stockIdeal: body.stockIdeal ?? 0,
-        stockMax: body.stockMax ?? 0,
+        unit: data.unit || 'UN',
+        boxQuantity: data.boxQuantity ?? 1,
+        costPrice: data.costPrice ? String(data.costPrice) : null,
+        salePrice: data.salePrice ? String(data.salePrice) : null,
       })
       .where(and(eq(products.id, id), eq(products.companyId, data.companyId)))
       .returning();
@@ -130,7 +117,7 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE: Remove/Cancela um produto
+// DELETE: Remove um produto
 export async function DELETE(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
