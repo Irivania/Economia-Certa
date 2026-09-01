@@ -1,38 +1,31 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
-import { brands } from '@/db/schema';
+import { products } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
   try {
-    const companyId = request.nextUrl.searchParams.get('companyId');
+    const searchParams = request.nextUrl.searchParams;
+    const companyId = searchParams.get('companyId');
+
     if (!companyId) {
-      return NextResponse.json({ error: 'companyId obrigatório' }, { status: 400 });
+      return NextResponse.json({ error: 'O ID da empresa é obrigatório.' }, { status: 400 });
     }
 
-    const items = await db.select().from(brands).where(eq(brands.companyId, companyId));
-    return NextResponse.json(items);
+    // Busca as marcas cadastradas nos produtos da empresa
+    const productList = await db
+      .select({ brand: products.brand })
+      .from(products)
+      .where(eq(products.companyId, companyId));
+
+    // Filtra valores únicos e remove nulos/vazios
+    const uniqueBrands = Array.from(
+      new Set(productList.map((p) => p.brand).filter(Boolean))
+    ).sort();
+
+    return NextResponse.json(uniqueBrands);
   } catch (error) {
     console.error('Erro ao buscar marcas:', error);
-    return NextResponse.json({ error: 'Erro ao buscar marcas' }, { status: 500 });
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const { companyId, name } = await request.json();
-    if (!companyId || !name) {
-      return NextResponse.json({ error: 'companyId e name são obrigatórios' }, { status: 400 });
-    }
-
-    const [newBrand] = await db
-      .insert(brands)
-      .values({ companyId, name })
-      .returning();
-
-    return NextResponse.json({ success: true, brand: newBrand }, { status: 201 });
-  } catch (error) {
-    console.error('Erro ao cadastrar marca:', error);
-    return NextResponse.json({ error: 'Erro ao cadastrar marca' }, { status: 500 });
+    return NextResponse.json({ error: 'Erro interno ao buscar marcas.' }, { status: 500 });
   }
 }

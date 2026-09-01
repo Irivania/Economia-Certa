@@ -129,8 +129,8 @@ export function ProductForm({
             className="px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white text-slate-700"
           >
             <option value="">Selecione a Categoria...</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.name}>{cat.name}</option>
+            {categories.map((cat, index) => (
+              <option key={cat.id ? `${cat.id}-${index}` : index} value={cat.name}>{cat.name}</option>
             ))}
           </select>
         </div>
@@ -150,8 +150,8 @@ export function ProductForm({
             className="px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white text-slate-700"
           >
             <option value="">Selecione a Marca...</option>
-            {brands.map((b) => (
-              <option key={b.id} value={b.name}>{b.name}</option>
+            {brands.map((b, index) => (
+              <option key={b.id ? `${b.id}-${index}` : index} value={b.name}>{b.name}</option>
             ))}
           </select>
           <div className="relative">

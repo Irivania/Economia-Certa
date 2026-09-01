@@ -2,7 +2,6 @@ import { z } from 'zod';
 import * as XLSX from 'xlsx';
 
 export const importRowSchema = z.object({
-  internalCode: z.string().optional(),
   ean: z.string().optional(),
   description: z.string().min(1, 'A descrição é obrigatória.'),
   brand: z.string().optional(),
@@ -60,7 +59,6 @@ export class ImportsService {
 
       const descVal = findVal(['Descrição', 'Descricao', 'Produto', 'Nome', 'description', 'name', 'title']) || firstColValue;
       const unitVal = findVal(['Unidade', 'Un', 'Medida', 'unit', 'uom']) || secondColValue;
-      const codeVal = findVal(['Código Interno', 'Codigo Interno', 'Codigo', 'Código', 'SKU', 'code', 'internalcode']);
       const eanVal = findVal(['EAN', 'Cod Barras', 'Código de Barras', 'Barras', 'barcode']);
       const brandVal = findVal(['Marca', 'Fabricante', 'brand']);
       const catVal = findVal(['Categoria', 'Grupo', 'Seção', 'category', 'group']);
@@ -69,12 +67,11 @@ export class ImportsService {
       const saleVal = findVal(['Preço Venda', 'Preco Venda', 'Venda', 'Preço', 'saleprice', 'price']);
 
       const normalizedRow = {
-        internalCode: codeVal !== undefined ? String(codeVal) : undefined,
-        ean: eanVal !== undefined ? String(eanVal) : undefined,
-        description: descVal !== undefined ? String(descVal) : 'Produto sem descrição',
-        brand: brandVal !== undefined ? String(brandVal) : undefined,
-        category: catVal !== undefined ? String(catVal) : undefined,
-        unit: unitVal !== undefined ? String(unitVal) : 'UN',
+        ean: eanVal !== undefined ? String(eanVal).trim() : undefined,
+        description: descVal !== undefined ? String(descVal).trim().toUpperCase() : 'PRODUTO SEM DESCRIÇÃO',
+        brand: brandVal !== undefined ? String(brandVal).trim().toUpperCase() : undefined,
+        category: catVal !== undefined ? String(catVal).trim().toUpperCase() : undefined,
+        unit: unitVal !== undefined ? String(unitVal).trim().toUpperCase() : 'UN',
         boxQuantity: boxVal !== undefined ? Number(boxVal) : 1,
         costPrice: costVal !== undefined ? String(costVal) : undefined,
         salePrice: saleVal !== undefined ? String(saleVal) : undefined,

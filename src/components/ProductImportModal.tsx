@@ -73,12 +73,20 @@ export function ProductImportModal({ products, onQuickRegister }: ProductImportM
       return;
     }
 
+    // Proteção de segurança: Limitar o número máximo de linhas para evitar sobrecarga de memória
+    const linhas = rawImportText.split('\n').filter((l) => l.trim() !== '');
+    if (linhas.length > 2000) {
+      alert('O limite máximo para importação em lote é de 2.000 linhas por vez.');
+      return;
+    }
+
     setIsProcessing(true);
     setProgress(0);
 
-    const linhas = rawImportText.split('\n').filter((l) => l.trim() !== '');
     const itensExtraidos = linhas.map((linha) => {
-      const partes = linha.split(/[\t;]/);
+      // Sanitização básica para remover caracteres de controle indesejados
+      const linhaLimpa = linha.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+      const partes = linhaLimpa.split(/[\t;]/);
       return {
         codigoExterno: partes.length > 1 ? partes[0].trim() : undefined,
         descricao: partes.length > 1 ? partes[1].trim() : partes[0].trim(),
@@ -88,7 +96,7 @@ export function ProductImportModal({ products, onQuickRegister }: ProductImportM
     const reconhecidos: ItemReconhecido[] = [];
     const pendentes: ItemPendente[] = [];
     const totalItens = itensExtraidos.length;
-    const tamanhoLote = 50; // Processa em lotes para não travar a UI
+    const tamanhoLote = 50; 
     let indexAtual = 0;
 
     const processarLote = () => {
@@ -96,13 +104,13 @@ export function ProductImportModal({ products, onQuickRegister }: ProductImportM
 
       for (let i = indexAtual; i < limite; i++) {
         const item = itensExtraidos[i];
+        if (!item.descricao) continue;
+        
         const descUpper = item.descricao.toUpperCase();
 
-        // 1. Tenta match exato primeiro
         let matchLocal = products.find((p) => p.description.trim().toUpperCase() === descUpper);
         let matchType: 'Exato' | 'Similar' = 'Exato';
 
-        // 2. Se não achar exato, busca por similaridade (Fuzzy > 80%)
         if (!matchLocal) {
           let melhorScore = 0;
           let melhorProduto: Product | null = null;
@@ -133,7 +141,7 @@ export function ProductImportModal({ products, onQuickRegister }: ProductImportM
       setProgress(progressoAtual);
 
       if (indexAtual < totalItens) {
-        setTimeout(processarLote, 10); // Mantém o loop assíncrono fluido
+        setTimeout(processarLote, 10);
       } else {
         setItensReconhecidos(reconhecidos);
         setItensPendentes(pendentes);
@@ -145,19 +153,26 @@ export function ProductImportModal({ products, onQuickRegister }: ProductImportM
   };
 
   const handleAction = async (item: ItemPendente) => {
-    setLoadingRegister(item.descricaoPadronizada);
-    await onQuickRegister(item);
-    setItensPendentes((prev) => prev.filter((p) => p.descricaoPadronizada !== item.descricaoPadronizada));
-    setItensReconhecidos((prev) => [
-      ...prev,
-      {
-        codigoExterno: item.codigoExterno,
-        descricao: item.descricao,
-        product: { id: '', description: item.descricaoPadronizada },
-        matchType: 'Exato',
-      },
-    ]);
-    setLoadingRegister(null);
+    try {
+      setLoadingRegister(item.descricaoPadronizada);
+      await onQuickRegister(item);
+      
+      setItensPendentes((prev) => prev.filter((p) => p.descricaoPadronizada !== item.descricaoPadronizada));
+      setItensReconhecidos((prev) => [
+        ...prev,
+        {
+          codigoExterno: item.codigoExterno,
+          descricao: item.descricao,
+          product: { id: '', description: item.descricaoPadronizada },
+          matchType: 'Exato',
+        },
+      ]);
+    } catch (error) {
+      console.error('Erro ao realizar cadastro rápido:', error);
+      alert('Não foi possível concluir o cadastro rápido. Tente novamente.');
+    } finally {
+      setLoadingRegister(null);
+    }
   };
 
   return (
@@ -168,7 +183,7 @@ export function ProductImportModal({ products, onQuickRegister }: ProductImportM
       </p>
       <textarea
         rows={4}
-        placeholder="Cole aqui os dados (Ex: 001	Shampoo Anticaspa...)"
+        placeholder="Cole aqui os dados (Ex: 001  Shampoo Anticaspa...)"
         value={rawImportText}
         onChange={(e) => setRawImportText(e.target.value)}
         disabled={isProcessing}

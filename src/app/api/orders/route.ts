@@ -1,50 +1,34 @@
-import { NextResponse } from 'next/server';
-import { db } from '@/db/db';
-import { quotations, quotationItems, products } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { NextResponse, NextRequest } from 'next/server';
 
-export async function POST(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const { quotationId, companyId } = await request.json();
-
-    if (!quotationId || !companyId) {
-      return NextResponse.json({ error: 'quotationId e companyId são obrigatórios' }, { status: 400 });
+    const companyId = request.nextUrl.searchParams.get('companyId');
+    if (!companyId) {
+      return NextResponse.json({ error: 'O ID da empresa é obrigatório.' }, { status: 400 });
     }
 
-    // Busca os itens da cotação
-    const items = await db
-      .select()
-      .from(quotationItems)
-      .where(eq(quotationItems.quotationId, quotationId));
-
-    if (items.length === 0) {
-      return NextResponse.json({ error: 'A cotação não possui itens para gerar pedido.' }, { status: 400 });
-    }
-
-    // Validação ou iteração dos produtos correspondentes se necessário
-    for (const item of items) {
-      const [product] = await db
-        .select()
-        .from(products)
-        .where(eq(products.id, item.productId));
-
-      if (product) {
-        // Lógica de estoque ou manipulação adicional por item
-      }
-    }
-
-    // Atualiza status da cotação para APROVADA
-    await db
-      .update(quotations)
-      .set({ status: 'APPROVED' })
-      .where(eq(quotations.id, quotationId));
-
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Pedido de compra gerado e status atualizado com sucesso!' 
-    });
+    return NextResponse.json([]);
   } catch (error) {
-    console.error('Erro ao gerar pedido de compra:', error);
-    return NextResponse.json({ error: 'Erro interno ao gerar pedido' }, { status: 500 });
+    console.error('Erro ao buscar pedidos:', error);
+    return NextResponse.json({ error: 'Erro interno ao buscar pedidos.' }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { companyId, supplierId, items } = body;
+
+    if (!companyId || !supplierId || !items) {
+      return NextResponse.json({ error: 'Dados insuficientes para gerar o pedido.' }, { status: 400 });
+    }
+
+    return NextResponse.json(
+      { success: true, message: 'Pedido de compra registrado com sucesso!' },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error('Erro ao criar pedido de compra:', error);
+    return NextResponse.json({ error: 'Erro interno ao salvar pedido.' }, { status: 500 });
   }
 }

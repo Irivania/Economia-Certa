@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { ImportsService } from '@/modules/imports/imports.service';
 import { ProductsService } from '@/modules/products/products.service';
+import { db } from '@/db/db';
+import { products } from '@/db/schema';
+import { eq, and } from 'drizzle-orm';
 
 export async function POST(request: Request) {
   try {
@@ -24,21 +27,60 @@ export async function POST(request: Request) {
     const savedProducts = [];
     for (const item of importResult.successfulImports) {
       try {
-        const newProduct = await ProductsService.create({
-          companyId, // Utiliza o ID dinâmico vindo da requisição
-          description: item.description,
-          unit: item.unit,
-          internalCode: item.internalCode,
-          ean: item.ean,
-          brand: item.brand,
-          category: item.category,
-          boxQuantity: item.boxQuantity,
-          costPrice: item.costPrice,
-          salePrice: item.salePrice,
-        });
-        savedProducts.push(newProduct);
+        let existingProduct = null;
+
+        if (item.ean) {
+          const [foundByEan] = await db
+            .select()
+            .from(products)
+            .where(and(eq(products.companyId, companyId), eq(products.ean, item.ean)));
+          existingProduct = foundByEan;
+        }
+
+        if (!existingProduct && item.description) {
+          const [foundByDesc] = await db
+            .select()
+            .from(products)
+            .where(and(eq(products.companyId, companyId), eq(products.description, item.description)));
+          existingProduct = foundByDesc;
+        }
+
+        let savedItem;
+
+        if (existingProduct) {
+          const [updated] = await db
+            .update(products)
+            .set({
+              unit: item.unit || existingProduct.unit,
+              ean: item.ean || existingProduct.ean,
+              brand: item.brand || existingProduct.brand,
+              category: item.category || existingProduct.category,
+              boxQuantity: item.boxQuantity ?? existingProduct.boxQuantity,
+              costPrice: item.costPrice || existingProduct.costPrice,
+              salePrice: item.salePrice || existingProduct.salePrice,
+            })
+            .where(eq(products.id, existingProduct.id))
+            .returning();
+          
+          savedItem = updated;
+        } else {
+          const newProduct = await ProductsService.create({
+            companyId,
+            description: item.description,
+            unit: item.unit,
+            ean: item.ean,
+            brand: item.brand,
+            category: item.category,
+            boxQuantity: item.boxQuantity,
+            costPrice: item.costPrice,
+            salePrice: item.salePrice,
+          });
+          savedItem = newProduct;
+        }
+
+        savedProducts.push(savedItem);
       } catch (dbError) {
-        console.error('Erro ao salvar produto individual no banco:', dbError);
+        console.error('Erro ao salvar/atualizar produto individual no banco:', dbError);
       }
     }
 
