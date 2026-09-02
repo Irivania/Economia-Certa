@@ -137,4 +137,4 @@ export async function DELETE(request: NextRequest) {
     console.error('Erro ao excluir produto:', error);
     return NextResponse.json({ error: 'Erro ao excluir produto.' }, { status: 500 });
   }
-}
+} 
