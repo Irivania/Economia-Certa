@@ -1,123 +1,164 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { ProductsService } from '@/modules/products/products.service';
 import { db } from '@/db/db';
 import { products } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { productSchema } from '@/types/productSchema';
+import { randomUUID } from 'crypto';
 
-// GET: Lista todos os produtos da empresa (tenant)
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const companyId = searchParams.get('companyId');
 
     if (!companyId) {
-      return NextResponse.json(
-        { error: 'O parâmetro companyId é obrigatório na requisição.' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'companyId é obrigatório' }, { status: 400 });
     }
 
-    const items = await ProductsService.findByCompany(companyId);
-    return NextResponse.json(items);
+    const data = await db
+      .select()
+      .from(products)
+      .where(eq(products.companyId, companyId));
+
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Erro ao buscar produtos:', error);
-    return NextResponse.json({ error: 'Erro ao carregar produtos do banco.' }, { status: 500 });
+    return NextResponse.json([], { status: 500 });
   }
 }
 
-// POST: Cadastra um novo produto
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const {
+      companyId,
+      description,
+      code,
+      brand,
+      imageUrl,
+      unit,
+      boxQuantity,
+      costPrice,
+      lastPurchasePrice,
+      salePrice,
+      stockCurrent,
+      stockMin,
+      stockIdeal,
+      stockMax,
+      ncm,
+      cest,
+    } = body;
 
-    const validationResult = productSchema.safeParse(body);
-
-    if (!validationResult.success) {
-      return NextResponse.json(
-        { error: 'Dados inválidos.', details: validationResult.error.format() },
-        { status: 400 }
-      );
+    if (!companyId || !description) {
+      return NextResponse.json({ error: 'companyId e description são obrigatórios' }, { status: 400 });
     }
 
-    const data = validationResult.data;
-    const productId = crypto.randomUUID();
+    const trimmedCode = code ? code.trim() : null;
 
-    const [newProduct] = await db
+    // Validação: Verificar se já existe um produto com o mesmo Código de Barras (EAN) na empresa
+    if (trimmedCode) {
+      const existingProduct = await db
+        .select()
+        .from(products)
+        .where(and(eq(products.companyId, companyId), eq(products.ean, trimmedCode)))
+        .limit(1);
+
+      if (existingProduct.length > 0) {
+        return NextResponse.json(
+          { error: 'Este Código de Barras (EAN) já está cadastrado para outro produto nesta empresa!' },
+          { status: 400 }
+        );
+      }
+    }
+
+    const newProduct = await db
       .insert(products)
       .values({
-        id: productId,
-        companyId: data.companyId,
-        ean: data.code || null,
-        description: data.description,
-        brand: data.brand || null,
-        category: data.category || null,
-        unit: data.unit || 'UN',
-        boxQuantity: data.boxQuantity ?? 1,
-        costPrice: data.costPrice ? String(data.costPrice) : null,
-        salePrice: data.salePrice ? String(data.salePrice) : null,
+        id: randomUUID(),
+        companyId,
+        description: description.trim().toUpperCase(),
+        ean: trimmedCode,
+        brand: brand ? brand.trim().toUpperCase() : null,
+        imageUrl: imageUrl || null,
+        unit: unit || 'UN',
+        boxQuantity: boxQuantity ? Number(boxQuantity) : 1,
+        costPrice: costPrice ? String(costPrice) : null,
+        lastPurchasePrice: lastPurchasePrice ? String(lastPurchasePrice) : null,
+        salePrice: salePrice ? String(salePrice) : null,
+        stockCurrent: stockCurrent !== undefined ? Number(stockCurrent) : 0,
+        stockMin: stockMin !== undefined ? Number(stockMin) : 0,
+        stockIdeal: stockIdeal !== undefined ? Number(stockIdeal) : 0,
+        stockMax: stockMax !== undefined ? Number(stockMax) : 0,
+        ncm: ncm ? ncm.trim() : null,
+        cest: cest ? cest.trim() : null,
       })
       .returning();
 
-    return NextResponse.json({
-      success: true,
-      message: 'Produto cadastrado com sucesso!',
-      product: newProduct,
-    }, { status: 201 });
+    return NextResponse.json({ success: true, product: newProduct[0] }, { status: 201 });
   } catch (error) {
     console.error('Erro ao cadastrar produto:', error);
-    return NextResponse.json({ error: 'Erro interno ao salvar produto no banco.' }, { status: 500 });
+    return NextResponse.json({ error: 'Erro interno ao cadastrar produto' }, { status: 500 });
   }
 }
 
-// PUT: Atualiza um produto existente
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id } = body;
+    const {
+      id,
+      companyId,
+      description,
+      code,
+      brand,
+      imageUrl,
+      unit,
+      boxQuantity,
+      costPrice,
+      lastPurchasePrice,
+      salePrice,
+      stockCurrent,
+      stockMin,
+      stockIdeal,
+      stockMax,
+      ncm,
+      cest,
+    } = body;
 
-    if (!id) {
-      return NextResponse.json({ error: 'O ID é obrigatório para atualização.' }, { status: 400 });
+    if (!id || !companyId || !description) {
+      return NextResponse.json({ error: 'id, companyId e description são obrigatórios' }, { status: 400 });
     }
-
-    const validationResult = productSchema.safeParse(body);
-
-    if (!validationResult.success) {
-      return NextResponse.json(
-        { error: 'Dados inválidos.', details: validationResult.error.format() },
-        { status: 400 }
-      );
-    }
-
-    const data = validationResult.data;
 
     const [updated] = await db
       .update(products)
       .set({
-        ean: data.code || null,
-        description: data.description,
-        brand: data.brand || null,
-        category: data.category || null,
-        unit: data.unit || 'UN',
-        boxQuantity: data.boxQuantity ?? 1,
-        costPrice: data.costPrice ? String(data.costPrice) : null,
-        salePrice: data.salePrice ? String(data.salePrice) : null,
+        description: description.trim().toUpperCase(),
+        ean: code ? code.trim() : null,
+        brand: brand ? brand.trim().toUpperCase() : null,
+        imageUrl: imageUrl || null,
+        unit: unit || 'UN',
+        boxQuantity: boxQuantity ? Number(boxQuantity) : 1,
+        costPrice: costPrice ? String(costPrice) : null,
+        lastPurchasePrice: lastPurchasePrice ? String(lastPurchasePrice) : null,
+        salePrice: salePrice ? String(salePrice) : null,
+        stockCurrent: stockCurrent !== undefined ? Number(stockCurrent) : 0,
+        stockMin: stockMin !== undefined ? Number(stockMin) : 0,
+        stockIdeal: stockIdeal !== undefined ? Number(stockIdeal) : 0,
+        stockMax: stockMax !== undefined ? Number(stockMax) : 0,
+        ncm: ncm ? ncm.trim() : null,
+        cest: cest ? cest.trim() : null,
       })
-      .where(and(eq(products.id, id), eq(products.companyId, data.companyId)))
+      .where(and(eq(products.id, id), eq(products.companyId, companyId)))
       .returning();
 
     if (!updated) {
-      return NextResponse.json({ error: 'Produto não encontrado ou empresa inválida.' }, { status: 404 });
+      return NextResponse.json({ error: 'Produto não encontrado' }, { status: 404 });
     }
 
     return NextResponse.json({ success: true, product: updated });
   } catch (error) {
     console.error('Erro ao atualizar produto:', error);
-    return NextResponse.json({ error: 'Erro ao atualizar produto.' }, { status: 500 });
+    return NextResponse.json({ error: 'Erro ao atualizar produto' }, { status: 500 });
   }
 }
 
-// DELETE: Remove um produto
 export async function DELETE(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -125,16 +166,16 @@ export async function DELETE(request: NextRequest) {
     const companyId = searchParams.get('companyId');
 
     if (!id || !companyId) {
-      return NextResponse.json({ error: 'Parâmetros id e companyId obrigatórios.' }, { status: 400 });
+      return NextResponse.json({ error: 'id e companyId são obrigatórios' }, { status: 400 });
     }
 
     await db
       .delete(products)
       .where(and(eq(products.id, id), eq(products.companyId, companyId)));
 
-    return NextResponse.json({ success: true, message: 'Produto removido com sucesso.' });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Erro ao excluir produto:', error);
-    return NextResponse.json({ error: 'Erro ao excluir produto.' }, { status: 500 });
+    return NextResponse.json({ error: 'Erro ao excluir produto' }, { status: 500 });
   }
-} 
+}

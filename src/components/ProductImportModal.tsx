@@ -1,7 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Product } from '@/app/produtos/page';
+import { products as productsSchema } from '@/db/schema'; // Importa a tabela do schema
+
+// Define o tipo Product com base nas colunas do Drizzle para garantir compatibilidade total
+export type Product = typeof productsSchema.$inferSelect;
 
 export interface ItemPendente {
   codigoExterno?: string;
@@ -73,7 +76,6 @@ export function ProductImportModal({ products, onQuickRegister }: ProductImportM
       return;
     }
 
-    // Proteção de segurança: Limitar o número máximo de linhas para evitar sobrecarga de memória
     const linhas = rawImportText.split('\n').filter((l) => l.trim() !== '');
     if (linhas.length > 2000) {
       alert('O limite máximo para importação em lote é de 2.000 linhas por vez.');
@@ -84,7 +86,6 @@ export function ProductImportModal({ products, onQuickRegister }: ProductImportM
     setProgress(0);
 
     const itensExtraidos = linhas.map((linha) => {
-      // Sanitização básica para remover caracteres de controle indesejados
       const linhaLimpa = linha.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
       const partes = linhaLimpa.split(/[\t;]/);
       return {
@@ -163,7 +164,7 @@ export function ProductImportModal({ products, onQuickRegister }: ProductImportM
         {
           codigoExterno: item.codigoExterno,
           descricao: item.descricao,
-          product: { id: '', description: item.descricaoPadronizada },
+          product: { id: '', description: item.descricaoPadronizada } as Product,
           matchType: 'Exato',
         },
       ]);

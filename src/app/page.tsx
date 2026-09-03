@@ -133,10 +133,20 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Atalhos Rápidos e Ações (Incluindo os Relatórios) */}
+        {/* Atalhos Rápidos e Ações */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
           <h2 className="text-lg font-bold text-slate-800 mb-4">Acessos Rápidos do Sistema</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            
+            {/* Card de Fornecedores */}
+            <Link
+              href="/fornecedores"
+              className="p-4 rounded-lg border border-slate-200 hover:border-blue-500 hover:bg-blue-50/30 transition-all group"
+            >
+              <h3 className="font-bold text-slate-800 group-hover:text-blue-600 text-sm">🤝 Gestão de Fornecedores</h3>
+              <p className="text-xs text-slate-500 mt-1">Cadastre distribuidoras e representantes.</p>
+            </Link>
+
             <Link
               href="/cotacoes"
               className="p-4 rounded-lg border border-slate-200 hover:border-blue-500 hover:bg-blue-50/30 transition-all group"
@@ -161,7 +171,6 @@ export default function DashboardPage() {
               <p className="text-xs text-slate-500 mt-1">Importe produtos e dados em lote.</p>
             </Link>
 
-            {/* Novo card de Acesso ao Relatório Comparativo */}
             <Link
               href="/relatorios/comparativo"
               className="p-4 rounded-lg border border-slate-200 hover:border-blue-500 hover:bg-blue-50/30 transition-all group"
@@ -170,7 +179,6 @@ export default function DashboardPage() {
               <p className="text-xs text-slate-500 mt-1">Análise de preços lado a lado por fornecedor.</p>
             </Link>
 
-            {/* Novo card de Acesso ao Relatório de Economia */}
             <Link
               href="/relatorios/economia"
               className="p-4 rounded-lg border border-slate-200 hover:border-green-500 hover:bg-green-50/30 transition-all group"
@@ -178,6 +186,7 @@ export default function DashboardPage() {
               <h3 className="font-bold text-slate-800 group-hover:text-green-600 text-sm">💰 Relatório de Economia</h3>
               <p className="text-xs text-slate-500 mt-1">Simule a redução de custos e economia gerada.</p>
             </Link>
+
           </div>
         </div>
 

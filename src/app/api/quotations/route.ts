@@ -1,76 +1,111 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
 import { quotations, quotationItems } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import crypto from 'crypto';
 
-interface QuotationItemInput {
-  productId: string;
-  supplierId: string;
-  requestedQuantity?: number;
-  unitPrice?: number;
-}
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const companyId = searchParams.get('companyId');
 
-export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const companyId = searchParams.get('companyId');
-
-    if (!companyId) {
-      return NextResponse.json({ error: 'companyId é obrigatório' }, { status: 400 });
-    }
-
-    // Busca as cotações da empresa
-    const quotationList = await db
-      .select()
-      .from(quotations)
-      .where(eq(quotations.companyId, companyId));
-
-    // Busca os itens de todas elas para montar no front-end
-    const allItems = await db.select().from(quotationItems);
-
-    const data = quotationList.map((q) => ({
-      ...q,
-      items: allItems.filter((item) => item.quotationId === q.id),
-    }));
-
-    return NextResponse.json(data);
-  } catch (error) {
-    console.error('Erro ao buscar cotações:', error);
-    return NextResponse.json({ error: 'Erro interno ao buscar cotações' }, { status: 500 });
+  if (!companyId) {
+    return NextResponse.json({ error: 'companyId é obrigatório' }, { status: 400 });
   }
+
+  let retries = 2;
+  while (retries > 0) {
+    try {
+      const quotationList = await db
+        .select()
+        .from(quotations)
+        .where(eq(quotations.companyId, companyId));
+
+      const allItems = await db.select().from(quotationItems);
+
+      const data = quotationList.map((q) => ({
+        ...q,
+        items: allItems.filter((item) => item.quotationId === q.id),
+      }));
+
+      return NextResponse.json(data);
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.warn(`Tentativa falhou (${retries} restantes). Erro:`, err.message);
+      retries--;
+      if (retries === 0) {
+        console.error('Erro ao buscar cotações:', err);
+        return NextResponse.json([]);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  }
+
+  return NextResponse.json([]);
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { companyId, title, items } = body;
+    const companyId = String(body.companyId || '');
+    const title = String(body.title || '');
+    const supplierIds = body.supplierIds;
+    const startDate = body.startDate || null;
+    const endDate = body.endDate || null;
+    const closingTime = body.closingTime || null;
+    const items = body.items;
 
     if (!companyId || !title) {
       return NextResponse.json({ error: 'companyId e title são obrigatórios' }, { status: 400 });
     }
 
-    const [newQuotation] = await db.insert(quotations).values({
-      companyId,
-      title,
-      status: 'OPEN',
-    }).returning();
+    if (!supplierIds || !Array.isArray(supplierIds) || supplierIds.length === 0) {
+      return NextResponse.json({ error: 'Selecione ao menos um fornecedor.' }, { status: 400 });
+    }
 
-    if (items && Array.isArray(items) && items.length > 0) {
-      const itemsToInsert = items.map((item: QuotationItemInput) => ({
-        quotationId: newQuotation.id,
-        productId: item.productId,
-        supplierId: item.supplierId,
-        requestedQuantity: String(item.requestedQuantity || 1),
-        unitPrice: String(item.unitPrice || 0),
-      }));
+    const storeName = 'Melo Perfumaria';
+    const createdQuotations = [];
 
-      await db.insert(quotationItems).values(itemsToInsert);
+    for (const supplierId of supplierIds) {
+      const quotationId = crypto.randomUUID();
+      const token = crypto.randomUUID();
+
+      const insertValues = {
+        id: quotationId,
+        companyId,
+        title,
+        supplierId,
+        storeName,
+        startDate: startDate ? new Date(startDate) : null,
+        endDate: endDate ? new Date(endDate) : null,
+        closingTime,
+        token,
+        status: 'OPEN',
+      };
+
+      const [newQuotation] = await db.insert(quotations).values(insertValues).returning();
+
+      if (items && Array.isArray(items) && items.length > 0) {
+        for (const item of items) {
+          const itemValues = {
+            id: crypto.randomUUID(),
+            quotationId: newQuotation.id,
+            productId: String(item.id || item.productId || ''),
+            supplierId: String(supplierId),
+            requestedQuantity: String(item.requestedQuantity || 1),
+            price: String(item.costPrice || item.unitPrice || 0),
+          };
+
+          await db.insert(quotationItems).values(itemValues);
+        }
+      }
+
+      createdQuotations.push({ quotationId, token, supplierId });
     }
 
     return NextResponse.json({ 
       success: true, 
-      quotationId: newQuotation.id,
-      message: 'Cotação criada com sucesso!' 
+      createdQuotations,
+      message: 'Cotações criadas e enviadas com sucesso para os fornecedores!' 
     });
   } catch (error) {
     console.error('Erro ao criar cotação:', error);

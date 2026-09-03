@@ -12,11 +12,12 @@ export async function POST(request: Request) {
     }
 
     const [newItem] = await db.insert(quotationItems).values({
+      id: crypto.randomUUID(),
       quotationId,
       productId,
       supplierId,
       requestedQuantity: String(requestedQuantity || 1),
-      unitPrice: String(unitPrice || 0),
+      price: String(unitPrice || 0), // Corrigido para corresponder à coluna 'price' do schema
     }).returning();
 
     return NextResponse.json({ success: true, item: newItem });

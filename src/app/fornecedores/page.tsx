@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 
 interface Supplier {
@@ -16,7 +16,8 @@ export default function SuppliersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Campos do formulário
+  // Estados do formulário
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [contactPerson, setContactPerson] = useState('');
   const [phone, setPhone] = useState('');
@@ -31,8 +32,25 @@ export default function SuppliersPage() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Função para recarregar os dados após o cadastro
-  const refreshSuppliers = async () => {
+  // Máscara de Telefone: (00) 00000-0000 ou (00) 0000-0000
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, '').substring(0, 11);
+    let formatted = value;
+
+    if (value.length > 2 && value.length <= 6) {
+      formatted = `(${value.slice(0, 2)}) ${value.slice(2)}`;
+    } else if (value.length > 6 && value.length <= 10) {
+      formatted = `(${value.slice(0, 2)}) ${value.slice(2, 6)}-${value.slice(6)}`;
+    } else if (value.length > 10) {
+      formatted = `(${value.slice(0, 2)}) ${value.slice(2, 7)}-${value.slice(7)}`;
+    } else if (value.length > 0) {
+      formatted = `(${value}`;
+    }
+
+    setPhone(formatted);
+  };
+
+  const refreshSuppliers = useCallback(async () => {
     try {
       const res = await fetch(`/api/suppliers?companyId=${companyId}`);
       if (!res.ok) throw new Error('Erro ao carregar fornecedores.');
@@ -43,7 +61,7 @@ export default function SuppliersPage() {
       setError('Não foi possível buscar os fornecedores.');
       console.error(err);
     }
-  };
+  }, [companyId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -86,26 +104,68 @@ export default function SuppliersPage() {
 
     try {
       setSubmitting(true);
-      const res = await fetch('/api/suppliers', {
-        method: 'POST',
+      const url = '/api/suppliers';
+      const method = editingId ? 'PUT' : 'POST';
+      const bodyData = editingId 
+        ? { id: editingId, companyId, name, contactPerson, phone, email }
+        : { companyId, name, contactPerson, phone, email };
+
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyId, name, contactPerson, phone, email }),
+        body: JSON.stringify(bodyData),
       });
 
-      if (!res.ok) throw new Error('Erro ao cadastrar fornecedor.');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Erro ao salvar fornecedor.');
+      }
 
-      setName('');
-      setContactPerson('');
-      setPhone('');
-      setEmail('');
-      showToast('Fornecedor cadastrado com sucesso!');
+      resetForm();
+      showToast(editingId ? 'Fornecedor atualizado com sucesso!' : 'Fornecedor cadastrado com sucesso!');
       await refreshSuppliers();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
-      alert('Erro ao salvar fornecedor.');
+      const message = err instanceof Error ? err.message : 'Erro ao salvar fornecedor.';
+      alert(message);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleEdit = (sup: Supplier) => {
+    setEditingId(sup.id);
+    setName(sup.name);
+    setContactPerson(sup.contactPerson || '');
+    setPhone(sup.phone || '');
+    setEmail(sup.email || '');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Deseja realmente excluir este fornecedor?')) return;
+
+    try {
+      const res = await fetch(`/api/suppliers?id=${id}&companyId=${companyId}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) throw new Error('Erro ao excluir fornecedor.');
+
+      showToast('Fornecedor excluído com sucesso!');
+      await refreshSuppliers();
+    } catch (err) {
+      console.error(err);
+      alert('Não foi possível excluir o fornecedor.');
+    }
+  };
+
+  const resetForm = () => {
+    setEditingId(null);
+    setName('');
+    setContactPerson('');
+    setPhone('');
+    setEmail('');
   };
 
   return (
@@ -116,7 +176,7 @@ export default function SuppliersPage() {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">🤝 Gestão de Fornecedores</h1>
-            <p className="text-slate-600 text-sm">Melo Perfumaria — Cadastro de distribuidoras e representantes.</p>
+            <p className="text-slate-600 text-sm">Melo Perfumaria — Cadastro e controle de distribuidoras.</p>
           </div>
           <div className="flex gap-4">
             <Link href="/" className="text-slate-600 hover:text-slate-900 text-sm font-semibold transition-colors">
@@ -128,9 +188,22 @@ export default function SuppliersPage() {
           </div>
         </div>
 
-        {/* Formulário de Cadastro */}
+        {/* Formulário de Cadastro / Edição */}
         <form onSubmit={handleSubmit} className="mb-8 p-6 bg-slate-50 rounded-lg border border-slate-200">
-          <h2 className="text-md font-bold text-slate-800 mb-3">Cadastrar Novo Fornecedor</h2>
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="text-md font-bold text-slate-800">
+              {editingId ? 'Editar Fornecedor' : 'Cadastrar Novo Fornecedor'}
+            </h2>
+            {editingId && (
+              <button
+                type="button"
+                onClick={resetForm}
+                className="text-xs text-rose-600 hover:underline font-semibold"
+              >
+                Cancelar Edição
+              </button>
+            )}
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input
               type="text"
@@ -141,16 +214,16 @@ export default function SuppliersPage() {
             />
             <input
               type="text"
-              placeholder="Nome do Representante / Contato"
+              placeholder="Nome do Representante"
               value={contactPerson}
               onChange={(e) => setContactPerson(e.target.value)}
               className="px-4 py-2 text-sm border border-slate-300 rounded-lg bg-white"
             />
             <input
               type="text"
-              placeholder="Telefone / WhatsApp"
+              placeholder="Telefone / WhatsApp (DDD + Número)"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={handlePhoneChange}
               className="px-4 py-2 text-sm border border-slate-300 rounded-lg bg-white"
             />
             <input
@@ -161,13 +234,15 @@ export default function SuppliersPage() {
               className="px-4 py-2 text-sm border border-slate-300 rounded-lg bg-white"
             />
           </div>
-          <div className="mt-4 flex justify-end">
+          <div className="mt-4 flex justify-end gap-2">
             <button
               type="submit"
               disabled={submitting}
-              className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-5 py-2.5 rounded-lg transition-colors disabled:opacity-50"
+              className={`text-xs font-semibold px-5 py-2.5 rounded-lg transition-colors text-white ${
+                editingId ? 'bg-amber-600 hover:bg-amber-700' : 'bg-blue-600 hover:bg-blue-700'
+              } disabled:opacity-50`}
             >
-              {submitting ? 'Salvando...' : '+ Cadastrar Fornecedor'}
+              {submitting ? 'Salvando...' : editingId ? 'Salvar Alterações' : '+ Cadastrar Fornecedor'}
             </button>
           </div>
         </form>
@@ -190,9 +265,10 @@ export default function SuppliersPage() {
                   <thead>
                     <tr className="bg-slate-100 text-slate-700 border-b border-slate-200">
                       <th className="p-3 font-semibold">Fornecedor</th>
-                      <th className="p-3 font-semibold">Contato / Representante</th>
+                      <th className="p-3 font-semibold">Representante</th>
                       <th className="p-3 font-semibold">Telefone</th>
                       <th className="p-3 font-semibold">E-mail</th>
+                      <th className="p-3 font-semibold text-center">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -202,6 +278,20 @@ export default function SuppliersPage() {
                         <td className="p-3 text-slate-600">{sup.contactPerson || '-'}</td>
                         <td className="p-3 text-slate-600">{sup.phone || '-'}</td>
                         <td className="p-3 text-slate-600">{sup.email || '-'}</td>
+                        <td className="p-3 text-center space-x-2">
+                          <button
+                            onClick={() => handleEdit(sup)}
+                            className="text-blue-600 hover:underline font-semibold"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => handleDelete(sup.id)}
+                            className="text-rose-600 hover:underline font-semibold"
+                          >
+                            Excluir
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

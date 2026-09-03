@@ -1,7 +1,16 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db/db';
 import { suppliers } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
+import { randomUUID } from 'crypto';
+
+function formatTitleCase(str: string) {
+  if (!str) return '';
+  return str
+    .trim()
+    .toLowerCase()
+    .replace(/(^\w{1})|(\s+\w{1})/g, (letter) => letter.toUpperCase());
+}
 
 export async function GET(request: Request) {
   try {
@@ -20,7 +29,105 @@ export async function GET(request: Request) {
     return NextResponse.json(data);
   } catch (error) {
     console.error('Erro ao buscar fornecedores:', error);
-    // Retorna array vazio em caso de erro na tabela para não quebrar a UI
     return NextResponse.json([]);
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const { companyId, name, contactPerson, phone, email } = body;
+
+    if (!companyId || !name) {
+      return NextResponse.json(
+        { error: 'companyId e name são obrigatórios' },
+        { status: 400 }
+      );
+    }
+
+    const formattedName = name.trim().toUpperCase();
+    const formattedContact = contactPerson ? formatTitleCase(contactPerson) : null;
+    const formattedEmail = email ? email.trim().toLowerCase() : null;
+    const formattedPhone = phone ? phone.trim() : null;
+
+    const newSupplier = await db
+      .insert(suppliers)
+      .values({
+        id: randomUUID(),
+        companyId,
+        name: formattedName,
+        contactPerson: formattedContact,
+        phone: formattedPhone,
+        email: formattedEmail,
+      })
+      .returning();
+
+    return NextResponse.json(newSupplier[0], { status: 201 });
+  } catch (error) {
+    console.error('Erro ao cadastrar fornecedor:', error);
+    return NextResponse.json(
+      { error: 'Erro interno ao cadastrar fornecedor' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const body = await request.json();
+    const { id, companyId, name, contactPerson, phone, email } = body;
+
+    if (!id || !companyId || !name) {
+      return NextResponse.json(
+        { error: 'id, companyId e name são obrigatórios' },
+        { status: 400 }
+      );
+    }
+
+    const formattedName = name.trim().toUpperCase();
+    const formattedContact = contactPerson ? formatTitleCase(contactPerson) : null;
+    const formattedEmail = email ? email.trim().toLowerCase() : null;
+    const formattedPhone = phone ? phone.trim() : null;
+
+    const updated = await db
+      .update(suppliers)
+      .set({
+        name: formattedName,
+        contactPerson: formattedContact,
+        phone: formattedPhone,
+        email: formattedEmail,
+      })
+      .where(and(eq(suppliers.id, id), eq(suppliers.companyId, companyId)))
+      .returning();
+
+    if (updated.length === 0) {
+      return NextResponse.json({ error: 'Fornecedor não encontrado' }, { status: 404 });
+    }
+
+    return NextResponse.json(updated[0]);
+  } catch (error) {
+    console.error('Erro ao atualizar fornecedor:', error);
+    return NextResponse.json({ error: 'Erro interno ao atualizar fornecedor' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    const companyId = searchParams.get('companyId');
+
+    if (!id || !companyId) {
+      return NextResponse.json({ error: 'id e companyId são obrigatórios' }, { status: 400 });
+    }
+
+    await db
+      .delete(suppliers)
+      .where(and(eq(suppliers.id, id), eq(suppliers.companyId, companyId)));
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Erro ao excluir fornecedor:', error);
+    return NextResponse.json({ error: 'Erro interno ao excluir fornecedor' }, { status: 500 });
   }
 }
