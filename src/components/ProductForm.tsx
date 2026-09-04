@@ -184,7 +184,10 @@ export function ProductForm({
               type="number"
               min="1"
               value={boxQuantity}
-              onChange={(e) => setBoxQuantity(Number(e.target.value))}
+              onChange={(e) => {
+                const val = parseInt(e.target.value);
+                setBoxQuantity(isNaN(val) ? 1 : Math.max(1, val));
+              }}
               className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white"
             />
           </div>
@@ -221,6 +224,7 @@ export function ProductForm({
             <input
               type="number"
               step="0.01"
+              min="0"
               placeholder="0.00"
               value={costPrice}
               onChange={(e) => handlePriceChange('cost', e.target.value)}
@@ -232,6 +236,7 @@ export function ProductForm({
             <input
               type="number"
               step="0.01"
+              min="0"
               placeholder="0.00"
               value={lastPurchasePrice}
               onChange={(e) => setLastPurchasePrice(e.target.value)}
@@ -254,6 +259,7 @@ export function ProductForm({
             <input
               type="number"
               step="0.01"
+              min="0"
               placeholder="0.00"
               value={salePrice}
               onChange={(e) => handlePriceChange('sale', e.target.value)}
@@ -265,12 +271,16 @@ export function ProductForm({
 
       <hr className="border-slate-200" />
 
-      {/* Seção 3: Parâmetros de Estoque */}
+      {/* Seção 3: Parâmetros de Estoque (com travas para não aceitar negativos) */}
       <ProductStockSection
-        stockCurrent={stockCurrent} setStockCurrent={setStockCurrent}
-        stockMin={stockMin} setStockMin={setStockMin}
-        stockIdeal={stockIdeal} setStockIdeal={setStockIdeal}
-        stockMax={stockMax} setStockMax={setStockMax}
+        stockCurrent={stockCurrent} 
+        setStockCurrent={(val) => setStockCurrent(Math.max(0, val))}
+        stockMin={stockMin} 
+        setStockMin={(val) => setStockMin(Math.max(0, val))}
+        stockIdeal={stockIdeal} 
+        setStockIdeal={(val) => setStockIdeal(Math.max(0, val))}
+        stockMax={stockMax} 
+        setStockMax={(val) => setStockMax(Math.max(0, val))}
       />
 
       <hr className="border-slate-200" />

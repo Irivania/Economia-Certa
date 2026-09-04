@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
 import { quotations, quotationItems } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import crypto from 'crypto';
 
 export async function GET(request: NextRequest) {
@@ -110,5 +110,71 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Erro ao criar cotação:', error);
     return NextResponse.json({ error: 'Erro interno ao salvar cotação' }, { status: 500 });
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const body = await request.json();
+    const id = String(body.id || '');
+    const companyId = String(body.companyId || '');
+    const title = String(body.title || '').trim();
+    const supplierId = String(body.supplierId || '');
+    const startDate = body.startDate || null;
+    const endDate = body.endDate || null;
+    const closingTime = body.closingTime || null;
+
+    if (!id || !companyId || !title || !supplierId) {
+      return NextResponse.json(
+        { error: 'id, companyId, title e supplierId são obrigatórios' },
+        { status: 400 },
+      );
+    }
+
+    const [updatedQuotation] = await db
+      .update(quotations)
+      .set({
+        title,
+        supplierId,
+        startDate: startDate ? new Date(startDate) : null,
+        endDate: endDate ? new Date(endDate) : null,
+        closingTime,
+      })
+      .where(and(eq(quotations.id, id), eq(quotations.companyId, companyId)))
+      .returning();
+
+    if (!updatedQuotation) {
+      return NextResponse.json({ error: 'Cotação não encontrada' }, { status: 404 });
+    }
+
+    return NextResponse.json(updatedQuotation);
+  } catch (error) {
+    console.error('Erro ao atualizar cotação:', error);
+    return NextResponse.json({ error: 'Erro interno ao atualizar cotação' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    const companyId = searchParams.get('companyId');
+
+    if (!id || !companyId) {
+      return NextResponse.json({ error: 'id e companyId são obrigatórios' }, { status: 400 });
+    }
+
+    // Remove os itens vinculados à cotação primeiro para manter a integridade referencial
+    await db.delete(quotationItems).where(eq(quotationItems.quotationId, id));
+
+    // Remove a cotação correspondente
+    await db
+      .delete(quotations)
+      .where(and(eq(quotations.id, id), eq(quotations.companyId, companyId)));
+
+    return NextResponse.json({ success: true, message: 'Cotação excluída com sucesso.' });
+  } catch (error) {
+    console.error('Erro ao excluir cotação:', error);
+    return NextResponse.json({ error: 'Erro interno ao excluir cotação' }, { status: 500 });
   }
 }
