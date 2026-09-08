@@ -1,8 +1,17 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
 import { quotations, quotationItems } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import crypto from 'crypto';
+
+function parseQuotationDate(value: unknown) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return null;
+  }
+
+  const parsedDate = new Date(`${value}T00:00:00.000Z`);
+  return isNaN(parsedDate.getTime()) ? null : parsedDate;
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -20,12 +29,49 @@ export async function GET(request: NextRequest) {
         .from(quotations)
         .where(eq(quotations.companyId, companyId));
 
+      const quotationDateRows = await db.execute(sql`
+        SELECT id, start_date, end_date
+        FROM quotations
+        WHERE company_id = ${companyId}
+      `);
+      const quotationDates = new Map(
+        quotationDateRows.rows.map((row) => [
+          String(row.id),
+          {
+            startDate: row.start_date,
+            endDate: row.end_date,
+          },
+        ]),
+      );
+
       const allItems = await db.select().from(quotationItems);
 
-      const data = quotationList.map((q) => ({
-        ...q,
-        items: allItems.filter((item) => item.quotationId === q.id),
-      }));
+      const data = quotationList.map((q) => {
+        const storedDates = quotationDates.get(q.id);
+        let safeStartDate = '';
+        let safeEndDate = '';
+
+        if (storedDates?.startDate) {
+          const d = new Date(storedDates.startDate as string | Date);
+          if (!isNaN(d.getTime())) {
+            safeStartDate = d.toISOString().split('T')[0];
+          }
+        }
+
+        if (storedDates?.endDate) {
+          const d = new Date(storedDates.endDate as string | Date);
+          if (!isNaN(d.getTime())) {
+            safeEndDate = d.toISOString().split('T')[0];
+          }
+        }
+
+        return {
+          ...q,
+          startDate: safeStartDate,
+          endDate: safeEndDate,
+          items: allItems.filter((item) => item.quotationId === q.id),
+        };
+      });
 
       return NextResponse.json(data);
     } catch (error: unknown) {
@@ -34,7 +80,7 @@ export async function GET(request: NextRequest) {
       retries--;
       if (retries === 0) {
         console.error('Erro ao buscar cotações:', err);
-        return NextResponse.json([]);
+        return NextResponse.json({ error: 'Erro ao buscar cotações.' }, { status: 500 });
       }
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
@@ -48,9 +94,10 @@ export async function POST(request: Request) {
     const body = await request.json();
     const companyId = String(body.companyId || '');
     const title = String(body.title || '');
+    const paymentTerms = String(body.paymentTerms || 'Boleto 28 Dias');
     const supplierIds = body.supplierIds;
-    const startDate = body.startDate || null;
-    const endDate = body.endDate || null;
+    const startDate = body.startDate ? parseQuotationDate(body.startDate) : null;
+    const endDate = body.endDate ? parseQuotationDate(body.endDate) : null;
     const closingTime = body.closingTime || null;
     const items = body.items;
 
@@ -62,8 +109,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Selecione ao menos um fornecedor.' }, { status: 400 });
     }
 
+    if ((body.startDate && !startDate) || (body.endDate && !endDate)) {
+      return NextResponse.json({ error: 'As datas devem estar no formato YYYY-MM-DD.' }, { status: 400 });
+    }
+
     const storeName = 'Melo Perfumaria';
     const createdQuotations = [];
+    const fullTitle = paymentTerms ? `${title} (${paymentTerms})` : title;
 
     for (const supplierId of supplierIds) {
       const quotationId = crypto.randomUUID();
@@ -72,11 +124,11 @@ export async function POST(request: Request) {
       const insertValues = {
         id: quotationId,
         companyId,
-        title,
+        title: fullTitle,
         supplierId,
         storeName,
-        startDate: startDate ? new Date(startDate) : null,
-        endDate: endDate ? new Date(endDate) : null,
+        startDate,
+        endDate,
         closingTime,
         token,
         status: 'OPEN',
@@ -119,10 +171,12 @@ export async function PUT(request: Request) {
     const id = String(body.id || '');
     const companyId = String(body.companyId || '');
     const title = String(body.title || '').trim();
+    const paymentTerms = String(body.paymentTerms || '').trim();
     const supplierId = String(body.supplierId || '');
-    const startDate = body.startDate || null;
-    const endDate = body.endDate || null;
+    const startDate = body.startDate ? parseQuotationDate(body.startDate) : null;
+    const endDate = body.endDate ? parseQuotationDate(body.endDate) : null;
     const closingTime = body.closingTime || null;
+    const items = body.items;
 
     if (!id || !companyId || !title || !supplierId) {
       return NextResponse.json(
@@ -131,13 +185,19 @@ export async function PUT(request: Request) {
       );
     }
 
+    if ((body.startDate && !startDate) || (body.endDate && !endDate)) {
+      return NextResponse.json({ error: 'As datas devem estar no formato YYYY-MM-DD.' }, { status: 400 });
+    }
+
+    const fullTitle = paymentTerms ? `${title} (${paymentTerms})` : title;
+
     const [updatedQuotation] = await db
       .update(quotations)
       .set({
-        title,
+        title: fullTitle,
         supplierId,
-        startDate: startDate ? new Date(startDate) : null,
-        endDate: endDate ? new Date(endDate) : null,
+        startDate,
+        endDate,
         closingTime,
       })
       .where(and(eq(quotations.id, id), eq(quotations.companyId, companyId)))
@@ -145,6 +205,23 @@ export async function PUT(request: Request) {
 
     if (!updatedQuotation) {
       return NextResponse.json({ error: 'Cotação não encontrada' }, { status: 404 });
+    }
+
+    if (items && Array.isArray(items)) {
+      await db.delete(quotationItems).where(eq(quotationItems.quotationId, id));
+
+      for (const item of items) {
+        const itemValues = {
+          id: crypto.randomUUID(),
+          quotationId: id,
+          productId: String(item.id || item.productId || ''),
+          supplierId: String(supplierId),
+          requestedQuantity: String(item.requestedQuantity || 1),
+          price: String(item.costPrice || item.unitPrice || 0),
+        };
+
+        await db.insert(quotationItems).values(itemValues);
+      }
     }
 
     return NextResponse.json(updatedQuotation);
@@ -164,10 +241,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'id e companyId são obrigatórios' }, { status: 400 });
     }
 
-    // Remove os itens vinculados à cotação primeiro para manter a integridade referencial
     await db.delete(quotationItems).where(eq(quotationItems.quotationId, id));
 
-    // Remove a cotação correspondente
     await db
       .delete(quotations)
       .where(and(eq(quotations.id, id), eq(quotations.companyId, companyId)));

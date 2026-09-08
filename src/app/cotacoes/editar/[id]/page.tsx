@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import ProductSelectionModal from '@/components/ProductSelectionModal';
+import QuotationBasicInfo from '@/components/QuotationBasicInfo';
 
 interface Supplier {
   id: string;
@@ -44,17 +45,31 @@ interface ApiQuotationItem {
 interface ApiQuotation {
   id: string;
   title?: string;
+  paymentTerms?: string | null;
   supplierId?: string | null;
-  startDate?: string | null;
-  endDate?: string | null;
+  startDate?: string | Date | null;
+  endDate?: string | Date | null;
   closingTime?: string | null;
   items?: ApiQuotationItem[];
 }
 
 const companyId = '915a8bc1-5db7-4605-93a9-b78090e75679';
 
-function toDateInputValue(value?: string | null) {
-  return value ? new Date(value).toISOString().slice(0, 10) : '';
+function toDateInputValue(value?: string | Date | null) {
+  if (value === null || value === undefined || value === '') return '';
+
+  if (value instanceof Date) {
+    return isNaN(value.getTime()) ? '' : value.toISOString().slice(0, 10);
+  }
+
+  const normalizedValue = value.trim();
+  if (!normalizedValue) return '';
+
+  const dateOnlyMatch = normalizedValue.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (dateOnlyMatch) return dateOnlyMatch[1];
+
+  const parsedDate = new Date(normalizedValue);
+  return isNaN(parsedDate.getTime()) ? '' : parsedDate.toISOString().slice(0, 10);
 }
 
 export default function EditQuotationPage({ params }: { params: Promise<{ id: string }> }) {
@@ -66,6 +81,7 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
   const [catalogProducts, setCatalogProducts] = useState<ProductFromDb[]>([]);
   
   const [title, setTitle] = useState('');
+  const [paymentTerms, setPaymentTerms] = useState('Boleto 28 Dias');
   const [supplierId, setSupplierId] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -81,6 +97,8 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
 
   useEffect(() => {
     async function loadData() {
+      if (!quotationId) return;
+
       try {
         const [quotationsRes, suppliersRes, productsRes] = await Promise.all([
           fetch(`/api/quotations?companyId=${companyId}`),
@@ -92,19 +110,24 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
           throw new Error('Não foi possível carregar os dados.');
         }
 
-        const quotationsData = await quotationsRes.json();
+        const quotationsData: unknown = await quotationsRes.json();
         const suppliersData = await suppliersRes.json();
         
-        let productsData = [];
+        let productsData: unknown = [];
         if (productsRes.ok) {
           productsData = await productsRes.json();
         }
-        if (!Array.isArray(productsData) || productsData.length === 0) {
+        if (!Array.isArray(productsData) || (productsData as unknown[]).length === 0) {
           const fallbackRes = await fetch('/api/products');
           if (fallbackRes.ok) productsData = await fallbackRes.json();
         }
 
-        const list: ApiQuotation[] = Array.isArray(quotationsData) ? quotationsData : quotationsData.quotations || [];
+        const quotationPayload = quotationsData as { quotations?: ApiQuotation[] };
+        const list: ApiQuotation[] = Array.isArray(quotationsData)
+          ? quotationsData as ApiQuotation[]
+          : Array.isArray(quotationPayload.quotations)
+            ? quotationPayload.quotations
+            : [];
         const current = list.find((item: ApiQuotation) => item.id === quotationId);
 
         if (!current) {
@@ -113,14 +136,25 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
           return;
         }
 
-        setTitle(current.title || '');
+        let rawTitle = current.title || '';
+        let extractedTerms = 'Boleto 28 Dias';
+        const match = rawTitle.match(/^(.*?)\s*\(([^)]+)\)$/);
+        if (match) {
+          rawTitle = match[1].trim();
+          extractedTerms = match[2].trim();
+        }
+
+        setTitle(rawTitle);
+        setPaymentTerms(current.paymentTerms || extractedTerms);
         setSupplierId(current.supplierId || '');
         setStartDate(toDateInputValue(current.startDate));
         setEndDate(toDateInputValue(current.endDate));
         setClosingTime(current.closingTime || '');
+
         setSuppliers(Array.isArray(suppliersData) ? suppliersData : []);
 
-        const catalogList: ProductFromDb[] = Array.isArray(productsData) ? productsData : productsData.products || productsData.data || [];
+        const rawProdList = Array.isArray(productsData) ? productsData : (productsData as { products?: ProductFromDb[]; data?: ProductFromDb[] }).products || (productsData as { data?: ProductFromDb[] }).data || [];
+        const catalogList: ProductFromDb[] = rawProdList as ProductFromDb[];
         setCatalogProducts(catalogList);
 
         const loadedItems: QuotationItem[] = (current.items || []).map((ci: ApiQuotationItem) => {
@@ -146,7 +180,7 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
       }
     }
 
-    if (quotationId) loadData();
+    loadData();
   }, [quotationId]);
 
   const handleRemoveItem = (id: string) => {
@@ -185,6 +219,11 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
       return;
     }
 
+    if (!paymentTerms.trim()) {
+      setError('Informe a condição de pagamento.');
+      return;
+    }
+
     if (quotationItems.length === 0) {
       setError('Adicione pelo menos um item à cotação.');
       return;
@@ -204,6 +243,7 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
           id: quotationId,
           companyId,
           title: title.trim(),
+          paymentTerms: paymentTerms.trim(),
           supplierId,
           startDate: startDate || null,
           endDate: endDate || null,
@@ -213,7 +253,7 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
       });
 
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || 'Não foi possível atualizar a cotação.');
+      if (!response.ok) throw new Error((data as { error?: string }).error || 'Não foi possível atualizar a cotação.');
 
       router.push('/cotacoes');
     } catch (submitError) {
@@ -256,50 +296,21 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
         </header>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
-            <h2 className="text-sm font-bold text-slate-800">Informações da Cotação</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <label className="block text-sm font-medium text-slate-700">
-                Título
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                  required
-                />
-              </label>
-              <label className="block text-sm font-medium text-slate-700">
-                Fornecedor / Representante
-                <select
-                  value={supplierId}
-                  onChange={(e) => setSupplierId(e.target.value)}
-                  className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                  required
-                >
-                  <option value="">Selecione um fornecedor</option>
-                  {suppliers.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-3">
-              <label className="text-sm font-medium text-slate-700">
-                Início
-                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
-              </label>
-              <label className="text-sm font-medium text-slate-700">
-                Término
-                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
-              </label>
-              <label className="text-sm font-medium text-slate-700">
-                Horário limite
-                <input type="time" value={closingTime} onChange={(e) => setClosingTime(e.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
-              </label>
-            </div>
-          </div>
+          <QuotationBasicInfo
+            title={title}
+            setTitle={setTitle}
+            startDate={startDate}
+            setStartDate={setStartDate}
+            endDate={endDate}
+            setEndDate={setEndDate}
+            closingTime={closingTime}
+            setClosingTime={setClosingTime}
+            paymentTerms={paymentTerms}
+            setPaymentTerms={setPaymentTerms}
+            attachedFile={null}
+            onFileChange={() => {}}
+            onRemoveFile={() => {}}
+          />
 
           <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
             <div className="flex justify-between items-center">
@@ -403,6 +414,23 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
                 </tbody>
               </table>
             </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-2">
+            <label className="block text-sm font-medium text-slate-700">
+              Fornecedor / Representante
+              <select
+                value={supplierId}
+                onChange={(e) => setSupplierId(e.target.value)}
+                className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                required
+              >
+                <option value="">Selecione um fornecedor</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </label>
           </div>
 
           {error && <p role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
