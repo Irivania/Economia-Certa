@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { uppercaseText } from '@/lib/text';
 
 interface Supplier {
   id: string;
@@ -209,14 +210,14 @@ export default function SuppliersPage() {
               type="text"
               placeholder="Nome da Empresa / Distribuidora *"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => setName(uppercaseText(e.target.value))}
               className="px-4 py-2 text-sm border border-slate-300 rounded-lg bg-white"
             />
             <input
               type="text"
               placeholder="Nome do Representante"
               value={contactPerson}
-              onChange={(e) => setContactPerson(e.target.value)}
+              onChange={(e) => setContactPerson(uppercaseText(e.target.value))}
               className="px-4 py-2 text-sm border border-slate-300 rounded-lg bg-white"
             />
             <input

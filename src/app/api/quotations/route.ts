@@ -1,8 +1,9 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
-import { quotations, quotationItems } from '@/db/schema';
+import { quotations, quotationItems, suppliers } from '@/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import crypto from 'crypto';
+import { uppercaseText } from '@/lib/text';
 
 function parseQuotationDate(value: unknown) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -45,6 +46,11 @@ export async function GET(request: NextRequest) {
       );
 
       const allItems = await db.select().from(quotationItems);
+      const supplierList = await db
+        .select({ id: suppliers.id, name: suppliers.name })
+        .from(suppliers)
+        .where(eq(suppliers.companyId, companyId));
+      const supplierNames = new Map(supplierList.map((supplier) => [supplier.id, supplier.name]));
 
       const data = quotationList.map((q) => {
         const storedDates = quotationDates.get(q.id);
@@ -67,6 +73,7 @@ export async function GET(request: NextRequest) {
 
         return {
           ...q,
+          supplierName: q.supplierId ? supplierNames.get(q.supplierId) || 'Fornecedor não encontrado' : 'Não informado',
           startDate: safeStartDate,
           endDate: safeEndDate,
           items: allItems.filter((item) => item.quotationId === q.id),
@@ -93,8 +100,8 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const companyId = String(body.companyId || '');
-    const title = String(body.title || '');
-    const paymentTerms = String(body.paymentTerms || 'Boleto 28 Dias');
+    const title = uppercaseText(String(body.title || '').trim());
+    const paymentTerms = uppercaseText(String(body.paymentTerms || 'Boleto 28 Dias').trim());
     const supplierIds = body.supplierIds;
     const startDate = body.startDate ? parseQuotationDate(body.startDate) : null;
     const endDate = body.endDate ? parseQuotationDate(body.endDate) : null;
@@ -170,8 +177,8 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const id = String(body.id || '');
     const companyId = String(body.companyId || '');
-    const title = String(body.title || '').trim();
-    const paymentTerms = String(body.paymentTerms || '').trim();
+    const title = uppercaseText(String(body.title || '').trim());
+    const paymentTerms = uppercaseText(String(body.paymentTerms || '').trim());
     const supplierId = String(body.supplierId || '');
     const startDate = body.startDate ? parseQuotationDate(body.startDate) : null;
     const endDate = body.endDate ? parseQuotationDate(body.endDate) : null;

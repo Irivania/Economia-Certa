@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { ProductTaxSection } from '@/components/ProductTaxSection';
 import { ProductStockSection } from '@/components/ProductStockSection';
+import { uppercaseText } from '@/lib/text';
 
 interface ProductFormProps {
   editingId: string | null;
@@ -113,7 +114,7 @@ export function ProductForm({
               type="text"
               placeholder="Ex: Perfume Kaiak Tradicional 100ml"
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) => setDescription(uppercaseText(e.target.value))}
               className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white uppercase"
             />
           </div>
@@ -147,14 +148,14 @@ export function ProductForm({
                 type="text"
                 placeholder="Digite o nome da nova marca"
                 value={brand}
-                onChange={(e) => setBrand(e.target.value)}
+                onChange={(e) => setBrand(uppercaseText(e.target.value))}
                 className="w-full px-3 py-2 text-xs border border-blue-300 rounded-lg bg-blue-50/50 uppercase font-medium text-blue-900"
                 autoFocus
               />
             ) : (
               <select
                 value={brand}
-                onChange={(e) => setBrand(e.target.value)}
+                onChange={(e) => setBrand(uppercaseText(e.target.value))}
                 className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white uppercase"
               >
                 <option value="">Selecione a marca...</option>

@@ -1,6 +1,7 @@
 'use client';
 
 import { ChangeEvent, useState } from 'react';
+import { uppercaseText } from '@/lib/text';
 
 interface QuotationBasicInfoProps {
   title: string;
@@ -67,7 +68,7 @@ export default function QuotationBasicInfo({
   const [newTermInput, setNewTermInput] = useState('');
 
   const handleAddCustomTerm = () => {
-    const trimmed = newTermInput.trim();
+    const trimmed = uppercaseText(newTermInput.trim());
     if (!trimmed) return;
 
     if (!termsList.includes(trimmed)) {
@@ -90,18 +91,13 @@ export default function QuotationBasicInfo({
 
   const handleCapitalizeTitle = () => {
     if (!title) return;
-    const formatted = title
-      .toLowerCase()
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-    setTitle(formatted);
+    setTitle(uppercaseText(title.trim()));
   };
 
   const handleApplyStandardTitle = () => {
     const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
     const currentMonth = monthNames[new Date().getMonth()];
-    setTitle(`Cotação De Reposição - ${currentMonth}`);
+    setTitle(uppercaseText(`Cotação De Reposição - ${currentMonth}`));
   };
 
   return (
@@ -127,7 +123,7 @@ export default function QuotationBasicInfo({
           <input
             type="text"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => setTitle(uppercaseText(e.target.value))}
             onBlur={handleCapitalizeTitle}
             placeholder="Ex: Cotação De Reposição - Setembro"
             className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 placeholder:text-slate-400"
@@ -151,7 +147,7 @@ export default function QuotationBasicInfo({
           {!isAddingTerm ? (
             <select
               value={paymentTerms}
-              onChange={(e) => setPaymentTerms(e.target.value)}
+              onChange={(e) => setPaymentTerms(uppercaseText(e.target.value))}
               className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-slate-700 font-medium"
               required
             >
@@ -167,7 +163,7 @@ export default function QuotationBasicInfo({
               <input
                 type="text"
                 value={newTermInput}
-                onChange={(e) => setNewTermInput(e.target.value)}
+                onChange={(e) => setNewTermInput(uppercaseText(e.target.value))}
                 placeholder="Ex: Boleto 45 Dias, 7/14/28..."
                 className="flex-1 rounded-lg border border-indigo-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100 font-medium"
                 autoFocus

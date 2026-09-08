@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { uppercaseText } from '@/lib/text';
 
 interface Category {
   id: string;
@@ -121,7 +122,7 @@ export default function CategoriesPage() {
               type="text"
               placeholder="Nome da Categoria (Ex: Cosméticos, Perfumaria...)"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => setName(uppercaseText(e.target.value))}
               className="flex-1 px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white"
             />
             <button

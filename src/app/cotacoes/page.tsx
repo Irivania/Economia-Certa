@@ -5,7 +5,9 @@ import Link from 'next/link';
 
 interface Quotation {
   id: string;
+  token?: string;
   title: string;
+  supplierName?: string;
   status: string;
   startDate?: string;
   endDate?: string;
@@ -55,6 +57,22 @@ export default function QuotationsListPage() {
     }
   };
 
+  const handleShareWhatsApp = (quotation: Quotation) => {
+    if (!quotation.token) {
+      alert('Esta cotação não possui um token válido gerado.');
+      return;
+    }
+
+    const publicUrl = `${window.location.origin}/cotacao/${quotation.token}`;
+    const message = encodeURIComponent(
+      `Olá! Segue o link para preenchimento da cotação *${quotation.title}*: \n\n${publicUrl}`
+    );
+
+    // Copia o link para a área de transferência e abre o WhatsApp
+    navigator.clipboard.writeText(publicUrl);
+    window.open(`https://api.whatsapp.com/send?text=${message}`, '_blank');
+  };
+
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       {/* Barra de Navegação Superior */}
@@ -102,6 +120,7 @@ export default function QuotationsListPage() {
               <thead>
                 <tr className="bg-slate-50 text-slate-600 border-b border-slate-100">
                   <th className="p-3 font-semibold">Título</th>
+                  <th className="p-3 font-semibold">Representante / Distribuidora</th>
                   <th className="p-3 font-semibold text-center">Início</th>
                   <th className="p-3 font-semibold text-center">Término</th>
                   <th className="p-3 font-semibold text-center">Status</th>
@@ -112,6 +131,7 @@ export default function QuotationsListPage() {
                 {quotations.map((q) => (
                   <tr key={q.id} className="hover:bg-slate-50/50">
                     <td className="p-3 font-medium text-slate-800">{q.title}</td>
+                    <td className="p-3 text-slate-600">{q.supplierName || 'Não informado'}</td>
                     <td className="p-3 text-center text-slate-500">{q.startDate ? new Date(q.startDate).toLocaleDateString() : '-'}</td>
                     <td className="p-3 text-center text-slate-500">{q.endDate ? new Date(q.endDate).toLocaleDateString() : '-'}</td>
                     <td className="p-3 text-center">
@@ -133,10 +153,10 @@ export default function QuotationsListPage() {
                         🗑️ Excluir
                       </button>
                       <button 
-                        onClick={() => alert(`Enviar link da cotação "${q.title}" para representantes`)}
+                        onClick={() => handleShareWhatsApp(q)}
                         className="text-indigo-600 hover:text-indigo-800 font-medium text-xs bg-indigo-50 px-2.5 py-1.5 rounded-md transition"
                       >
-                        📤 Enviar
+                        📤 WhatsApp / Copiar
                       </button>
                     </td>
                   </tr>

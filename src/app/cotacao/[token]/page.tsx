@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
+import { uppercaseText } from '@/lib/text';
 
 interface QuotationResponseItem {
   id: string;
@@ -21,8 +22,9 @@ interface QuotationData {
   items: QuotationResponseItem[];
 }
 
-export default function ResponderCotacaoPage({ params }: { params: { token: string } }) {
-  const token = params.token;
+export default function ResponderCotacaoPage({ params }: { params: Promise<{ token: string }> }) {
+  const resolvedParams = use(params);
+  const token = resolvedParams.token;
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -239,7 +241,7 @@ export default function ResponderCotacaoPage({ params }: { params: { token: stri
                 rows={3}
                 placeholder="Insira condições de pagamento, prazo de entrega ou descontos..."
                 value={observation}
-                onChange={(e) => setObservation(e.target.value)}
+                onChange={(e) => setObservation(uppercaseText(e.target.value))}
                 className="w-full border border-slate-300 rounded-lg p-3 text-xs focus:ring-2 focus:ring-indigo-500"
               />
             </div>

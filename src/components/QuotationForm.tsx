@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { uppercaseText } from '@/lib/text';
 
 interface QuotationFormProps {
   companyId: string;
@@ -51,7 +52,7 @@ export default function QuotationForm({ companyId, onSuccess, showToast }: Quota
           type="text"
           placeholder="Ex: Cotação de Perfumaria - Setembro"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => setTitle(uppercaseText(e.target.value))}
           className="flex-1 px-4 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button

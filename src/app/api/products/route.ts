@@ -3,6 +3,7 @@ import { db } from '@/db/db';
 import { products } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
+import { uppercaseText } from '@/lib/text';
 
 export async function GET(request: NextRequest) {
   try {
@@ -45,6 +46,7 @@ export async function POST(request: NextRequest) {
       stockMax,
       ncm,
       cest,
+      category,
     } = body;
 
     if (!companyId || !description) {
@@ -74,11 +76,12 @@ export async function POST(request: NextRequest) {
       .values({
         id: randomUUID(),
         companyId,
-        description: description.trim().toUpperCase(),
+        description: uppercaseText(String(description).trim()),
         ean: trimmedCode,
-        brand: brand ? brand.trim().toUpperCase() : null,
+        brand: brand ? uppercaseText(String(brand).trim()) : null,
         imageUrl: imageUrl || null,
-        unit: unit || 'UN',
+        unit: unit ? uppercaseText(String(unit).trim()) : 'UN',
+        category: category ? uppercaseText(String(category).trim()) : null,
         boxQuantity: boxQuantity ? Number(boxQuantity) : 1,
         costPrice: costPrice ? String(costPrice) : null,
         lastPurchasePrice: lastPurchasePrice ? String(lastPurchasePrice) : null,
@@ -120,6 +123,7 @@ export async function PUT(request: NextRequest) {
       stockMax,
       ncm,
       cest,
+      category,
     } = body;
 
     if (!id || !companyId || !description) {
@@ -129,11 +133,12 @@ export async function PUT(request: NextRequest) {
     const [updated] = await db
       .update(products)
       .set({
-        description: description.trim().toUpperCase(),
+        description: uppercaseText(String(description).trim()),
         ean: code ? code.trim() : null,
-        brand: brand ? brand.trim().toUpperCase() : null,
+        brand: brand ? uppercaseText(String(brand).trim()) : null,
         imageUrl: imageUrl || null,
-        unit: unit || 'UN',
+        unit: unit ? uppercaseText(String(unit).trim()) : 'UN',
+        category: category ? uppercaseText(String(category).trim()) : null,
         boxQuantity: boxQuantity ? Number(boxQuantity) : 1,
         costPrice: costPrice ? String(costPrice) : null,
         lastPurchasePrice: lastPurchasePrice ? String(lastPurchasePrice) : null,

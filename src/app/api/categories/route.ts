@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db/db';
 import { categories } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { uppercaseText } from '@/lib/text';
 
 // 1. Método GET para listar as categorias da empresa
 export async function GET(request: Request) {
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
       .values({
         id: categoryId,
         companyId,
-        name: name.toUpperCase(),
+        name: uppercaseText(String(name).trim()),
       })
       .returning();
 

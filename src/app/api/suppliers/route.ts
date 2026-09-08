@@ -3,14 +3,7 @@ import { db } from '@/db/db';
 import { suppliers } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
-
-function formatTitleCase(str: string) {
-  if (!str) return '';
-  return str
-    .trim()
-    .toLowerCase()
-    .replace(/(^\w{1})|(\s+\w{1})/g, (letter) => letter.toUpperCase());
-}
+import { uppercaseText } from '@/lib/text';
 
 export async function GET(request: Request) {
   try {
@@ -45,8 +38,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const formattedName = name.trim().toUpperCase();
-    const formattedContact = contactPerson ? formatTitleCase(contactPerson) : null;
+    const formattedName = uppercaseText(String(name).trim());
+    const formattedContact = contactPerson ? uppercaseText(String(contactPerson).trim()) : null;
     const formattedEmail = email ? email.trim().toLowerCase() : null;
     const formattedPhone = phone ? phone.trim() : null;
 
@@ -84,8 +77,8 @@ export async function PUT(request: Request) {
       );
     }
 
-    const formattedName = name.trim().toUpperCase();
-    const formattedContact = contactPerson ? formatTitleCase(contactPerson) : null;
+    const formattedName = uppercaseText(String(name).trim());
+    const formattedContact = contactPerson ? uppercaseText(String(contactPerson).trim()) : null;
     const formattedEmail = email ? email.trim().toLowerCase() : null;
     const formattedPhone = phone ? phone.trim() : null;
 

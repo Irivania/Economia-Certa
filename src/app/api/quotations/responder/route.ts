@@ -2,6 +2,7 @@ import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
 import { quotations, quotationItems, products } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { uppercaseText } from '@/lib/text';
 
 export async function GET(request: NextRequest) {
   try {
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
     if (observation) {
       await db
         .update(quotations)
-        .set({ observation })
+        .set({ observation: uppercaseText(String(observation).trim()) })
         .where(eq(quotations.id, quotation.id));
     }
 

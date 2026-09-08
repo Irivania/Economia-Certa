@@ -2,11 +2,12 @@ import { db } from '@/db/db';
 import { products } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { uppercaseText } from '@/lib/text';
 
 export const createProductSchema = z.object({
   companyId: z.string().uuid('ID da empresa inválido.'),
   ean: z.string().optional(),
-  description: z.string().min(2, 'A descrição do produto é obrigatória.'),
+  description: z.string().min(2, 'A descrição do produto é obrigatória.').transform((val) => uppercaseText(val.trim())),
   brand: z.string().optional().transform((val) => val ? val.trim().toUpperCase() : undefined),
   category: z.string().optional().transform((val) => val ? val.trim().toUpperCase() : undefined),
   unit: z.string().min(1, 'A unidade de medida é obrigatória (ex: UN, CX).').transform((val) => val.trim().toUpperCase()),
@@ -30,7 +31,7 @@ export class ProductsService {
         id: crypto.randomUUID(),
         companyId: validatedData.companyId,
         ean: validatedData.ean ? validatedData.ean.trim() : null,
-        description: validatedData.description.trim().toUpperCase(),
+        description: validatedData.description,
         brand: validatedData.brand || null,
         category: validatedData.category || null,
         unit: validatedData.unit,
