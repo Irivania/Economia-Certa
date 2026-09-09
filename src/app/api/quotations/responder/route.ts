@@ -1,8 +1,26 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
 import { quotations, quotationItems, products } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { uppercaseText } from '@/lib/text';
+
+function parsePrice(value: unknown) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value !== 'string') return null;
+
+  const normalizedValue = value.trim().replace(/\s/g, '');
+  if (!normalizedValue) return null;
+
+  const normalizedNumber = normalizedValue.includes(',')
+    ? normalizedValue.replace(/\./g, '').replace(',', '.')
+    : normalizedValue;
+  const parsedPrice = Number(normalizedNumber);
+
+  return Number.isFinite(parsedPrice) ? parsedPrice : null;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -69,16 +87,27 @@ export async function POST(request: Request) {
         .where(eq(quotations.id, quotation.id));
     }
 
-    for (const [itemId, data] of Object.entries(responses) as [string, { price: string; outOfStock: boolean }][]) {
-      const finalPrice = data.outOfStock ? 0 : Number(data.price || 0);
+    // Atualiza cada item garantindo a correspondência correta na cotação
+    for (const [key, data] of Object.entries(responses) as [string, { price: string; outOfStock: boolean }][]) {
+      const parsedPrice = parsePrice(data.price);
+      if (!data.outOfStock && parsedPrice === null) {
+        return NextResponse.json({ error: 'Existe um preço inválido na resposta.' }, { status: 400 });
+      }
+      const finalPrice = data.outOfStock ? 0 : parsedPrice || 0;
 
+      // Tenta atualizar pelo ID do item ou pelo ID do produto vinculado a esta cotação
       await db
         .update(quotationItems)
         .set({
-          price: String(finalPrice), // Convertido para string para alinhar com o tipo numeric do banco
-          outOfStock: data.outOfStock,
+          price: String(finalPrice),
+          outOfStock: Boolean(data.outOfStock),
         })
-        .where(eq(quotationItems.id, itemId));
+        .where(
+          and(
+            eq(quotationItems.quotationId, quotation.id),
+            eq(quotationItems.id, key) // Se a chave for o ID do item
+          )
+        );
     }
 
     return NextResponse.json({ success: true });

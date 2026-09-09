@@ -9,6 +9,10 @@ const connectionString =
 
 const pool = new Pool({
   connectionString,
+  // Configurações robustas para evitar timeouts com o Supabase na nuvem
+  connectionTimeoutMillis: 10000, // Espera até 10 segundos para estabelecer a conexão
+  idleTimeoutMillis: 30000,        // Mantém conexões ociosas abertas por 30 segundos
+  max: 10,                       // Número máximo de clientes no pool
 });
 
 export const db = drizzle(pool, { schema });

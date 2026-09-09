@@ -17,14 +17,15 @@ interface QuotationData {
   id: string;
   title: string;
   storeName: string;
+  startDate?: string | null;
   endDate?: string | null;
   closingTime?: string | null;
   items: QuotationResponseItem[];
 }
 
-export default function ResponderCotacaoPage({ params }: { params: Promise<{ token: string }> }) {
-  const resolvedParams = use(params);
-  const token = resolvedParams.token;
+export default function ResponderCotacaoPage(props: { params: Promise<{ token: string }> }) {
+  const params = use(props.params);
+  const token = params.token;
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -85,10 +86,22 @@ export default function ResponderCotacaoPage({ params }: { params: Promise<{ tok
     return () => clearInterval(timer);
   }, [quotation]);
 
-  const handlePriceChange = (itemId: string, price: string) => {
+  const handlePriceChange = (itemId: string, rawValue: string) => {
+    const numbersOnly = rawValue.replace(/\D/g, '');
+    if (!numbersOnly) {
+      setResponses(prev => ({ ...prev, [itemId]: { ...prev[itemId], price: '' } }));
+      return;
+    }
+
+    const amount = Number(numbersOnly) / 100;
+    const formatted = amount.toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
     setResponses(prev => ({
       ...prev,
-      [itemId]: { ...prev[itemId], price }
+      [itemId]: { ...prev[itemId], price: formatted, outOfStock: false }
     }));
   };
 
@@ -105,6 +118,21 @@ export default function ResponderCotacaoPage({ params }: { params: Promise<{ tok
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!quotation) return;
+
+    const missingItems = quotation.items.filter(item => {
+      const resp = responses[item.id];
+      const hasPrice = resp && resp.price.trim() !== '';
+      const isOut = resp && resp.outOfStock;
+      return !hasPrice && !isOut;
+    });
+
+    if (missingItems.length > 0) {
+      const names = missingItems.map(i => `• ${i.description}`).join('\n');
+      alert(`Atenção! Você deixou ${missingItems.length} item(ns) sem preço e sem marcar "Não tenho":\n\n${names}\n\nPor favor, preencha todos os itens antes de enviar.`);
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -152,16 +180,22 @@ export default function ResponderCotacaoPage({ params }: { params: Promise<{ tok
       <div className="max-w-4xl mx-auto space-y-6">
         
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
+          <div className="space-y-1">
             <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md">
               Painel do Fornecedor
             </span>
             <h1 className="text-xl font-bold text-slate-800 mt-2">{quotation.title}</h1>
-            <p className="text-xs text-slate-500 mt-0.5">Solicitante: <strong className="text-slate-700">{quotation.storeName}</strong></p>
+            <p className="text-xs text-slate-500">Solicitante: <strong className="text-slate-700">{quotation.storeName}</strong></p>
+            
+            <div className="flex flex-wrap items-center gap-3 pt-2 text-xs text-slate-600 font-medium">
+              <span>📅 Início: <strong className="text-slate-800">{quotation.startDate ? new Date(quotation.startDate + 'T00:00:00').toLocaleDateString('pt-BR') : 'Imediato'}</strong></span>
+              <span>•</span>
+              <span>⏰ Término: <strong className="text-slate-800">{quotation.endDate ? new Date(quotation.endDate + 'T00:00:00').toLocaleDateString('pt-BR') : 'Não definido'} {quotation.closingTime ? `às ${quotation.closingTime}` : ''}</strong></span>
+            </div>
           </div>
 
-          <div className="bg-amber-50 border border-amber-200 px-4 py-3 rounded-lg text-right">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Tempo Restante para Envio</p>
+          <div className="bg-amber-50 border border-amber-200 px-4 py-3 rounded-lg text-right shrink-0">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Tempo Restante</p>
             <p className="text-lg font-mono font-bold text-amber-900">{timeLeft}</p>
           </div>
         </div>
@@ -176,8 +210,8 @@ export default function ResponderCotacaoPage({ params }: { params: Promise<{ tok
                 return (
                   <div key={item.id} className="p-4 rounded-lg border border-slate-200 bg-slate-50/50 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                     
-                    <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 rounded-lg border border-slate-200 bg-white flex items-center justify-center overflow-hidden shrink-0">
+                    <div className="flex items-center gap-4 w-full md:w-3/5">
+                      <div className="w-14 h-14 min-w-[3.5rem] rounded-lg border border-slate-200 bg-white flex items-center justify-center overflow-hidden shrink-0">
                         {item.imageUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={item.imageUrl} alt={item.description} className="w-full h-full object-cover" />
@@ -185,9 +219,9 @@ export default function ResponderCotacaoPage({ params }: { params: Promise<{ tok
                           <span className="text-xs text-slate-400">📦</span>
                         )}
                       </div>
-                      <div>
-                        <p className="font-bold text-slate-800 text-sm">{item.description}</p>
-                        <p className="text-[11px] text-slate-500 font-mono">
+                      <div className="overflow-hidden">
+                        <p className="font-bold text-slate-800 text-sm truncate">{item.description}</p>
+                        <p className="text-[11px] text-slate-500 font-mono truncate">
                           EAN: {item.ean || 'N/A'} {item.brand ? `| Marca: ${item.brand}` : ''}
                         </p>
                         <p className="text-xs text-indigo-600 font-medium mt-1">
@@ -196,20 +230,19 @@ export default function ResponderCotacaoPage({ params }: { params: Promise<{ tok
                       </div>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row items-end sm:items-center gap-4 w-full md:w-auto">
+                    <div className="flex flex-col sm:flex-row items-end sm:items-center gap-4 w-full md:w-auto justify-end">
                       <div className="w-full sm:w-auto">
                         <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Preço de Custo (Unit.)</label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-2 text-xs text-slate-400">R$</span>
+                        <div className="relative flex items-center">
+                          <span className="absolute left-3 text-xs text-slate-400 font-medium">R$</span>
                           <input
-                            type="number"
-                            step="0.01"
-                            min="0"
+                            type="text"
+                            inputMode="numeric"
                             placeholder="0,00"
                             disabled={itemResp.outOfStock}
                             value={itemResp.price}
                             onChange={(e) => handlePriceChange(item.id, e.target.value)}
-                            className="w-full sm:w-32 pl-8 pr-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-400"
+                            className="w-full sm:w-36 pl-9 pr-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-400 font-medium"
                           />
                         </div>
                       </div>

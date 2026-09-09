@@ -29,6 +29,7 @@ const DEFAULT_TERMS = [
   'Boleto 7/14/21',
   'Boleto 14/21/28',
   'Boleto 21/28/35',
+  'Boleto 28/35/42',
 ];
 
 export default function QuotationBasicInfo({
@@ -47,7 +48,6 @@ export default function QuotationBasicInfo({
   onRemoveFile,
 }: QuotationBasicInfoProps) {
   
-  // Inicializa o estado lendo o localStorage de forma síncrona segura no carregamento inicial
   const [termsList, setTermsList] = useState<string[]>(() => {
     if (typeof window === 'undefined') return DEFAULT_TERMS;
     try {
@@ -68,7 +68,7 @@ export default function QuotationBasicInfo({
   const [newTermInput, setNewTermInput] = useState('');
 
   const handleAddCustomTerm = () => {
-    const trimmed = uppercaseText(newTermInput.trim());
+    const trimmed = newTermInput ? uppercaseText(newTermInput.trim()) : '';
     if (!trimmed) return;
 
     if (!termsList.includes(trimmed)) {
@@ -123,7 +123,7 @@ export default function QuotationBasicInfo({
           <input
             type="text"
             value={title}
-            onChange={(e) => setTitle(uppercaseText(e.target.value))}
+            onChange={(e) => setTitle(e.target.value ? uppercaseText(e.target.value) : '')}
             onBlur={handleCapitalizeTitle}
             placeholder="Ex: Cotação De Reposição - Setembro"
             className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 placeholder:text-slate-400"
@@ -147,7 +147,7 @@ export default function QuotationBasicInfo({
           {!isAddingTerm ? (
             <select
               value={paymentTerms}
-              onChange={(e) => setPaymentTerms(uppercaseText(e.target.value))}
+              onChange={(e) => setPaymentTerms(e.target.value)}
               className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-slate-700 font-medium"
               required
             >
@@ -163,7 +163,7 @@ export default function QuotationBasicInfo({
               <input
                 type="text"
                 value={newTermInput}
-                onChange={(e) => setNewTermInput(uppercaseText(e.target.value))}
+                onChange={(e) => setNewTermInput(e.target.value ? uppercaseText(e.target.value) : '')}
                 placeholder="Ex: Boleto 45 Dias, 7/14/28..."
                 className="flex-1 rounded-lg border border-indigo-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100 font-medium"
                 autoFocus
