@@ -23,9 +23,70 @@ interface QuotationData {
   items: QuotationResponseItem[];
 }
 
-export default function ResponderCotacaoPage(props: { params: Promise<{ token: string }> }) {
-  const params = use(props.params);
-  const token = params.token;
+interface PageProps {
+  params: Promise<{ token: string }>;
+}
+
+function parseDateValue(value?: string | Date | null) {
+  if (!value) return null;
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  if (typeof value !== 'string') return null;
+
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const isoDateMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (isoDateMatch) {
+    return new Date(`${isoDateMatch[1]}T00:00:00`);
+  }
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+    const [day, month, year] = trimmed.split('/');
+    return new Date(`${year}-${month}-${day}T00:00:00`);
+  }
+
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getDateKey(value?: string | Date | null) {
+  if (typeof value === 'string') {
+    const isoDateMatch = value.trim().match(/^(\d{4}-\d{2}-\d{2})/);
+    if (isoDateMatch) return isoDateMatch[1];
+  }
+
+  const parsed = parseDateValue(value);
+  return parsed ? toLocalDateString(parsed) : null;
+}
+
+function formatDateValue(value?: string | Date | null) {
+  const parsed = parseDateValue(value);
+  if (!parsed) return 'Não definido';
+  return parsed.toLocaleDateString('pt-BR');
+}
+
+function toLocalDateString(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getDeadlineTimestamp(dateKey: string, closingTime?: string | null) {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  const [hours = 23, minutes = 59] = (closingTime || '23:59').split(':').map(Number);
+  const deadline = new Date(year, month - 1, day, hours, minutes, 0, 0);
+
+  return Number.isNaN(deadline.getTime()) ? null : deadline.getTime();
+}
+
+export default function ResponderCotacaoPage({ params }: PageProps) {
+  const resolvedParams = use(params);
+  const token = resolvedParams.token;
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -34,7 +95,7 @@ export default function ResponderCotacaoPage(props: { params: Promise<{ token: s
 
   const [responses, setResponses] = useState<Record<string, { price: string; outOfStock: boolean }>>({});
   const [observation, setObservation] = useState('');
-  const [timeLeft, setTimeLeft] = useState<string>('Calculando...');
+  const [timeLeft, setTimeLeft] = useState<string>('Prazo não definido');
 
   useEffect(() => {
     async function loadQuotation() {
@@ -61,29 +122,47 @@ export default function ResponderCotacaoPage(props: { params: Promise<{ token: s
   }, [token]);
 
   useEffect(() => {
-    if (!quotation?.endDate) return;
+    if (!quotation) {
+      return;
+    }
 
-    const targetDateStr = `${quotation.endDate}T${quotation.closingTime || '18:00'}:00`;
-    const targetTime = new Date(targetDateStr).getTime();
+    const targetDateKey = getDateKey(quotation.endDate ?? quotation.startDate) ?? toLocalDateString(new Date());
+    const targetTime = getDeadlineTimestamp(targetDateKey, quotation.closingTime);
 
-    const timer = setInterval(() => {
-      const now = new Date().getTime();
+    if (targetTime === null) {
+      return;
+    }
+
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const updateTimer = () => {
+      const now = Date.now();
       const difference = targetTime - now;
 
       if (difference <= 0) {
         setTimeLeft('Encerrado');
-        clearInterval(timer);
-      } else {
-        const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((difference % (1000 * 60)) / 1000);
-
-        setTimeLeft(`${days > 0 ? `${days}d ` : ''}${hours}h ${minutes}m ${seconds}s`);
+        if (timer) clearInterval(timer);
+        return;
       }
-    }, 1000);
 
-    return () => clearInterval(timer);
+      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+      setTimeLeft(
+        days > 0
+          ? `${days}d ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+          : `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+      );
+    };
+
+    updateTimer();
+    timer = setInterval(updateTimer, 1000);
+
+    return () => {
+      if (timer) clearInterval(timer);
+    };
   }, [quotation]);
 
   const handlePriceChange = (itemId: string, rawValue: string) => {
@@ -114,6 +193,28 @@ export default function ResponderCotacaoPage(props: { params: Promise<{ token: s
         price: !prev[itemId].outOfStock ? '' : prev[itemId].price
       }
     }));
+  };
+
+  // 🚀 Lógica de navegação rápida por Enter (Avança ou marca "Não tenho" se vazio)
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+
+      const currentItem = quotation?.items[index];
+      if (currentItem) {
+        const resp = responses[currentItem.id];
+        const hasPrice = resp && resp.price.trim() !== '';
+
+        if (!hasPrice) {
+          handleToggleOutOfStock(currentItem.id);
+        }
+      }
+
+      const nextInput = document.getElementById(`price-input-${index + 1}`);
+      if (nextInput) {
+        (nextInput as HTMLInputElement).focus();
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -188,9 +289,9 @@ export default function ResponderCotacaoPage(props: { params: Promise<{ token: s
             <p className="text-xs text-slate-500">Solicitante: <strong className="text-slate-700">{quotation.storeName}</strong></p>
             
             <div className="flex flex-wrap items-center gap-3 pt-2 text-xs text-slate-600 font-medium">
-              <span>📅 Início: <strong className="text-slate-800">{quotation.startDate ? new Date(quotation.startDate + 'T00:00:00').toLocaleDateString('pt-BR') : 'Imediato'}</strong></span>
+              <span>📅 Início: <strong className="text-slate-800">{quotation.startDate ? formatDateValue(quotation.startDate) : 'Imediato'}</strong></span>
               <span>•</span>
-              <span>⏰ Término: <strong className="text-slate-800">{quotation.endDate ? new Date(quotation.endDate + 'T00:00:00').toLocaleDateString('pt-BR') : 'Não definido'} {quotation.closingTime ? `às ${quotation.closingTime}` : ''}</strong></span>
+              <span>⏰ Término: <strong className="text-slate-800">{quotation.endDate ? formatDateValue(quotation.endDate) : quotation.startDate ? formatDateValue(quotation.startDate) : 'Hoje'} {quotation.closingTime ? `às ${quotation.closingTime}` : ''}</strong></span>
             </div>
           </div>
 
@@ -205,7 +306,7 @@ export default function ResponderCotacaoPage(props: { params: Promise<{ token: s
             <h2 className="font-bold text-slate-800 text-sm border-b pb-3">Itens Solicitados ({quotation.items.length})</h2>
 
             <div className="space-y-4">
-              {quotation.items.map((item) => {
+              {quotation.items.map((item, index) => {
                 const itemResp = responses[item.id] || { price: '', outOfStock: false };
                 return (
                   <div key={item.id} className="p-4 rounded-lg border border-slate-200 bg-slate-50/50 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -236,12 +337,14 @@ export default function ResponderCotacaoPage(props: { params: Promise<{ token: s
                         <div className="relative flex items-center">
                           <span className="absolute left-3 text-xs text-slate-400 font-medium">R$</span>
                           <input
+                            id={`price-input-${index}`}
                             type="text"
                             inputMode="numeric"
                             placeholder="0,00"
                             disabled={itemResp.outOfStock}
                             value={itemResp.price}
                             onChange={(e) => handlePriceChange(item.id, e.target.value)}
+                            onKeyDown={(e) => handleKeyDown(e, index)}
                             className="w-full sm:w-36 pl-9 pr-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-400 font-medium"
                           />
                         </div>

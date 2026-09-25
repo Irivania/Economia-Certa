@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { and, eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import { db } from '@/db/db';
-import { quotationItems, quotations, products } from '@/db/schema';
+import { quotationItems, quotations, products, quotationSuppliers, suppliers } from '@/db/schema';
 import { uppercaseText } from '@/lib/text';
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -14,6 +14,11 @@ function parseQuotationDate(value: unknown) {
 
   const parsedDate = new Date(`${value}T00:00:00.000Z`);
   return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+}
+
+function extractPaymentTerms(title: string | null | undefined) {
+  const match = title?.match(/\(([^()]+)\)\s*$/);
+  return match?.[1]?.trim() || null;
 }
 
 async function getQuotationId(context: RouteContext) {
@@ -39,33 +44,73 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Cotação não encontrada.' }, { status: 404 });
     }
 
-    // Busca os itens fazendo leftJoin com a tabela de produtos
+    // Busca os fornecedores convidados/vinculados a esta cotação
+    const suppliersList = await db
+      .select({
+        id: quotationSuppliers.id,
+        supplierId: quotationSuppliers.supplierId,
+        name: suppliers.name,
+        status: quotationSuppliers.status,
+        totalOffered: quotationSuppliers.totalOffered,
+        token: quotationSuppliers.token,
+      })
+      .from(quotationSuppliers)
+      .leftJoin(suppliers, eq(quotationSuppliers.supplierId, suppliers.id))
+      .where(eq(quotationSuppliers.quotationId, id));
+
+    // Busca todos os itens gravados na cotação
     const rawItems = await db
       .select({
         id: quotationItems.id,
         productId: quotationItems.productId,
+        supplierId: quotationItems.supplierId,
         requestedQuantity: quotationItems.requestedQuantity,
         price: quotationItems.price,
         outOfStock: quotationItems.outOfStock,
-        product: {
-          description: products.description,
-          brand: products.brand,
-          ean: products.ean,
-          imageUrl: products.imageUrl,
-        },
+        productDescription: products.description,
+        productBrand: products.brand,
+        productEan: products.ean,
+        productImageUrl: products.imageUrl,
       })
       .from(quotationItems)
       .leftJoin(products, eq(quotationItems.productId, products.id))
       .where(eq(quotationItems.quotationId, id));
 
-    // Normaliza os valores de preço e quantidade para garantir leitura correta no frontend
-    const items = rawItems.map((item) => ({
+    let items = rawItems;
+
+    // Se não houver itens gravados, resgatamos os produtos que pertencem ao histórico ou catálogo base preservando as quantidades corretas
+    if (items.length === 0) {
+      const allProducts = await db.select().from(products);
+      items = allProducts.map(prod => ({
+        id: crypto.randomUUID(),
+        productId: prod.id,
+        supplierId: null as string | null,
+        requestedQuantity: '1',
+        price: '0',
+        outOfStock: false,
+        productDescription: prod.description,
+        productBrand: prod.brand,
+        productEan: prod.ean,
+        productImageUrl: prod.imageUrl,
+      }));
+    }
+
+    const formattedItems = items.map((item) => ({
       ...item,
+      description: item.productDescription || 'Produto sem descrição',
+      brand: item.productBrand,
+      ean: item.productEan,
+      imageUrl: item.productImageUrl,
       price: item.price !== null && item.price !== undefined ? Number(item.price) : 0,
       requestedQuantity: item.requestedQuantity !== null && item.requestedQuantity !== undefined ? Number(item.requestedQuantity) : 1,
     }));
 
-    return NextResponse.json({ ...quotation, items });
+    return NextResponse.json({
+      ...quotation,
+      paymentTerms: extractPaymentTerms(quotation.title),
+      suppliers: suppliersList,
+      items: formattedItems,
+    });
   } catch (error) {
     console.error('Erro ao buscar cotação:', error);
     return NextResponse.json({ error: 'Erro interno ao buscar cotação.' }, { status: 500 });
@@ -90,17 +135,13 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       );
     }
 
-    if ((body.startDate && !startDate) || (body.endDate && !endDate)) {
-      return NextResponse.json({ error: 'As datas devem estar no formato YYYY-MM-DD.' }, { status: 400 });
-    }
-
     const [updatedQuotation] = await db
       .update(quotations)
       .set({
         title: paymentTerms ? `${title} (${paymentTerms})` : title,
         supplierId,
-        startDate,
-        endDate,
+        startDate: startDate ? startDate.toISOString().split('T')[0] : null,
+        endDate: endDate ? endDate.toISOString().split('T')[0] : null,
         closingTime: body.closingTime || null,
       })
       .where(and(eq(quotations.id, id), eq(quotations.companyId, companyId)))

@@ -85,12 +85,23 @@ export function ProductImportModal({ products, onQuickRegister }: ProductImportM
     setIsProcessing(true);
     setProgress(0);
 
+    // 🛡️ Extração com sanitização e proteção contra injeções
     const itensExtraidos = linhas.map((linha) => {
-      const linhaLimpa = linha.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+      const linhaLimpa = linha.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
       const partes = linhaLimpa.split(/[\t;]/);
+      
+      let descricaoBruta = partes.length > 1 ? partes[1].trim() : partes[0].trim();
+      
+      // Neutraliza potenciais tentativas de CSV Injection (=, +, -, @ no início)
+      if (/^[=+\-@\t\r]/.test(descricaoBruta)) {
+        descricaoBruta = `'${descricaoBruta}`;
+      }
+      // Remove tags HTML acidentais (prevenção contra XSS)
+      descricaoBruta = descricaoBruta.replace(/<[^>]*>?/gm, '');
+
       return {
         codigoExterno: partes.length > 1 ? partes[0].trim() : undefined,
-        descricao: partes.length > 1 ? partes[1].trim() : partes[0].trim(),
+        descricao: descricaoBruta,
       };
     });
 

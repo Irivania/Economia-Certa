@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, integer, numeric, boolean, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, date, integer, numeric, boolean, uniqueIndex } from 'drizzle-orm/pg-core';
 
 export const companies = pgTable('companies', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -59,6 +59,7 @@ export const suppliers = pgTable('suppliers', {
   contactPerson: text('contact_person'),
   phone: text('phone'),
   email: text('email'),
+  passwordHash: text('password_hash'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -66,14 +67,25 @@ export const quotations = pgTable('quotations', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   companyId: text('company_id').notNull(),
   title: text('title').default('Cotação Geral').notNull(),
+  paymentTerms: text('payment_terms'),
   supplierId: text('supplier_id'),
   storeName: text('store_name'),
   token: text('token'),
   observation: text('observation'),
   status: text('status').default('PENDING').notNull(),
-  startDate: timestamp('start_date'),
-  endDate: timestamp('end_date'),
+  startDate: date('start_date'),
+  endDate: date('end_date'),
   closingTime: text('closing_time'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const quotationSuppliers = pgTable('quotation_suppliers', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  quotationId: text('quotation_id').notNull(),
+  supplierId: text('supplier_id').notNull(),
+  token: text('token').notNull().$defaultFn(() => crypto.randomUUID()),
+  status: text('status').default('PENDING').notNull(),
+  totalOffered: numeric('total_offered', { precision: 10, scale: 2 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

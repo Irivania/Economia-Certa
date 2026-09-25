@@ -1,8 +1,9 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
-import { quotations, quotationItems, products } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { quotations, quotationItems, products, quotationSuppliers } from '@/db/schema';
+import { eq, and, isNull } from 'drizzle-orm';
 import { uppercaseText } from '@/lib/text';
+import crypto from 'crypto';
 
 function parsePrice(value: unknown) {
   if (typeof value === 'number') {
@@ -31,7 +32,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Token não fornecido.' }, { status: 400 });
     }
 
-    const [quotation] = await db.select().from(quotations).where(eq(quotations.token, token));
+    const [qSupplier] = await db
+      .select()
+      .from(quotationSuppliers)
+      .where(eq(quotationSuppliers.token, token));
+
+    if (!qSupplier) {
+      return NextResponse.json({ error: 'Link de cotação inválido ou não encontrado.' }, { status: 404 });
+    }
+
+    const [quotation] = await db
+      .select()
+      .from(quotations)
+      .where(eq(quotations.id, qSupplier.quotationId));
 
     if (!quotation) {
       return NextResponse.json({ error: 'Cotação não encontrada.' }, { status: 404 });
@@ -49,15 +62,30 @@ export async function GET(request: NextRequest) {
       })
       .from(quotationItems)
       .innerJoin(products, eq(quotationItems.productId, products.id))
+      .where(and(eq(quotationItems.quotationId, quotation.id), isNull(quotationItems.supplierId)));
+
+    const fallbackItems = itemsList.length > 0 ? itemsList : await db
+      .select({
+        id: quotationItems.id,
+        productId: quotationItems.productId,
+        requestedQuantity: quotationItems.requestedQuantity,
+        description: products.description,
+        ean: products.ean,
+        brand: products.brand,
+        imageUrl: products.imageUrl,
+      })
+      .from(quotationItems)
+      .innerJoin(products, eq(quotationItems.productId, products.id))
       .where(eq(quotationItems.quotationId, quotation.id));
 
     return NextResponse.json({
       id: quotation.id,
       title: quotation.title,
       storeName: quotation.storeName || 'Melo Perfumaria',
+      startDate: quotation.startDate,
       endDate: quotation.endDate,
       closingTime: quotation.closingTime,
-      items: itemsList,
+      items: fallbackItems,
     });
   } catch (error) {
     console.error('Erro ao buscar cotação para resposta:', error);
@@ -74,7 +102,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Dados incompletos.' }, { status: 400 });
     }
 
-    const [quotation] = await db.select().from(quotations).where(eq(quotations.token, token));
+    const [qSupplier] = await db
+      .select()
+      .from(quotationSuppliers)
+      .where(eq(quotationSuppliers.token, token));
+
+    if (!qSupplier) {
+      return NextResponse.json({ error: 'Fornecedor ou cotação não encontrados.' }, { status: 404 });
+    }
+
+    const [quotation] = await db
+      .select()
+      .from(quotations)
+      .where(eq(quotations.id, qSupplier.quotationId));
 
     if (!quotation) {
       return NextResponse.json({ error: 'Cotação não encontrada.' }, { status: 404 });
@@ -87,7 +127,11 @@ export async function POST(request: Request) {
         .where(eq(quotations.id, quotation.id));
     }
 
-    // Atualiza cada item garantindo a correspondência correta na cotação
+    await db
+      .update(quotationSuppliers)
+      .set({ status: 'RESPONDIDO' })
+      .where(eq(quotationSuppliers.id, qSupplier.id));
+
     for (const [key, data] of Object.entries(responses) as [string, { price: string; outOfStock: boolean }][]) {
       const parsedPrice = parsePrice(data.price);
       if (!data.outOfStock && parsedPrice === null) {
@@ -95,19 +139,48 @@ export async function POST(request: Request) {
       }
       const finalPrice = data.outOfStock ? 0 : parsedPrice || 0;
 
-      // Tenta atualizar pelo ID do item ou pelo ID do produto vinculado a esta cotação
-      await db
-        .update(quotationItems)
-        .set({
-          price: String(finalPrice),
-          outOfStock: Boolean(data.outOfStock),
-        })
+      let productId = key;
+      const [existingItem] = await db
+        .select()
+        .from(quotationItems)
+        .where(eq(quotationItems.id, key));
+
+      if (existingItem) {
+        productId = existingItem.productId;
+      }
+
+      const requestedQty = existingItem ? existingItem.requestedQuantity : '1';
+
+      const [supplierItemResp] = await db
+        .select()
+        .from(quotationItems)
         .where(
           and(
             eq(quotationItems.quotationId, quotation.id),
-            eq(quotationItems.id, key) // Se a chave for o ID do item
+            eq(quotationItems.productId, productId),
+            eq(quotationItems.supplierId, qSupplier.supplierId)
           )
         );
+
+      if (supplierItemResp) {
+        await db
+          .update(quotationItems)
+          .set({
+            price: String(finalPrice),
+            outOfStock: Boolean(data.outOfStock),
+          })
+          .where(eq(quotationItems.id, supplierItemResp.id));
+      } else {
+        await db.insert(quotationItems).values({
+          id: crypto.randomUUID(),
+          quotationId: quotation.id,
+          productId: productId,
+          supplierId: qSupplier.supplierId,
+          requestedQuantity: String(requestedQty),
+          price: String(finalPrice),
+          outOfStock: Boolean(data.outOfStock),
+        });
+      }
     }
 
     return NextResponse.json({ success: true });

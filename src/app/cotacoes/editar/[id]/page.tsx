@@ -3,9 +3,10 @@
 import { FormEvent, useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import ProductSelectionModal from '@/components/ProductSelectionModal';
 import QuotationBasicInfo from '@/components/QuotationBasicInfo';
+import QuotationSuppliersSection from '@/components/QuotationSuppliersSection';
+import QuotationItemsSection from '@/components/QuotationItemsSection';
 
 interface Supplier {
   id: string;
@@ -42,11 +43,19 @@ interface ApiQuotationItem {
   costPrice?: number | string;
 }
 
+interface ApiSupplierLink {
+  id: string;
+  name?: string;
+  status?: string;
+  token?: string;
+}
+
 interface ApiQuotation {
   id: string;
   title?: string;
   paymentTerms?: string | null;
   supplierId?: string | null;
+  suppliers?: ApiSupplierLink[];
   startDate?: string | Date | null;
   endDate?: string | Date | null;
   closingTime?: string | null;
@@ -62,7 +71,7 @@ function toDateInputValue(value?: string | Date | null) {
     return isNaN(value.getTime()) ? '' : value.toISOString().slice(0, 10);
   }
 
-  const normalizedValue = value.trim();
+  const normalizedValue = String(value).trim();
   if (!normalizedValue) return '';
 
   const dateOnlyMatch = normalizedValue.match(/^(\d{4}-\d{2}-\d{2})/);
@@ -82,7 +91,7 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
   
   const [title, setTitle] = useState('');
   const [paymentTerms, setPaymentTerms] = useState('Boleto 28 Dias');
-  const [supplierId, setSupplierId] = useState('');
+  const [selectedSupplierIds, setSelectedSupplierIds] = useState<string[]>([]);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [closingTime, setClosingTime] = useState('');
@@ -92,6 +101,7 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const [loading, setLoading] = useState(true);
+  const [loadingSuppliers, setLoadingSuppliers] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -133,20 +143,20 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
         if (!current) {
           setError('Cotação não encontrada.');
           setLoading(false);
+          setLoadingSuppliers(false);
           return;
         }
 
-        let rawTitle = current.title || '';
-        let extractedTerms = 'Boleto 28 Dias';
-        const match = rawTitle.match(/^(.*?)\s*\(([^)]+)\)$/);
-        if (match) {
-          rawTitle = match[1].trim();
-          extractedTerms = match[2].trim();
-        }
+        setTitle(current.title || '');
+        
+        const loadedTerms = current.paymentTerms ? String(current.paymentTerms).trim() : 'Boleto 28 Dias';
+        setPaymentTerms(loadedTerms);
 
-        setTitle(rawTitle);
-        setPaymentTerms(current.paymentTerms || extractedTerms);
-        setSupplierId(current.supplierId || '');
+        const linkedSupplierIds = Array.isArray(current.suppliers)
+          ? current.suppliers.map((s: ApiSupplierLink) => s.id)
+          : current.supplierId ? [current.supplierId] : [];
+        setSelectedSupplierIds(linkedSupplierIds);
+
         setStartDate(toDateInputValue(current.startDate));
         setEndDate(toDateInputValue(current.endDate));
         setClosingTime(current.closingTime || '');
@@ -158,10 +168,10 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
         setCatalogProducts(catalogList);
 
         const loadedItems: QuotationItem[] = (current.items || []).map((ci: ApiQuotationItem) => {
-          const prod = catalogList.find((p: ProductFromDb) => p.id === ci.productId || (ci.description && p.description.toLowerCase() === ci.description.toLowerCase()));
+          const prod = catalogList.find((p: ProductFromDb) => p.id === ci.productId || p.id === ci.id);
           return {
-            id: ci.id || ci.productId || '',
-            productId: ci.productId || '',
+            id: ci.id || crypto.randomUUID(),
+            productId: ci.productId || prod?.id || '',
             description: prod?.description || ci.description || 'Produto sem descrição',
             brand: prod?.brand || null,
             ean: prod?.ean || null,
@@ -177,14 +187,31 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
         setError('Não foi possível carregar os dados da cotação.');
       } finally {
         setLoading(false);
+        setLoadingSuppliers(false);
       }
     }
 
     loadData();
   }, [quotationId]);
 
+  const toggleSupplier = (supplierId: string) => {
+    setSelectedSupplierIds((current) =>
+      current.includes(supplierId)
+        ? current.filter((id) => id !== supplierId)
+        : [...current, supplierId],
+    );
+  };
+
   const handleRemoveItem = (id: string) => {
     setQuotationItems(prev => prev.filter(item => item.id !== id && item.productId !== id));
+  };
+
+  const handleUpdateQuantity = (id: string, qty: number) => {
+    setQuotationItems(prev => prev.map(i => (i.id === id || i.productId === id) ? { ...i, requestedQuantity: Math.max(1, qty) } : i));
+  };
+
+  const handleUpdatePrice = (id: string, price: number) => {
+    setQuotationItems(prev => prev.map(i => (i.id === id || i.productId === id) ? { ...i, costPrice: price } : i));
   };
 
   const handleAddSelectedProducts = (selectedProductIds: string[]) => {
@@ -214,8 +241,13 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
     event.preventDefault();
     setError(null);
 
-    if (!title.trim() || !supplierId) {
-      setError('Informe o título e selecione um fornecedor.');
+    if (!title.trim()) {
+      setError('Informe um título para a cotação.');
+      return;
+    }
+
+    if (selectedSupplierIds.length === 0) {
+      setError('Selecione ao menos um fornecedor.');
       return;
     }
 
@@ -244,7 +276,7 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
           companyId,
           title: title.trim(),
           paymentTerms: paymentTerms.trim(),
-          supplierId,
+          supplierIds: selectedSupplierIds,
           startDate: startDate || null,
           endDate: endDate || null,
           closingTime: closingTime || null,
@@ -264,11 +296,6 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
     }
   };
 
-  const filteredItems = quotationItems.filter(item =>
-    (item.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item.ean || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   if (loading) {
     return <main className="min-h-screen bg-slate-50 px-6 py-10"><p className="mx-auto max-w-4xl text-center text-sm text-slate-400">Carregando cotação...</p></main>;
   }
@@ -283,15 +310,6 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
             <p className="text-sm font-semibold uppercase tracking-wide text-amber-600">Edição de Cotação</p>
             <h1 className="mt-1 text-2xl font-bold text-slate-900">Modificar Solicitação e Produtos</h1>
             <p className="mt-1 text-sm text-slate-500">Altere os dados gerais, adicione/remova produtos e ajuste quantidades.</p>
-          </div>
-          <div>
-            <button
-              type="button"
-              onClick={() => setIsModalOpen(true)}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-4 py-2.5 rounded-lg text-sm transition shadow-sm"
-            >
-              + Adicionar do Catálogo
-            </button>
           </div>
         </header>
 
@@ -312,126 +330,22 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
             onRemoveFile={() => {}}
           />
 
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="font-bold text-slate-700 text-sm">Itens da Cotação ({quotationItems.length})</h2>
-              <div className="w-72">
-                <input
-                  type="text"
-                  placeholder="Buscar na lista por nome ou EAN..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-            </div>
+          <QuotationItemsSection
+            items={quotationItems}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            onUpdateQuantity={handleUpdateQuantity}
+            onUpdatePrice={handleUpdatePrice}
+            onRemoveItem={handleRemoveItem}
+            onOpenModal={() => setIsModalOpen(true)}
+          />
 
-            <div className="overflow-x-auto border border-slate-100 rounded-lg">
-              <table className="w-full text-left border-collapse text-sm">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-600 border-b border-slate-100">
-                    <th className="p-3 font-semibold">Produto / Descrição</th>
-                    <th className="p-3 font-semibold">Código de Barras (EAN)</th>
-                    <th className="p-3 font-semibold text-center">Qtd. Solicitada</th>
-                    <th className="p-3 font-semibold text-center">Preço de Custo (R$)</th>
-                    <th className="p-3 font-semibold text-right">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredItems.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="p-6 text-center text-slate-400">
-                        Nenhum item adicionado. Clique em &quot;+ Adicionar do Catálogo&quot; acima.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredItems.map((item) => (
-                      <tr key={item.id || item.productId} className="hover:bg-slate-50/50">
-                        <td className="p-3 font-medium text-slate-800">
-                          <div className="flex items-center gap-3">
-                            {item.imageUrl ? (
-                              <div className="relative h-10 w-10 flex-shrink-0 rounded-lg overflow-hidden border border-slate-200 bg-white">
-                                <Image
-                                  src={item.imageUrl}
-                                  alt={item.description || 'Produto'}
-                                  fill
-                                  sizes="40px"
-                                  className="object-cover"
-                                />
-                              </div>
-                            ) : (
-                              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-slate-400 text-xs">
-                                📦
-                              </div>
-                            )}
-                            <div>
-                              <p className="font-semibold text-slate-800">{item.description}</p>
-                              {item.brand && <p className="text-xs text-slate-400">{item.brand}</p>}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-3 text-slate-600 font-mono text-xs">
-                          {item.ean || 'Não informado'}
-                        </td>
-                        <td className="p-3 text-center">
-                          <input
-                            type="number"
-                            min="1"
-                            value={item.requestedQuantity}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value) || 1;
-                              setQuotationItems(prev => prev.map(i => (i.id === item.id || i.productId === item.productId) ? { ...i, requestedQuantity: Math.max(1, val) } : i));
-                            }}
-                            className="w-20 text-center border border-slate-200 rounded-md py-1 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
-                          />
-                        </td>
-                        <td className="p-3 text-center">
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            placeholder="0,00"
-                            value={item.costPrice ?? ''}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value) || 0;
-                              setQuotationItems(prev => prev.map(i => (i.id === item.id || i.productId === item.productId) ? { ...i, costPrice: val } : i));
-                            }}
-                            className="w-28 text-center border border-slate-200 rounded-md py-1 text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-amber-50/50 font-medium text-slate-700"
-                          />
-                        </td>
-                        <td className="p-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveItem(item.id || item.productId)}
-                            className="text-red-500 hover:text-red-700 font-medium text-xs transition"
-                          >
-                            Remover
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-2">
-            <label className="block text-sm font-medium text-slate-700">
-              Fornecedor / Representante
-              <select
-                value={supplierId}
-                onChange={(e) => setSupplierId(e.target.value)}
-                className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                required
-              >
-                <option value="">Selecione um fornecedor</option>
-                {suppliers.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </label>
-          </div>
+          <QuotationSuppliersSection
+            suppliers={suppliers}
+            selectedSupplierIds={selectedSupplierIds}
+            onToggleSupplier={toggleSupplier}
+            loading={loadingSuppliers}
+          />
 
           {error && <p role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 

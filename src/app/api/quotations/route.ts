@@ -1,17 +1,55 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
-import { quotations, quotationItems, suppliers } from '@/db/schema';
-import { eq, and, sql } from 'drizzle-orm';
+import { quotations, quotationItems, quotationSuppliers, suppliers } from '@/db/schema';
+import { and, eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import { uppercaseText } from '@/lib/text';
 
-function parseQuotationDate(value: unknown) {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+function parseQuotationDate(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+
+  const datePart = value.trim().split('T')[0];
+  const match = datePart.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
     return null;
   }
 
-  const parsedDate = new Date(`${value}T00:00:00.000Z`);
-  return isNaN(parsedDate.getTime()) ? null : parsedDate;
+  return datePart;
+}
+
+function formatQuotationDate(value: Date | string | null | undefined) {
+  if (!value) return '';
+
+  if (typeof value === 'string') {
+    const datePart = value.trim().split('T')[0];
+    return /^\d{4}-\d{2}-\d{2}$/.test(datePart) ? datePart : '';
+  }
+
+  if (Number.isNaN(value.getTime())) return '';
+
+  const year = value.getUTCFullYear();
+  const month = String(value.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(value.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function parseOptionalQuotationDate(body: Record<string, unknown>, field: string) {
+  if (body[field] === undefined || body[field] === null || body[field] === '') {
+    return null;
+  }
+
+  return parseQuotationDate(body[field]);
 }
 
 export async function GET(request: NextRequest) {
@@ -30,65 +68,46 @@ export async function GET(request: NextRequest) {
         .from(quotations)
         .where(eq(quotations.companyId, companyId));
 
-      const quotationDateRows = await db.execute(sql`
-        SELECT id, start_date, end_date
-        FROM quotations
-        WHERE company_id = ${companyId}
-      `);
-      const quotationDates = new Map(
-        quotationDateRows.rows.map((row) => [
-          String(row.id),
-          {
-            startDate: row.start_date,
-            endDate: row.end_date,
-          },
-        ]),
-      );
-
       const allItems = await db.select().from(quotationItems);
-      const supplierList = await db
-        .select({ id: suppliers.id, name: suppliers.name })
-        .from(suppliers)
-        .where(eq(suppliers.companyId, companyId));
-      const supplierNames = new Map(supplierList.map((supplier) => [supplier.id, supplier.name]));
+      const allSuppliersLinks = await db
+        .select({
+          id: quotationSuppliers.id,
+          quotationId: quotationSuppliers.quotationId,
+          supplierId: quotationSuppliers.supplierId,
+          status: quotationSuppliers.status,
+          token: quotationSuppliers.token,
+          name: suppliers.name,
+        })
+        .from(quotationSuppliers)
+        .leftJoin(suppliers, eq(quotationSuppliers.supplierId, suppliers.id));
 
-      const data = quotationList.map((q) => {
-        const storedDates = quotationDates.get(q.id);
-        let safeStartDate = '';
-        let safeEndDate = '';
-
-        if (storedDates?.startDate) {
-          const d = new Date(storedDates.startDate as string | Date);
-          if (!isNaN(d.getTime())) {
-            safeStartDate = d.toISOString().split('T')[0];
-          }
-        }
-
-        if (storedDates?.endDate) {
-          const d = new Date(storedDates.endDate as string | Date);
-          if (!isNaN(d.getTime())) {
-            safeEndDate = d.toISOString().split('T')[0];
-          }
-        }
-
-        return {
-          ...q,
-          supplierName: q.supplierId ? supplierNames.get(q.supplierId) || 'Fornecedor não encontrado' : 'Não informado',
-          startDate: safeStartDate,
-          endDate: safeEndDate,
-          items: allItems.filter((item) => item.quotationId === q.id),
-        };
-      });
+      const data = quotationList.map((quotation) => ({
+        ...quotation,
+        paymentTerms: quotation.paymentTerms || '',
+        startDate: formatQuotationDate(quotation.startDate),
+        endDate: formatQuotationDate(quotation.endDate),
+        items: allItems.filter((item) => item.quotationId === quotation.id),
+        suppliers: allSuppliersLinks
+          .filter((supplier) => supplier.quotationId === quotation.id)
+          .map((supplier) => ({
+            id: supplier.supplierId,
+            name: supplier.name || 'Fornecedor',
+            status: supplier.status,
+            token: supplier.token,
+          })),
+      }));
 
       return NextResponse.json(data);
     } catch (error: unknown) {
-      const err = error as Error;
-      console.warn(`Tentativa falhou (${retries} restantes). Erro:`, err.message);
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`Tentativa falhou (${retries} restantes). Erro:`, message);
       retries--;
+
       if (retries === 0) {
-        console.error('Erro ao buscar cotações:', err);
+        console.error('Erro ao buscar cotações:', error);
         return NextResponse.json({ error: 'Erro ao buscar cotações.' }, { status: 500 });
       }
+
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
   }
@@ -98,14 +117,14 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body = await request.json() as Record<string, unknown>;
     const companyId = String(body.companyId || '');
     const title = uppercaseText(String(body.title || '').trim());
     const paymentTerms = uppercaseText(String(body.paymentTerms || 'Boleto 28 Dias').trim());
     const supplierIds = body.supplierIds;
-    const startDate = body.startDate ? parseQuotationDate(body.startDate) : null;
-    const endDate = body.endDate ? parseQuotationDate(body.endDate) : null;
-    const closingTime = body.closingTime || null;
+    const startDate = parseOptionalQuotationDate(body, 'startDate');
+    const endDate = parseOptionalQuotationDate(body, 'endDate');
+    const closingTime = body.closingTime ? String(body.closingTime) : null;
     const items = body.items;
 
     if (!companyId || !title) {
@@ -116,55 +135,58 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Selecione ao menos um fornecedor.' }, { status: 400 });
     }
 
-    if ((body.startDate && !startDate) || (body.endDate && !endDate)) {
+    if (
+      (body.startDate !== undefined && body.startDate !== null && body.startDate !== '' && !startDate) ||
+      (body.endDate !== undefined && body.endDate !== null && body.endDate !== '' && !endDate)
+    ) {
       return NextResponse.json({ error: 'As datas devem estar no formato YYYY-MM-DD.' }, { status: 400 });
     }
 
-    const storeName = 'Melo Perfumaria';
-    const createdQuotations = [];
-    const fullTitle = paymentTerms ? `${title} (${paymentTerms})` : title;
-
-    for (const supplierId of supplierIds) {
-      const quotationId = crypto.randomUUID();
-      const token = crypto.randomUUID();
-
-      const insertValues = {
-        id: quotationId,
+    const [newQuotation] = await db
+      .insert(quotations)
+      .values({
+        id: crypto.randomUUID(),
         companyId,
-        title: fullTitle,
-        supplierId,
-        storeName,
+        title,
+        paymentTerms,
+        storeName: 'Melo Perfumaria',
         startDate,
         endDate,
         closingTime,
-        token,
         status: 'OPEN',
-      };
+      })
+      .returning();
 
-      const [newQuotation] = await db.insert(quotations).values(insertValues).returning();
-
-      if (items && Array.isArray(items) && items.length > 0) {
-        for (const item of items) {
-          const itemValues = {
-            id: crypto.randomUUID(),
-            quotationId: newQuotation.id,
-            productId: String(item.id || item.productId || ''),
-            supplierId: String(supplierId),
-            requestedQuantity: String(item.requestedQuantity || 1),
-            price: String(item.costPrice || item.unitPrice || 0),
-          };
-
-          await db.insert(quotationItems).values(itemValues);
-        }
+    if (items && Array.isArray(items)) {
+      for (const item of items) {
+        await db.insert(quotationItems).values({
+          id: crypto.randomUUID(),
+          quotationId: newQuotation.id,
+          productId: String(item.id || item.productId || ''),
+          requestedQuantity: String(item.requestedQuantity || 0),
+          price: String(item.costPrice || item.unitPrice || 0),
+        });
       }
-
-      createdQuotations.push({ quotationId, token, supplierId });
     }
 
-    return NextResponse.json({ 
-      success: true, 
+    const createdQuotations = [];
+    for (const supplierId of supplierIds) {
+      const supplierToken = crypto.randomUUID();
+      await db.insert(quotationSuppliers).values({
+        id: crypto.randomUUID(),
+        quotationId: newQuotation.id,
+        supplierId: String(supplierId),
+        token: supplierToken,
+        status: 'PENDING',
+      });
+      createdQuotations.push({ supplierId, token: supplierToken });
+    }
+
+    return NextResponse.json({
+      success: true,
+      quotationId: newQuotation.id,
       createdQuotations,
-      message: 'Cotações criadas e enviadas com sucesso para os fornecedores!' 
+      message: 'Cotação unificada criada com tokens individuais para os fornecedores!',
     });
   } catch (error) {
     console.error('Erro ao criar cotação:', error);
@@ -174,35 +196,33 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const body = await request.json();
+    const body = await request.json() as Record<string, unknown>;
     const id = String(body.id || '');
     const companyId = String(body.companyId || '');
     const title = uppercaseText(String(body.title || '').trim());
     const paymentTerms = uppercaseText(String(body.paymentTerms || '').trim());
-    const supplierId = String(body.supplierId || '');
-    const startDate = body.startDate ? parseQuotationDate(body.startDate) : null;
-    const endDate = body.endDate ? parseQuotationDate(body.endDate) : null;
-    const closingTime = body.closingTime || null;
+    const supplierIds = body.supplierIds;
+    const startDate = parseOptionalQuotationDate(body, 'startDate');
+    const endDate = parseOptionalQuotationDate(body, 'endDate');
+    const closingTime = body.closingTime ? String(body.closingTime) : null;
     const items = body.items;
 
-    if (!id || !companyId || !title || !supplierId) {
-      return NextResponse.json(
-        { error: 'id, companyId, title e supplierId são obrigatórios' },
-        { status: 400 },
-      );
+    if (!id || !companyId || !title) {
+      return NextResponse.json({ error: 'id, companyId e title são obrigatórios' }, { status: 400 });
     }
 
-    if ((body.startDate && !startDate) || (body.endDate && !endDate)) {
+    if (
+      (body.startDate !== undefined && body.startDate !== null && body.startDate !== '' && !startDate) ||
+      (body.endDate !== undefined && body.endDate !== null && body.endDate !== '' && !endDate)
+    ) {
       return NextResponse.json({ error: 'As datas devem estar no formato YYYY-MM-DD.' }, { status: 400 });
     }
-
-    const fullTitle = paymentTerms ? `${title} (${paymentTerms})` : title;
 
     const [updatedQuotation] = await db
       .update(quotations)
       .set({
-        title: fullTitle,
-        supplierId,
+        title,
+        paymentTerms,
         startDate,
         endDate,
         closingTime,
@@ -216,22 +236,44 @@ export async function PUT(request: Request) {
 
     if (items && Array.isArray(items)) {
       await db.delete(quotationItems).where(eq(quotationItems.quotationId, id));
-
       for (const item of items) {
-        const itemValues = {
+        await db.insert(quotationItems).values({
           id: crypto.randomUUID(),
           quotationId: id,
           productId: String(item.id || item.productId || ''),
-          supplierId: String(supplierId),
-          requestedQuantity: String(item.requestedQuantity || 1),
+          requestedQuantity: String(item.requestedQuantity || 0),
           price: String(item.costPrice || item.unitPrice || 0),
-        };
-
-        await db.insert(quotationItems).values(itemValues);
+        });
       }
     }
 
-    return NextResponse.json(updatedQuotation);
+    if (supplierIds && Array.isArray(supplierIds)) {
+      const existingRelations = await db
+        .select()
+        .from(quotationSuppliers)
+        .where(eq(quotationSuppliers.quotationId, id));
+      const existingSupplierIds = existingRelations.map((relation) => relation.supplierId);
+
+      for (const relation of existingRelations) {
+        if (!supplierIds.includes(relation.supplierId)) {
+          await db.delete(quotationSuppliers).where(eq(quotationSuppliers.id, relation.id));
+        }
+      }
+
+      for (const supplierId of supplierIds) {
+        if (!existingSupplierIds.includes(supplierId)) {
+          await db.insert(quotationSuppliers).values({
+            id: crypto.randomUUID(),
+            quotationId: id,
+            supplierId: String(supplierId),
+            token: crypto.randomUUID(),
+            status: 'PENDING',
+          });
+        }
+      }
+    }
+
+    return NextResponse.json({ success: true, updatedQuotation });
   } catch (error) {
     console.error('Erro ao atualizar cotação:', error);
     return NextResponse.json({ error: 'Erro interno ao atualizar cotação' }, { status: 500 });
@@ -249,10 +291,8 @@ export async function DELETE(request: NextRequest) {
     }
 
     await db.delete(quotationItems).where(eq(quotationItems.quotationId, id));
-
-    await db
-      .delete(quotations)
-      .where(and(eq(quotations.id, id), eq(quotations.companyId, companyId)));
+    await db.delete(quotationSuppliers).where(eq(quotationSuppliers.quotationId, id));
+    await db.delete(quotations).where(and(eq(quotations.id, id), eq(quotations.companyId, companyId)));
 
     return NextResponse.json({ success: true, message: 'Cotação excluída com sucesso.' });
   } catch (error) {

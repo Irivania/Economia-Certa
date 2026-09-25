@@ -26,13 +26,13 @@ export default function QuotationSuppliersSection({
       <div className="flex items-baseline justify-between gap-4">
         <div>
           <h2 className="text-sm font-bold text-slate-800 tracking-wide uppercase">Fornecedores Participantes</h2>
-          <p className="mt-0.5 text-xs text-slate-500">A cotação será criada separadamente para cada fornecedor selecionado.</p>
+          <p className="mt-0.5 text-xs text-slate-500">Os distribuidores selecionados serão convidados para participar desta cotação.</p>
         </div>
         <span className="shrink-0 text-xs font-semibold text-indigo-600">{selectedSupplierIds.length} selecionado(s)</span>
       </div>
 
       {loading ? (
-        <p className="py-8 text-center text-sm text-slate-400">Carregando fornecedores...</p>
+        <p className="py-8 text-center text-sm text-slate-400">A carregar fornecedores...</p>
       ) : suppliers.length === 0 ? (
         <div className="mt-4 rounded-lg border border-dashed border-slate-300 p-6 text-center">
           <p className="text-sm text-slate-600">Nenhum fornecedor cadastrado.</p>

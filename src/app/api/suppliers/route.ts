@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { companyId, name, contactPerson, phone, email } = body;
+    const { companyId, name, contactPerson, phone, email, password } = body;
 
     if (!companyId || !name) {
       return NextResponse.json(
@@ -42,6 +42,7 @@ export async function POST(request: Request) {
     const formattedContact = contactPerson ? uppercaseText(String(contactPerson).trim()) : null;
     const formattedEmail = email ? email.trim().toLowerCase() : null;
     const formattedPhone = phone ? phone.trim() : null;
+    const passwordHash = password ? String(password).trim() : null;
 
     const newSupplier = await db
       .insert(suppliers)
@@ -52,6 +53,7 @@ export async function POST(request: Request) {
         contactPerson: formattedContact,
         phone: formattedPhone,
         email: formattedEmail,
+        passwordHash,
       })
       .returning();
 
@@ -68,7 +70,7 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { id, companyId, name, contactPerson, phone, email } = body;
+    const { id, companyId, name, contactPerson, phone, email, password } = body;
 
     if (!id || !companyId || !name) {
       return NextResponse.json(
@@ -82,14 +84,21 @@ export async function PUT(request: Request) {
     const formattedEmail = email ? email.trim().toLowerCase() : null;
     const formattedPhone = phone ? phone.trim() : null;
 
+    const updateData: Record<string, string | null> = {
+      name: formattedName,
+      contactPerson: formattedContact,
+      phone: formattedPhone,
+      email: formattedEmail,
+    };
+
+    // Só atualiza a palavra-passe se o utilizador preencher uma nova
+    if (password && String(password).trim() !== '') {
+      updateData.passwordHash = String(password).trim();
+    }
+
     const updated = await db
       .update(suppliers)
-      .set({
-        name: formattedName,
-        contactPerson: formattedContact,
-        phone: formattedPhone,
-        email: formattedEmail,
-      })
+      .set(updateData)
       .where(and(eq(suppliers.id, id), eq(suppliers.companyId, companyId)))
       .returning();
 

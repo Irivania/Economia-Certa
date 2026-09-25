@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
-import { quotations, suppliers } from '@/db/schema';
+import { quotations, quotationSuppliers, suppliers } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
 export async function GET(
@@ -25,24 +25,29 @@ export async function GET(
       return NextResponse.json({ error: 'Cotação não encontrada.' }, { status: 404 });
     }
 
-    // 2. Busca os fornecedores cadastrados para exibição no painel
-    const supplierList = await db
+    // 2. Busca apenas os fornecedores vinculados a esta cotação através da tabela quotationSuppliers
+    const linkedSuppliers = await db
       .select({
-        id: suppliers.id,
+        supplierId: suppliers.id,
         name: suppliers.name,
         phone: suppliers.phone,
+        token: quotationSuppliers.token,
+        status: quotationSuppliers.status,
+        totalOffered: quotationSuppliers.totalOffered,
       })
-      .from(suppliers);
+      .from(quotationSuppliers)
+      .innerJoin(suppliers, eq(quotationSuppliers.supplierId, suppliers.id))
+      .where(eq(quotationSuppliers.quotationId, quotationId));
 
-    // Mapeia os fornecedores para o formato do painel de tracking
-    const trackingData = supplierList.map((sup, index) => ({
-      id: sup.id,
+    // Mapeia os dados reais vinculados, trazendo o token individual de cada distribuidor
+    const trackingData = linkedSuppliers.map((sup) => ({
+      id: sup.supplierId,
       name: sup.name,
       phone: sup.phone,
-      status: index === 0 ? 'RESPONDIDO' : 'PENDENTE', // Exemplo dinâmico integrável
-      answeredAt: index === 0 ? new Date().toISOString() : null,
-      totalOffered: index === 0 ? 1450.00 : 0,
-      token: quotation.id,
+      status: sup.status === 'RESPONDIDO' ? 'RESPONDIDO' : 'PENDENTE',
+      answeredAt: null,
+      totalOffered: sup.totalOffered ? Number(sup.totalOffered) : 0,
+      token: sup.token, // Token exclusivo do distribuidor para o link do WhatsApp!
     }));
 
     return NextResponse.json({

@@ -39,6 +39,27 @@ interface QuotationItem {
 
 const companyId = '915a8bc1-5db7-4605-93a9-b78090e75679';
 
+function getTodayDateString() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// 🛡️ Função de sanitização para limpar strings importadas de ficheiros externos
+function sanitizeText(input: string): string {
+  if (!input) return '';
+  let clean = input.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
+  // Neutraliza tentativas de injeção de fórmulas (CSV Injection)
+  if (/^[=+\-@\t\r]/.test(clean)) {
+    clean = `'${clean}`;
+  }
+  // Remove tags HTML acidentais ou maliciosas (previne XSS)
+  clean = clean.replace(/<[^>]*>?/gm, '');
+  return clean;
+}
+
 export default function NewQuotationPage() {
   const router = useRouter();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -46,7 +67,8 @@ export default function NewQuotationPage() {
 
   const [title, setTitle] = useState('');
   const [paymentTerms, setPaymentTerms] = useState('Boleto 28 Dias');
-  const [startDate, setStartDate] = useState('');
+  
+  const [startDate, setStartDate] = useState(getTodayDateString());
   const [endDate, setEndDate] = useState('');
   const [closingTime, setClosingTime] = useState('');
   const [selectedSupplierIds, setSelectedSupplierIds] = useState<string[]>([]);
@@ -103,6 +125,15 @@ export default function NewQuotationPage() {
     );
   };
 
+  const handleSelectAllSuppliers = () => {
+    const allIds = suppliers.map((sup) => sup.id);
+    setSelectedSupplierIds(allIds);
+  };
+
+  const handleDeselectAllSuppliers = () => {
+    setSelectedSupplierIds([]);
+  };
+
   const handleRemoveItem = (id: string) => {
     setQuotationItems(prev => prev.filter(item => item.id !== id && item.productId !== id));
   };
@@ -117,9 +148,6 @@ export default function NewQuotationPage() {
     const newItems: QuotationItem[] = productsToAdd
       .filter(p => !quotationItems.some(existing => existing.productId === p.id))
       .map(p => {
-        const diff = (p.stockIdeal || 0) - (p.stockCurrent || 0);
-        const suggestedQty = diff > 0 ? diff : 1;
-
         return {
           id: p.id,
           productId: p.id,
@@ -129,7 +157,7 @@ export default function NewQuotationPage() {
           imageUrl: p.imageUrl || null,
           stockCurrent: p.stockCurrent || 0,
           stockIdeal: p.stockIdeal || 0,
-          requestedQuantity: suggestedQty,
+          requestedQuantity: 0,
         };
       });
 
@@ -139,6 +167,14 @@ export default function NewQuotationPage() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // 🛡️ Validação de tamanho máximo (Exemplo: 5MB)
+    const MAX_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      alert('O arquivo é muito grande. O tamanho máximo permitido é 5MB.');
+      e.target.value = '';
+      return;
+    }
 
     setAttachedFile(file);
 
@@ -160,9 +196,9 @@ export default function NewQuotationPage() {
         processImportedLines(lines.map(line => {
           const parts = line.split(/\t+|\s{2,}/).map(p => p.trim()).filter(Boolean);
           return {
-            ean: parts.length >= 3 ? parts[0] : parts.length === 2 ? parts[0] : '',
-            description: parts.length >= 3 ? parts[1] : parts.length === 2 ? parts[1] : line,
-            brand: parts.length >= 3 ? parts[2] : ''
+            ean: sanitizeText(parts.length >= 3 ? parts[0] : parts.length === 2 ? parts[0] : ''),
+            description: sanitizeText(parts.length >= 3 ? parts[1] : parts.length === 2 ? parts[1] : line),
+            brand: sanitizeText(parts.length >= 3 ? parts[2] : '')
           };
         }));
       } 
@@ -176,7 +212,7 @@ export default function NewQuotationPage() {
         const rows: unknown[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
         const formattedRows = rows
-          .map(row => row.map(cell => (cell !== undefined && cell !== null ? String(cell).trim() : '')))
+          .map(row => row.map(cell => (cell !== undefined && cell !== null ? sanitizeText(String(cell)) : '')))
           .filter((row): row is string[] => row.some(cell => cell !== ''))
           .filter((_, index) => {
             if (index > 0) return true;
@@ -220,7 +256,6 @@ export default function NewQuotationPage() {
         if (foundProduct) {
           const alreadyExists = parsedItems.some(existing => existing.productId === foundProduct.id);
           if (!alreadyExists) {
-            const diff = (foundProduct.stockIdeal || 0) - (foundProduct.stockCurrent || 0);
             parsedItems.push({
               id: foundProduct.id,
               productId: foundProduct.id,
@@ -230,7 +265,7 @@ export default function NewQuotationPage() {
               imageUrl: foundProduct.imageUrl || null,
               stockCurrent: foundProduct.stockCurrent || 0,
               stockIdeal: foundProduct.stockIdeal || 0,
-              requestedQuantity: diff > 0 ? diff : 1,
+              requestedQuantity: 0,
             });
             addedCount++;
           }
@@ -249,7 +284,7 @@ export default function NewQuotationPage() {
               imageUrl: null,
               stockCurrent: 0,
               stockIdeal: 0,
-              requestedQuantity: 1,
+              requestedQuantity: 0,
             });
             addedCount++;
           }
@@ -290,8 +325,14 @@ export default function NewQuotationPage() {
       return;
     }
 
+    const todayStr = getTodayDateString();
+    if (startDate && startDate < todayStr) {
+      setError('A data de início não pode ser anterior ao dia de hoje.');
+      return;
+    }
+
     if (startDate && endDate && endDate < startDate) {
-      setError('A data de término deve ser posterior à data de início.');
+      setError('A data de término deve ser posterior ou igual à data de início.');
       return;
     }
 
@@ -355,12 +396,36 @@ export default function NewQuotationPage() {
             onRemoveItem={handleRemoveItem}
           />
 
-          <QuotationSuppliersSection
-            suppliers={suppliers}
-            selectedSupplierIds={selectedSupplierIds}
-            onToggleSupplier={toggleSupplier}
-            loading={loadingSuppliers}
-          />
+          <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-100 pb-3">
+              <h2 className="text-base font-bold text-slate-900">Distribuidores / Fornecedores Convidados</h2>
+              
+              <div className="flex items-center gap-3 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={handleSelectAllSuppliers}
+                  className="text-indigo-600 hover:text-indigo-800 transition"
+                >
+                  Marcar todos
+                </button>
+                <span className="text-slate-300">|</span>
+                <button
+                  type="button"
+                  onClick={handleDeselectAllSuppliers}
+                  className="text-slate-500 hover:text-slate-700 transition"
+                >
+                  Desmarcar todos
+                </button>
+              </div>
+            </div>
+
+            <QuotationSuppliersSection
+              suppliers={suppliers}
+              selectedSupplierIds={selectedSupplierIds}
+              onToggleSupplier={toggleSupplier}
+              loading={loadingSuppliers}
+            />
+          </div>
 
           {error && <p role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 

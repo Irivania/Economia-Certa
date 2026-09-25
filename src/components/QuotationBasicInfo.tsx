@@ -1,6 +1,6 @@
 'use client';
 
-import { ChangeEvent, useState } from 'react';
+import { ChangeEvent, useMemo, useState } from 'react';
 import { uppercaseText } from '@/lib/text';
 
 interface QuotationBasicInfoProps {
@@ -32,6 +32,20 @@ const DEFAULT_TERMS = [
   'Boleto 28/35/42',
 ];
 
+const CLOSING_TIMES = Array.from({ length: 48 }, (_, i) => {
+  const hour = Math.floor(i / 2).toString().padStart(2, '0');
+  const minute = i % 2 === 0 ? '00' : '30';
+  return `${hour}:${minute}`;
+});
+
+function getTodayDateString() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export default function QuotationBasicInfo({
   title,
   setTitle,
@@ -49,20 +63,33 @@ export default function QuotationBasicInfo({
 }: QuotationBasicInfoProps) {
   
   const [termsList, setTermsList] = useState<string[]>(() => {
-    if (typeof window === 'undefined') return DEFAULT_TERMS;
-    try {
-      const saved = localStorage.getItem('economia_certa_custom_terms');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return Array.from(new Set([...DEFAULT_TERMS, ...parsed]));
+    let combined = [...DEFAULT_TERMS];
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('economia_certa_custom_terms');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            combined = Array.from(new Set([...combined, ...parsed]));
+          }
         }
+      } catch (e) {
+        console.error(e);
       }
-    } catch (e) {
-      console.error(e);
     }
-    return DEFAULT_TERMS;
+    if (paymentTerms && !combined.includes(paymentTerms)) {
+      combined.push(paymentTerms);
+    }
+    return combined;
   });
+
+  const availableTerms = useMemo(() => {
+    if (!paymentTerms || termsList.includes(paymentTerms)) {
+      return termsList;
+    }
+
+    return [...termsList, paymentTerms];
+  }, [paymentTerms, termsList]);
 
   const [isAddingTerm, setIsAddingTerm] = useState(false);
   const [newTermInput, setNewTermInput] = useState('');
@@ -117,7 +144,6 @@ export default function QuotationBasicInfo({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Título */}
         <label className="block text-sm font-medium text-slate-700">
           Título da Cotação
           <input
@@ -131,7 +157,6 @@ export default function QuotationBasicInfo({
           />
         </label>
 
-        {/* Condição de Pagamento */}
         <label className="block text-sm font-medium text-slate-700">
           <div className="flex justify-between items-center">
             <span>Condição de Pagamento</span>
@@ -152,7 +177,7 @@ export default function QuotationBasicInfo({
               required
             >
               <option value="">Selecione a condição...</option>
-              {termsList.map((term) => (
+              {availableTerms.map((term) => (
                 <option key={term} value={term}>
                   {term}
                 </option>
@@ -181,7 +206,6 @@ export default function QuotationBasicInfo({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Anexo de Arquivo */}
         <label className="block text-sm font-medium text-slate-700">
           Importar Lista (TXT, CSV ou Excel)
           <div className="mt-1.5 flex items-center gap-2">
@@ -202,13 +226,13 @@ export default function QuotationBasicInfo({
           </div>
         </label>
 
-        {/* Datas e Horário Limite */}
         <div className="grid grid-cols-3 gap-2">
           <label className="text-sm font-medium text-slate-700">
             Início
             <input 
               type="date" 
               value={startDate} 
+              min={getTodayDateString()} 
               onChange={(e) => setStartDate(e.target.value)} 
               className="mt-1.5 w-full rounded-lg border border-slate-300 px-2 py-2.5 text-xs outline-none focus:border-indigo-500 bg-white" 
             />
@@ -219,6 +243,7 @@ export default function QuotationBasicInfo({
             <input 
               type="date" 
               value={endDate} 
+              min={startDate || getTodayDateString()} 
               onChange={(e) => setEndDate(e.target.value)} 
               className="mt-1.5 w-full rounded-lg border border-slate-300 px-2 py-2.5 text-xs outline-none focus:border-indigo-500 bg-white" 
             />
@@ -226,12 +251,18 @@ export default function QuotationBasicInfo({
 
           <label className="text-sm font-medium text-slate-700">
             Limite
-            <input 
-              type="time" 
-              value={closingTime} 
-              onChange={(e) => setClosingTime(e.target.value)} 
-              className="mt-1.5 w-full rounded-lg border border-slate-300 px-2 py-2.5 text-xs outline-none focus:border-indigo-500 bg-white" 
-            />
+            <select
+              value={closingTime}
+              onChange={(e) => setClosingTime(e.target.value)}
+              className="mt-1.5 w-full rounded-lg border border-slate-300 px-2 py-2.5 text-xs outline-none focus:border-indigo-500 bg-white font-medium text-slate-700"
+            >
+              <option value="">Horário...</option>
+              {CLOSING_TIMES.map((time) => (
+                <option key={time} value={time}>
+                  {time}
+                </option>
+              ))}
+            </select>
           </label>
         </div>
       </div>

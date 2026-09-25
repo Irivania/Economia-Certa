@@ -23,6 +23,8 @@ export default function SuppliersPage() {
   const [contactPerson, setContactPerson] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false); // Estado para controlar a visibilidade da senha
   const [submitting, setSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -108,8 +110,8 @@ export default function SuppliersPage() {
       const url = '/api/suppliers';
       const method = editingId ? 'PUT' : 'POST';
       const bodyData = editingId 
-        ? { id: editingId, companyId, name, contactPerson, phone, email }
-        : { companyId, name, contactPerson, phone, email };
+        ? { id: editingId, companyId, name, contactPerson, phone, email, password }
+        : { companyId, name, contactPerson, phone, email, password };
 
       const res = await fetch(url, {
         method,
@@ -140,6 +142,8 @@ export default function SuppliersPage() {
     setContactPerson(sup.contactPerson || '');
     setPhone(sup.phone || '');
     setEmail(sup.email || '');
+    setPassword(''); // Deixa em branco por segurança ao editar
+    setShowPassword(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -167,6 +171,8 @@ export default function SuppliersPage() {
     setContactPerson('');
     setPhone('');
     setEmail('');
+    setPassword('');
+    setShowPassword(false);
   };
 
   return (
@@ -229,11 +235,28 @@ export default function SuppliersPage() {
             />
             <input
               type="email"
-              placeholder="E-mail de Contato"
+              placeholder="E-mail de Contato / Login"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="px-4 py-2 text-sm border border-slate-300 rounded-lg bg-white"
             />
+            <div className="relative md:col-span-2">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder={editingId ? 'Nova Palavra-passe (deixe em branco para manter)' : 'Palavra-passe para o Portal B2B *'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-2 pr-10 text-sm border border-slate-300 rounded-lg bg-white"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 text-sm focus:outline-none"
+                title={showPassword ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}
+              >
+                {showPassword ? '👁️‍🗨️' : '👁️'}
+              </button>
+            </div>
           </div>
           <div className="mt-4 flex justify-end gap-2">
             <button
