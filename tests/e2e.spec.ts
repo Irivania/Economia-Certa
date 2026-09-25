@@ -12,5 +12,5 @@ test('Fluxo principal da Melo Perfumaria', async ({ page }) => {
 
   // 3. Vai para o painel de Cotações
   await page.goto('http://localhost:3000/cotacoes');
-  await expect(page.locator('h1')).toContainText('Painel de Cotações');
+  await expect(page.locator('h1')).toContainText('Cotações cadastradas');
 });
