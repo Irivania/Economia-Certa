@@ -54,16 +54,17 @@ export async function POST(request: NextRequest) {
     }
 
     const trimmedCode = code ? code.trim() : null;
+    const cleanDescription = uppercaseText(String(description).trim());
 
-    // Validação: Verificar se já existe um produto com o mesmo Código de Barras (EAN) na empresa
+    // 1. Validação: Verificar se já existe um produto com o mesmo Código de Barras (EAN)
     if (trimmedCode) {
-      const existingProduct = await db
+      const existingByEan = await db
         .select()
         .from(products)
         .where(and(eq(products.companyId, companyId), eq(products.ean, trimmedCode)))
         .limit(1);
 
-      if (existingProduct.length > 0) {
+      if (existingByEan.length > 0) {
         return NextResponse.json(
           { error: 'Este Código de Barras (EAN) já está cadastrado para outro produto nesta empresa!' },
           { status: 400 }
@@ -71,12 +72,28 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 2. Validação Antiduplicação: Verificar se já existe um produto com exatamente a mesma descrição
+    const existingByName = await db
+      .select()
+      .from(products)
+      .where(and(eq(products.companyId, companyId), eq(products.description, cleanDescription)))
+      .limit(1);
+
+    if (existingByName.length > 0) {
+      // Retorna o produto existente sem duplicar
+      return NextResponse.json(
+        { success: true, product: existingByName[0], message: 'Produto já cadastrado anteriormente.' },
+        { status: 200 }
+      );
+    }
+
+    // 3. Inserção se realmente for novo
     const newProduct = await db
       .insert(products)
       .values({
         id: randomUUID(),
         companyId,
-        description: uppercaseText(String(description).trim()),
+        description: cleanDescription,
         ean: trimmedCode,
         brand: brand ? uppercaseText(String(brand).trim()) : null,
         imageUrl: imageUrl || null,

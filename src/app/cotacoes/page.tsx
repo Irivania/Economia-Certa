@@ -148,6 +148,7 @@ export default function QuotationsListPage() {
                     </td>
                     <td className="p-4 text-right">
                       <div className="flex flex-wrap justify-end gap-1.5">
+                        <Link href={`/cotacoes/pedidos/${quotation.id}`} className="rounded-md bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100">📦 Ver Pedidos</Link>
                         <Link href={`/cotacoes/acompanhar/${quotation.id}`} className="rounded-md bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200">Acompanhar / Enviar</Link>
                         <Link href={`/cotacoes/respostas/${quotation.id}`} className="rounded-md bg-indigo-50 px-2.5 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100">Respostas</Link>
                         <Link href={`/cotacoes/editar/${quotation.id}`} className="rounded-md bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100">Editar</Link>

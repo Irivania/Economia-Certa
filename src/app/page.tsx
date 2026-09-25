@@ -19,6 +19,9 @@ export default function DashboardPage() {
 
   // UUID real e oficial da Melo Perfumaria
   const companyId = '915a8bc1-5db7-4605-93a9-b78090e75679';
+  
+  // ID da cotação ativa/recente para acesso direto ao comparador de preços e pedidos
+  const latestQuotationId = '478f68be-bd0a-4aa7-978e-50301157bdc9';
 
   useEffect(() => {
     async function loadMetrics() {
@@ -147,12 +150,22 @@ export default function DashboardPage() {
               <p className="text-xs text-slate-500 mt-1">Cadastre distribuidoras e representantes.</p>
             </Link>
 
+            {/* COMPARADOR DE PREÇOS DIRETO PARA O MAPA COMPARATIVO DE RESPOSTAS */}
             <Link
-              href="/cotacoes"
-              className="p-4 rounded-lg border border-slate-200 hover:border-blue-500 hover:bg-blue-50/30 transition-all group"
+              href={`/cotacoes/respostas/${latestQuotationId}`}
+              className="p-4 rounded-lg border border-blue-200 bg-blue-50/40 hover:border-blue-500 hover:bg-blue-50 transition-all group"
             >
-              <h3 className="font-bold text-slate-800 group-hover:text-blue-600 text-sm">📊 Comparador de Preços</h3>
-              <p className="text-xs text-slate-500 mt-1">Cruze cotações e descubra o melhor fornecedor.</p>
+              <h3 className="font-bold text-blue-900 group-hover:text-blue-700 text-sm">📊 Comparador de Preços</h3>
+              <p className="text-xs text-blue-600 mt-1">Cruze cotações e descubra o melhor fornecedor.</p>
+            </Link>
+
+            {/* ATALHO DIRETO PARA OS PEDIDOS AOS DISTRIBUIDORES */}
+            <Link
+              href={`/cotacoes/pedidos/${latestQuotationId}`}
+              className="p-4 rounded-lg border border-emerald-200 bg-emerald-50/40 hover:border-emerald-500 hover:bg-emerald-50 transition-all group"
+            >
+              <h3 className="font-bold text-emerald-900 group-hover:text-emerald-700 text-sm">📦 Pedidos para Distribuidores</h3>
+              <p className="text-xs text-emerald-600 mt-1">Visualize e envie os pedidos gerados via WhatsApp.</p>
             </Link>
 
             <Link
@@ -177,14 +190,6 @@ export default function DashboardPage() {
             >
               <h3 className="font-bold text-slate-800 group-hover:text-blue-600 text-sm">📈 Relatório Comparativo</h3>
               <p className="text-xs text-slate-500 mt-1">Análise de preços lado a lado por fornecedor.</p>
-            </Link>
-
-            <Link
-              href="/relatorios/economia"
-              className="p-4 rounded-lg border border-slate-200 hover:border-green-500 hover:bg-green-50/30 transition-all group"
-            >
-              <h3 className="font-bold text-slate-800 group-hover:text-green-600 text-sm">💰 Relatório de Economia</h3>
-              <p className="text-xs text-slate-500 mt-1">Simule a redução de custos e economia gerada.</p>
             </Link>
 
           </div>
