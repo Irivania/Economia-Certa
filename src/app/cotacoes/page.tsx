@@ -1,7 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { useTheme } from '@/context/ThemeContext';
+import { AppHeader } from '@/components/AppHeader';
+import { CommandMenu } from '@/components/CommandMenu';
 
 interface SupplierTracking {
   id: string;
@@ -31,9 +34,28 @@ function formatDate(value?: string | null) {
   return `${day}/${month}/${year}`;
 }
 
-export default function QuotationsListPage() {
+export default function Page() {
+  const { isDarkMode } = useTheme();
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isCmdOpen, setIsCmdOpen] = useState(false);
+
+  const latestQuotationId = quotations[0]?.id || 'd7f46ae7-19c2-409d-8ab4-dfbb458c5248';
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      setIsCmdOpen((open) => !open);
+    }
+    if (e.key === 'Escape') {
+      setIsCmdOpen(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
 
   useEffect(() => {
     async function loadQuotations() {
@@ -71,97 +93,137 @@ export default function QuotationsListPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between border-b border-slate-100 pb-3 text-sm text-slate-500">
-        <Link href="/" className="font-medium transition hover:text-indigo-600">← Voltar para a página principal</Link>
-        <Link href="/cotacoes/nova" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700">
-          + Nova cotação
-        </Link>
-      </div>
+    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+      
+      {/* HEADER GLOBAL UNIFICADO */}
+      <AppHeader
+        title="Economia Certa"
+        subtitle="Painel gerencial inteligente e controle de compras em tempo real."
+        onOpenCmd={() => setIsCmdOpen(true)}
+      />
 
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">Cotações cadastradas</h1>
-        <p className="mt-1 text-sm text-slate-500">Acompanhe, revise e gerencie suas cotações e o envio para os distribuidores.</p>
-      </div>
+      {/* CONTEÚDO PRINCIPAL */}
+      <main className="max-w-7xl mx-auto px-6 sm:px-12 -mt-12 pb-20 relative z-25 space-y-8">
+        
+        {/* Cartão Principal da Listagem de Cotações */}
+        <div className={`rounded-3xl border p-8 shadow-2xl transition-all space-y-6 ${
+          isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/80 text-slate-900 shadow-slate-200/50'
+        }`}>
+          
+          {/* Cabeçalho do Cartão */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center pb-6 border-b border-slate-500/10 gap-4">
+            <div>
+              <span className="inline-flex rounded-full bg-amber-500/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-amber-500 border border-amber-500/20 mb-2">
+                Gestão Comercial
+              </span>
+              <div className="flex items-center gap-3">
+                <h1 className="text-xl md:text-2xl font-black tracking-tight">Cotações Cadastradas</h1>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  {quotations.length}
+                </span>
+              </div>
+              <p className="text-xs opacity-60 mt-1 font-medium">Acompanhe, revise e gerencie suas cotações e o envio para os distribuidores.</p>
+            </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">
-        {loading ? (
-          <p className="px-6 py-10 text-center text-sm text-slate-400">Carregando cotações...</p>
-        ) : quotations.length === 0 ? (
-          <p className="px-6 py-10 text-center text-sm text-slate-400">Nenhuma cotação cadastrada.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-sm">
-              <thead className="border-b border-slate-100 bg-slate-50 text-slate-600">
-                <tr>
-                  <th className="p-4 font-semibold">Título / Pagamento</th>
-                  <th className="p-4 text-center font-semibold">Início</th>
-                  <th className="p-4 text-center font-semibold">Término & Fecho</th>
-                  <th className="p-4 font-semibold">Fornecedores Convidados</th>
-                  <th className="p-4 text-center font-semibold">Status</th>
-                  <th className="p-4 text-right font-semibold">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {quotations.map((quotation) => (
-                  <tr key={quotation.id} className="hover:bg-slate-50/60 align-top">
-                    <td className="p-4">
-                      <div className="font-medium text-slate-800">{quotation.title}</div>
-                      {quotation.paymentTerms && (
-                        <div className="mt-1 text-xs text-slate-500">
-                          Pagamento: <strong className="text-slate-700">{quotation.paymentTerms}</strong>
-                        </div>
-                      )}
-                    </td>
-                    <td className="p-4 text-center text-slate-600 text-xs">
-                      {formatDate(quotation.startDate)}
-                    </td>
-                    <td className="p-4 text-center text-slate-600 text-xs">
-                      <div>{formatDate(quotation.endDate)}</div>
-                      {quotation.closingTime && <div className="text-slate-400">às {quotation.closingTime}</div>}
-                    </td>
-                    <td className="p-4">
-                      {quotation.suppliers && quotation.suppliers.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {quotation.suppliers.map((sup, idx) => (
-                            <span
-                              key={idx}
-                              className={`inline-block rounded-md px-2 py-0.5 text-[11px] font-medium ${
-                                sup.status === 'RESPONDIDO'
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : 'bg-slate-100 text-slate-700 border border-slate-200'
-                              }`}
-                              title={`Status: ${sup.status}`}
-                            >
-                              {sup.name}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-slate-400 italic">Nenhum fornecedor vinculado</span>
-                      )}
-                    </td>
-                    <td className="p-4 text-center">
-                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                        {quotation.status === 'OPEN' ? 'Aberta' : quotation.status || 'Ativa'}
-                      </span>
-                    </td>
-                    <td className="p-4 text-right">
-                      <div className="flex flex-wrap justify-end gap-1.5">
-                        <Link href={`/cotacoes/pedidos/${quotation.id}`} className="rounded-md bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100">📦 Ver Pedidos</Link>
-                        <Link href={`/cotacoes/acompanhar/${quotation.id}`} className="rounded-md bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200">Acompanhar / Enviar</Link>
-                        <Link href={`/cotacoes/respostas/${quotation.id}`} className="rounded-md bg-indigo-50 px-2.5 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100">Respostas</Link>
-                        <Link href={`/cotacoes/editar/${quotation.id}`} className="rounded-md bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100">Editar</Link>
-                        <button onClick={() => handleDelete(quotation)} className="rounded-md bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100">Excluir</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="flex items-center gap-3">
+              <Link href="/" className="text-xs font-bold opacity-70 hover:opacity-100 transition flex items-center gap-1.5">
+                &larr; Voltar ao Início
+              </Link>
+              <Link href="/cotacoes/nova" className="rounded-2xl bg-emerald-600 hover:bg-emerald-500 px-5 py-3 text-xs font-extrabold text-white transition-all shadow-lg shadow-emerald-600/25">
+                + Nova Cotação
+              </Link>
+            </div>
           </div>
-        )}
-      </div>
+
+          {/* Tabela de Cotações */}
+          <div className="overflow-hidden rounded-2xl border border-slate-500/10 shadow-sm">
+            {loading ? (
+              <p className="px-6 py-16 text-center text-xs opacity-50 font-medium">Carregando cotações...</p>
+            ) : quotations.length === 0 ? (
+              <p className="px-6 py-16 text-center text-xs opacity-50 font-medium">Nenhuma cotação cadastrada.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-left text-xs">
+                  <thead>
+                    <tr className={`border-b uppercase tracking-wider text-[11px] font-extrabold ${
+                      isDarkMode ? 'border-slate-800 text-slate-400 bg-slate-950/30' : 'border-slate-200 text-slate-500 bg-slate-50/80'
+                    }`}>
+                      <th className="p-4 font-extrabold min-w-[220px]">Título / Pagamento</th>
+                      <th className="p-4 text-center font-extrabold">Início</th>
+                      <th className="p-4 text-center font-extrabold">Término & Fecho</th>
+                      <th className="p-4 font-extrabold min-w-[260px]">Fornecedores Convidados</th>
+                      <th className="p-4 text-center font-extrabold">Status</th>
+                      <th className="p-4 text-center font-extrabold min-w-[280px]">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-500/10">
+                    {quotations.map((quotation) => (
+                      <tr key={quotation.id} className={`transition-colors align-middle ${isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50/80'}`}>
+                        <td className="p-4">
+                          <div className="font-bold text-sm tracking-tight">{quotation.title}</div>
+                          {quotation.paymentTerms && (
+                            <div className="mt-1 text-[11px] opacity-70">
+                              Pagamento: <strong className="font-mono">{quotation.paymentTerms}</strong>
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-4 text-center font-mono opacity-80 text-xs">
+                          {formatDate(quotation.startDate)}
+                        </td>
+                        <td className="p-4 text-center font-mono opacity-80 text-xs">
+                          <div>{formatDate(quotation.endDate)}</div>
+                          {quotation.closingTime && <div className="text-[10px] opacity-60">às {quotation.closingTime}</div>}
+                        </td>
+                        <td className="p-4">
+                          {quotation.suppliers && quotation.suppliers.length > 0 ? (
+                            <div className="flex flex-wrap gap-1.5">
+                              {quotation.suppliers.map((sup, idx) => (
+                                <span
+                                  key={idx}
+                                  className={`inline-block rounded-xl px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider ${
+                                    sup.status === 'RESPONDIDO'
+                                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                      : 'bg-slate-500/10 opacity-75 border border-slate-500/20'
+                                  }`}
+                                  title={`Status: ${sup.status}`}
+                                >
+                                  {sup.name}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-xs opacity-40 italic">Nenhum fornecedor vinculado</span>
+                          )}
+                        </td>
+                        <td className="p-4 text-center">
+                          <span className="inline-flex rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                            {quotation.status === 'OPEN' ? 'Aberta' : quotation.status || 'Ativa'}
+                          </span>
+                        </td>
+                        <td className="p-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <Link href={`/cotacoes/pedidos/${quotation.id}`} title="Ver Pedidos" className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 font-extrabold transition-all">📦</Link>
+                            <Link href={`/cotacoes/acompanhar/${quotation.id}`} title="Acompanhar / Enviar" className="p-2 rounded-xl bg-slate-500/10 opacity-80 hover:opacity-100 hover:bg-slate-500/20 font-extrabold transition-all">📊</Link>
+                            <Link href={`/cotacoes/respostas/${quotation.id}`} title="Respostas" className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 font-extrabold transition-all">💬</Link>
+                            <Link href={`/cotacoes/editar/${quotation.id}`} title="Editar" className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 font-extrabold transition-all">✏️</Link>
+                            <button type="button" onClick={() => handleDelete(quotation)} title="Excluir" className="p-2 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 font-extrabold transition-all cursor-pointer">🗑️</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+        </div>
+
+      </main>
+
+      {/* MENU DE COMANDOS */}
+      <CommandMenu isOpen={isCmdOpen} onClose={() => setIsCmdOpen(false)} isDarkMode={isDarkMode} latestQuotationId={latestQuotationId} />
+
     </div>
   );
 }

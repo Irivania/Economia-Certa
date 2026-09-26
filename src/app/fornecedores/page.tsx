@@ -1,45 +1,110 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import Link from 'next/link';
+import { useState, useEffect, useCallback } from 'react';
+import { useTheme } from '@/context/ThemeContext';
+import { AppHeader } from '@/components/AppHeader';
+import { CommandMenu } from '@/components/CommandMenu';
+import { SupplierForm } from '@/components/suppliers/SupplierForm';
+import { SupplierCard } from '@/components/suppliers/SupplierCard';
 import { uppercaseText } from '@/lib/text';
 
 interface Supplier {
   id: string;
   name: string;
+  cnpj?: string | null;
+  address?: string | null;
   contactPerson?: string | null;
   phone?: string | null;
   email?: string | null;
 }
 
 export default function SuppliersPage() {
+  const { isDarkMode, mounted, themeColor } = useTheme();
+
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isCmdOpen, setIsCmdOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [fetchingCep, setFetchingCep] = useState(false);
 
   // Estados do formulário
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const [cnpj, setCnpj] = useState('');
+  const [cep, setCep] = useState('');
+  const [address, setAddress] = useState('');
   const [contactPerson, setContactPerson] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false); // Estado para controlar a visibilidade da senha
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const companyId = '915a8bc1-5db7-4605-93a9-b78090e75679';
+  const latestQuotationId = 'd7f46ae7-19c2-409d-8ab4-dfbb458c5248';
+
+  const themeButtonStyles = {
+    emerald: 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/25',
+    'emerald-light': 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/25',
+    blue: 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/25',
+    'blue-light': 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/25',
+    purple: 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/25',
+    'purple-light': 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/25',
+  }[themeColor];
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Máscara de Telefone: (00) 00000-0000 ou (00) 0000-0000
+  const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value.replace(/\D/g, '').substring(0, 8);
+    let formatted = rawValue;
+    if (rawValue.length > 5) {
+      formatted = `${rawValue.slice(0, 5)}-${rawValue.slice(5)}`;
+    }
+    setCep(formatted);
+
+    if (rawValue.length === 8) {
+      try {
+        setFetchingCep(true);
+        const res = await fetch(`https://viacep.com.br/ws/${rawValue}/json/`);
+        const data = await res.json();
+        if (!data.erro) {
+          const fullAddress = `${data.logradouro}, Bairro: ${data.bairro}, ${data.localidade} - ${data.uf}`;
+          setAddress(uppercaseText(fullAddress));
+          showToast('Endereço localizado via CEP com sucesso!');
+        } else {
+          alert('CEP não encontrado.');
+        }
+      } catch {
+        console.error('Erro ao buscar CEP.');
+      } finally {
+        setFetchingCep(false);
+      }
+    }
+  };
+
+  const handleCnpjChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, '').substring(0, 14);
+    let formatted = value;
+    if (value.length > 2 && value.length <= 5) {
+      formatted = `${value.slice(0, 2)}.${value.slice(2)}`;
+    } else if (value.length > 5 && value.length <= 8) {
+      formatted = `${value.slice(0, 2)}.${value.slice(2, 5)}.${value.slice(5)}`;
+    } else if (value.length > 8 && value.length <= 12) {
+      formatted = `${value.slice(0, 2)}.${value.slice(2, 5)}.${value.slice(5, 8)}/${value.slice(8)}`;
+    } else if (value.length > 12) {
+      formatted = `${value.slice(0, 2)}.${value.slice(2, 5)}.${value.slice(5, 8)}/${value.slice(8, 12)}-${value.slice(12)}`;
+    }
+    setCnpj(formatted);
+  };
+
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, '').substring(0, 11);
     let formatted = value;
-
     if (value.length > 2 && value.length <= 6) {
       formatted = `(${value.slice(0, 2)}) ${value.slice(2)}`;
     } else if (value.length > 6 && value.length <= 10) {
@@ -49,7 +114,6 @@ export default function SuppliersPage() {
     } else if (value.length > 0) {
       formatted = `(${value}`;
     }
-
     setPhone(formatted);
   };
 
@@ -68,34 +132,24 @@ export default function SuppliersPage() {
 
   useEffect(() => {
     let isMounted = true;
-
     async function loadInitialData() {
       try {
         const res = await fetch(`/api/suppliers?companyId=${companyId}`);
         if (!res.ok) throw new Error('Erro ao carregar fornecedores.');
         const data = await res.json();
-        
         if (isMounted) {
           setSuppliers(Array.isArray(data) ? data : []);
           setError(null);
         }
       } catch (err) {
-        if (isMounted) {
-          setError('Não foi possível buscar os fornecedores.');
-        }
+        if (isMounted) setError('Não foi possível buscar os fornecedores.');
         console.error(err);
       } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        if (isMounted) setLoading(false);
       }
     }
-
     loadInitialData();
-
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, [companyId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -110,8 +164,8 @@ export default function SuppliersPage() {
       const url = '/api/suppliers';
       const method = editingId ? 'PUT' : 'POST';
       const bodyData = editingId 
-        ? { id: editingId, companyId, name, contactPerson, phone, email, password }
-        : { companyId, name, contactPerson, phone, email, password };
+        ? { id: editingId, companyId, name, cnpj, address, contactPerson, phone, email, password }
+        : { companyId, name, cnpj, address, contactPerson, phone, email, password };
 
       const res = await fetch(url, {
         method,
@@ -139,24 +193,21 @@ export default function SuppliersPage() {
   const handleEdit = (sup: Supplier) => {
     setEditingId(sup.id);
     setName(sup.name);
+    setCnpj(sup.cnpj || '');
+    setAddress(sup.address || '');
     setContactPerson(sup.contactPerson || '');
     setPhone(sup.phone || '');
     setEmail(sup.email || '');
-    setPassword(''); // Deixa em branco por segurança ao editar
+    setPassword('');
     setShowPassword(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Deseja realmente excluir este fornecedor?')) return;
-
     try {
-      const res = await fetch(`/api/suppliers?id=${id}&companyId=${companyId}`, {
-        method: 'DELETE',
-      });
-
+      const res = await fetch(`/api/suppliers?id=${id}&companyId=${companyId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Erro ao excluir fornecedor.');
-
       showToast('Fornecedor excluído com sucesso!');
       await refreshSuppliers();
     } catch (err) {
@@ -168,6 +219,9 @@ export default function SuppliersPage() {
   const resetForm = () => {
     setEditingId(null);
     setName('');
+    setCnpj('');
+    setCep('');
+    setAddress('');
     setContactPerson('');
     setPhone('');
     setEmail('');
@@ -175,163 +229,113 @@ export default function SuppliersPage() {
     setShowPassword(false);
   };
 
-  return (
-    <div className="min-h-screen bg-slate-50 py-10 px-6">
-      <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-        
-        {/* Cabeçalho */}
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">🤝 Gestão de Fornecedores</h1>
-            <p className="text-slate-600 text-sm">Melo Perfumaria — Cadastro e controle de distribuidoras.</p>
-          </div>
-          <div className="flex gap-4">
-            <Link href="/" className="text-slate-600 hover:text-slate-900 text-sm font-semibold transition-colors">
-              &larr; Dashboard
-            </Link>
-            <Link href="/cotacoes" className="text-blue-600 hover:text-blue-800 text-sm font-semibold transition-colors">
-              Ir para Cotações &rarr;
-            </Link>
-          </div>
-        </div>
+  const filteredSuppliers = suppliers.filter(s => 
+    s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (s.cnpj && s.cnpj.includes(searchTerm)) ||
+    (s.contactPerson && s.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
 
-        {/* Formulário de Cadastro / Edição */}
-        <form onSubmit={handleSubmit} className="mb-8 p-6 bg-slate-50 rounded-lg border border-slate-200">
-          <div className="flex justify-between items-center mb-3">
-            <h2 className="text-md font-bold text-slate-800">
-              {editingId ? 'Editar Fornecedor' : 'Cadastrar Novo Fornecedor'}
-            </h2>
-            {editingId && (
-              <button
-                type="button"
-                onClick={resetForm}
-                className="text-xs text-rose-600 hover:underline font-semibold"
-              >
-                Cancelar Edição
-              </button>
-            )}
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input
-              type="text"
-              placeholder="Nome da Empresa / Distribuidora *"
-              value={name}
-              onChange={(e) => setName(uppercaseText(e.target.value))}
-              className="px-4 py-2 text-sm border border-slate-300 rounded-lg bg-white"
-            />
-            <input
-              type="text"
-              placeholder="Nome do Representante"
-              value={contactPerson}
-              onChange={(e) => setContactPerson(uppercaseText(e.target.value))}
-              className="px-4 py-2 text-sm border border-slate-300 rounded-lg bg-white"
-            />
-            <input
-              type="text"
-              placeholder="Telefone / WhatsApp (DDD + Número)"
-              value={phone}
-              onChange={handlePhoneChange}
-              className="px-4 py-2 text-sm border border-slate-300 rounded-lg bg-white"
-            />
-            <input
-              type="email"
-              placeholder="E-mail de Contato / Login"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="px-4 py-2 text-sm border border-slate-300 rounded-lg bg-white"
-            />
-            <div className="relative md:col-span-2">
+  if (!mounted) return <div className="min-h-screen bg-slate-50" />;
+
+  return (
+    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+      
+      <AppHeader
+        title="Gestão de Fornecedores"
+        subtitle="Melo Perfumaria — Diretório avançado de parceiros B2B."
+        onOpenCmd={() => setIsCmdOpen(true)}
+      />
+
+      <main className="max-w-7xl mx-auto px-6 sm:px-12 -mt-12 pb-20 relative z-20 space-y-8">
+        
+        <SupplierForm
+          editingId={editingId}
+          name={name}
+          setName={setName}
+          cnpj={cnpj}
+          handleCnpjChange={handleCnpjChange}
+          cep={cep}
+          handleCepChange={handleCepChange}
+          fetchingCep={fetchingCep}
+          address={address}
+          setAddress={setAddress}
+          contactPerson={contactPerson}
+          setContactPerson={setContactPerson}
+          phone={phone}
+          handlePhoneChange={handlePhoneChange}
+          email={email}
+          setEmail={setEmail}
+          password={password}
+          setPassword={setPassword}
+          showPassword={showPassword}
+          setShowPassword={setShowPassword}
+          submitting={submitting}
+          onSubmit={handleSubmit}
+          onReset={resetForm}
+          isDarkMode={isDarkMode}
+          themeButtonStyles={themeButtonStyles}
+        />
+
+        <div className={`p-8 rounded-3xl shadow-2xl border space-y-6 ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200/80'}`}>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-5 border-slate-500/10">
+            <div>
+              <h2 className="text-base font-black tracking-tight">Diretório de Fornecedores</h2>
+              <p className="text-xs opacity-60 mt-0.5">Gestão centralizada de canais ativos na Melo Perfumaria.</p>
+            </div>
+            
+            <div className="flex items-center gap-3 w-full sm:w-auto">
               <input
-                type={showPassword ? 'text' : 'password'}
-                placeholder={editingId ? 'Nova Palavra-passe (deixe em branco para manter)' : 'Palavra-passe para o Portal B2B *'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 pr-10 text-sm border border-slate-300 rounded-lg bg-white"
+                type="text"
+                placeholder="Pesquisar fornecedor ou CNPJ..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className={`px-4 py-2 text-xs border rounded-xl outline-none w-full sm:w-64 ${isDarkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 text-sm focus:outline-none"
-                title={showPassword ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}
-              >
-                {showPassword ? '👁️‍🗨️' : '👁️'}
-              </button>
+              <span className="text-xs font-mono font-bold opacity-70 bg-slate-500/10 px-3 py-2 rounded-xl whitespace-nowrap">
+                {filteredSuppliers.length} ativos
+              </span>
             </div>
           </div>
-          <div className="mt-4 flex justify-end gap-2">
-            <button
-              type="submit"
-              disabled={submitting}
-              className={`text-xs font-semibold px-5 py-2.5 rounded-lg transition-colors text-white ${
-                editingId ? 'bg-amber-600 hover:bg-amber-700' : 'bg-blue-600 hover:bg-blue-700'
-              } disabled:opacity-50`}
-            >
-              {submitting ? 'Salvando...' : editingId ? 'Salvar Alterações' : '+ Cadastrar Fornecedor'}
-            </button>
-          </div>
-        </form>
 
-        {/* Tabela de Fornecedores */}
-        {loading ? (
-          <p className="text-slate-500 text-center py-10">Carregando fornecedores...</p>
-        ) : error ? (
-          <div className="p-4 bg-red-50 text-red-700 rounded-md text-sm">{error}</div>
-        ) : (
-          <div>
-            <h2 className="text-lg font-bold text-slate-800 mb-4">Fornecedores Cadastrados</h2>
-            {suppliers.length === 0 ? (
-              <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-lg">
-                <p className="text-slate-400 text-sm">Nenhum fornecedor cadastrado ainda.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-slate-100 text-slate-700 border-b border-slate-200">
-                      <th className="p-3 font-semibold">Fornecedor</th>
-                      <th className="p-3 font-semibold">Representante</th>
-                      <th className="p-3 font-semibold">Telefone</th>
-                      <th className="p-3 font-semibold">E-mail</th>
-                      <th className="p-3 font-semibold text-center">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {suppliers.map((sup) => (
-                      <tr key={sup.id} className="border-b border-slate-100 hover:bg-slate-50">
-                        <td className="p-3 font-medium text-slate-800">{sup.name}</td>
-                        <td className="p-3 text-slate-600">{sup.contactPerson || '-'}</td>
-                        <td className="p-3 text-slate-600">{sup.phone || '-'}</td>
-                        <td className="p-3 text-slate-600">{sup.email || '-'}</td>
-                        <td className="p-3 text-center space-x-2">
-                          <button
-                            onClick={() => handleEdit(sup)}
-                            className="text-blue-600 hover:underline font-semibold"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            onClick={() => handleDelete(sup.id)}
-                            className="text-rose-600 hover:underline font-semibold"
-                          >
-                            Excluir
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
+          {loading ? (
+            <p className="text-center py-16 opacity-60 text-xs font-medium">A carregar diretório de parceiros...</p>
+          ) : error ? (
+            <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-2xl text-xs font-semibold">{error}</div>
+          ) : filteredSuppliers.length === 0 ? (
+            <div className="text-center py-16 border-2 border-dashed border-slate-500/20 rounded-3xl">
+              <p className="opacity-60 text-xs font-medium">Nenhum fornecedor encontrado com os critérios informados.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredSuppliers.map((sup) => (
+                <SupplierCard
+                  key={sup.id}
+                  supplier={sup}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  isDarkMode={isDarkMode}
+                  themeColor={themeColor}
+                />
+              ))}
+            </div>
+          )}
+        </div>
 
-      </div>
+      </main>
 
       {toastMessage && (
-        <div className="fixed bottom-5 right-5 px-5 py-3 bg-emerald-600 text-white rounded-lg shadow-lg text-sm font-semibold transition-all z-50">
+        <div className="fixed bottom-5 right-5 px-5 py-3 bg-emerald-600 text-white rounded-2xl shadow-2xl text-xs font-bold transition-all z-50">
           {toastMessage}
         </div>
       )}
+
+      <CommandMenu 
+        isOpen={isCmdOpen} 
+        onClose={() => setIsCmdOpen(false)} 
+        isDarkMode={isDarkMode} 
+        latestQuotationId={latestQuotationId} 
+      />
+
     </div>
   );
 }

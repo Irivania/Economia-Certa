@@ -16,6 +16,9 @@ import QuotationItemsTable from '@/components/QuotationItemsTable';
 import QuotationSuppliersSection from '@/components/QuotationSuppliersSection';
 import QuotationSuggestionBar from '@/components/QuotationSuggestionBar';
 import { ProductImportModal, ItemPendente, Product } from '@/components/ProductImportModal';
+import { useTheme } from '@/context/ThemeContext';
+import { AppHeader } from '@/components/AppHeader';
+import { CommandMenu } from '@/components/CommandMenu';
 
 interface Supplier {
   id: string;
@@ -46,13 +49,15 @@ function getTodayDateString() {
   return `${year}-${month}-${day}`;
 }
 
-export default function NewQuotationPage() {
+export default function Page() {
   const router = useRouter();
+  const { isDarkMode } = useTheme();
   const mounted = useSyncExternalStore(
     emptySubscribe,
     () => true,
     () => false,
   );
+  
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
 
@@ -67,10 +72,26 @@ export default function NewQuotationPage() {
   const [quotationItems, setQuotationItems] = useState<QuotationItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
+  const [isCmdOpen, setIsCmdOpen] = useState(false);
 
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      setIsCmdOpen((open) => !open);
+    }
+    if (e.key === 'Escape') {
+      setIsCmdOpen(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
 
   const loadProductsAndSuppliers = useCallback(async () => {
     try {
@@ -241,89 +262,113 @@ export default function NewQuotationPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 px-6 py-10 font-sans text-slate-800">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <QuotationFormHeader onOpenModal={() => setIsCatalogModalOpen(true)} />
+    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+      
+      {/* HEADER GLOBAL UNIFICADO */}
+      <AppHeader
+        title="Economia Certa"
+        subtitle="Painel gerencial inteligente e controle de compras em tempo real."
+        onOpenCmd={() => setIsCmdOpen(true)}
+      />
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <QuotationBasicInfo
-            title={title}
-            setTitle={setTitle}
-            startDate={startDate}
-            setStartDate={setStartDate}
-            endDate={endDate}
-            setEndDate={setEndDate}
-            closingTime={closingTime}
-            setClosingTime={setClosingTime}
-            paymentTerms={paymentTerms}
-            setPaymentTerms={setPaymentTerms}
-          />
+      {/* CONTEÚDO PRINCIPAL */}
+      <main className="max-w-7xl mx-auto px-6 sm:px-12 -mt-12 pb-20 relative z-25 space-y-8">
+        
+        {/* Cartão Principal */}
+        <div className={`rounded-3xl border p-8 shadow-2xl transition-all space-y-8 ${
+          isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/80 text-slate-900 shadow-slate-200/50'
+        }`}>
+          
+          <QuotationFormHeader onOpenModal={() => setIsCatalogModalOpen(true)} />
 
-          <ProductImportModal 
-            products={catalogProducts} 
-            onQuickRegister={handleQuickRegister} 
-            onImportComplete={(itensImportados) => {
-              setQuotationItems((prev) => {
-                const existingIds = new Set(prev.map(i => i.productId));
-                const novos = itensImportados.filter(i => !existingIds.has(i.productId));
-                return [...prev, ...novos];
-              });
-            }}
-          />
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <QuotationBasicInfo
+              title={title}
+              setTitle={setTitle}
+              startDate={startDate}
+              setStartDate={setStartDate}
+              endDate={endDate}
+              setEndDate={setEndDate}
+              closingTime={closingTime}
+              setClosingTime={setClosingTime}
+              paymentTerms={paymentTerms}
+              setPaymentTerms={setPaymentTerms}
+            />
 
-          <QuotationSuggestionBar
-            itemsCount={quotationItems.length}
-            onApplySuggestion={handleApplyStockSuggestion}
-          />
+            <ProductImportModal 
+              products={catalogProducts} 
+              onQuickRegister={handleQuickRegister} 
+              onImportComplete={(itensImportados) => {
+                setQuotationItems((prev) => {
+                  const existingIds = new Set(prev.map(i => i.productId));
+                  const novos = itensImportados.filter(i => !existingIds.has(i.productId));
+                  return [...prev, ...novos];
+                });
+              }}
+            />
 
-          <QuotationItemsTable
-            items={quotationItems}
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            onUpdateQuantity={handleUpdateQuantity}
-            onRemoveItem={handleRemoveItem}
-          />
+            <QuotationSuggestionBar
+              itemsCount={quotationItems.length}
+              onApplySuggestion={handleApplyStockSuggestion}
+            />
 
-          <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-100 pb-3">
-              <h2 className="text-base font-bold text-slate-900">Distribuidores / Fornecedores Convidados</h2>
-              <div className="flex items-center gap-3 text-xs font-semibold">
-                <button type="button" onClick={handleSelectAllSuppliers} className="text-indigo-600 hover:underline">Marcar todos</button>
-                <span className="text-slate-300">|</span>
-                <button type="button" onClick={handleDeselectAllSuppliers} className="text-slate-500 hover:underline">Desmarcar todos</button>
+            <QuotationItemsTable
+              items={quotationItems}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              onUpdateQuantity={handleUpdateQuantity}
+              onRemoveItem={handleRemoveItem}
+            />
+
+            <div className={`space-y-4 rounded-2xl border p-6 transition-all ${
+              isDarkMode ? 'bg-slate-950/50 border-slate-800' : 'bg-slate-50/60 border-slate-200/80'
+            }`}>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-500/10 pb-4">
+                <h2 className="text-sm font-black uppercase tracking-wider">Distribuidores / Fornecedores Convidados</h2>
+                <div className="flex items-center gap-3 text-xs font-bold">
+                  <button type="button" onClick={handleSelectAllSuppliers} className="text-emerald-600 dark:text-emerald-400 hover:underline">Marcar todos</button>
+                  <span className="opacity-30">|</span>
+                  <button type="button" onClick={handleDeselectAllSuppliers} className="opacity-75 hover:opacity-100 hover:underline">Desmarcar todos</button>
+                </div>
               </div>
+
+              <QuotationSuppliersSection
+                suppliers={suppliers}
+                selectedSupplierIds={selectedSupplierIds}
+                onToggleSupplier={toggleSupplier}
+                loading={loadingSuppliers}
+              />
             </div>
 
-            <QuotationSuppliersSection
-              suppliers={suppliers}
-              selectedSupplierIds={selectedSupplierIds}
-              onToggleSupplier={toggleSupplier}
-              loading={loadingSuppliers}
-            />
-          </div>
+            {error && <p role="alert" className="rounded-xl bg-rose-500/10 border border-rose-500/20 px-4 py-3 text-xs font-bold text-rose-500">{error}</p>}
 
-          {error && <p role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+            <div className="flex flex-col-reverse gap-3 border-t border-slate-500/10 pt-6 sm:flex-row sm:justify-end">
+              <Link href="/cotacoes" className="rounded-2xl px-6 py-3 text-center text-xs font-bold transition-all border border-slate-500/20 hover:bg-slate-500/10">Cancelar</Link>
+              <button type="submit" disabled={submitting || loadingSuppliers || suppliers.length === 0} className="rounded-2xl bg-emerald-600 hover:bg-emerald-500 px-7 py-3 text-xs font-extrabold text-white shadow-lg shadow-emerald-600/25 transition-all disabled:opacity-50 cursor-pointer">
+                {submitting ? 'Criando...' : 'Criar cotação'}
+              </button>
+            </div>
+          </form>
 
-          <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:justify-end">
-            <Link href="/cotacoes" className="rounded-lg px-5 py-2.5 text-center text-sm font-semibold text-slate-600 border border-slate-200 bg-white hover:bg-slate-100">Cancelar</Link>
-            <button type="submit" disabled={submitting || loadingSuppliers || suppliers.length === 0} className="rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50">
-              {submitting ? 'Criando...' : 'Criar cotação'}
-            </button>
-          </div>
-        </form>
+          <ProductSelectionModal
+            isOpen={isCatalogModalOpen}
+            onClose={() => setIsCatalogModalOpen(false)}
+            products={catalogProducts.map(p => ({
+              ...p,
+              brand: p.brand || undefined,
+              ean: p.ean || undefined,
+              imageUrl: p.imageUrl || undefined,
+            }))}
+            onAddSelectedProducts={handleAddSelectedProducts}
+          />
 
-        <ProductSelectionModal
-          isOpen={isCatalogModalOpen}
-          onClose={() => setIsCatalogModalOpen(false)}
-          products={catalogProducts.map(p => ({
-            ...p,
-            brand: p.brand || undefined,
-            ean: p.ean || undefined,
-            imageUrl: p.imageUrl || undefined,
-          }))}
-          onAddSelectedProducts={handleAddSelectedProducts}
-        />
-      </div>
-    </main>
+        </div>
+
+      </main>
+
+      {/* MENU DE COMANDOS */}
+      <CommandMenu isOpen={isCmdOpen} onClose={() => setIsCmdOpen(false)} isDarkMode={isDarkMode} latestQuotationId="" />
+
+    </div>
   );
 }

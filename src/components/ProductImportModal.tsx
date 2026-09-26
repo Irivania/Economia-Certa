@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { products as productsSchema } from '@/db/schema';
 import { ImportHeader } from './import/ImportHeader';
 import { ImportResultsList } from './import/ImportResultsList';
+import { useTheme } from '@/context/ThemeContext';
 
 export type Product = typeof productsSchema.$inferSelect & {
   ean?: string | null;
@@ -98,6 +99,8 @@ function normalizarTexto(texto: string): string {
 }
 
 export function ProductImportModal({ products, onImportComplete }: ProductImportModalProps) {
+  const { isDarkMode } = useTheme();
+
   const [rawImportText, setRawImportText] = useState(() => {
     if (typeof window !== 'undefined') {
       return sessionStorage.getItem('melo_raw_import') || '';
@@ -169,8 +172,8 @@ export function ProductImportModal({ products, onImportComplete }: ProductImport
         ean: r.product.ean || r.ean || null,
         imageUrl: r.product.imageUrl || null,
         stockCurrent: r.product.stockCurrent || 0,
-        stockIdeal: r.product.stockIdeal || 0, // Estoque ideal puxado do cadastro do produto
-        requestedQuantity: 0, // Quantidade solicitada zerada/vazia para o comprador definir
+        stockIdeal: r.product.stockIdeal || 0,
+        requestedQuantity: 0,
       })),
       ...itensPendentes.map((p, idx) => ({
         id: `pendente_${idx}_${Date.now()}`,
@@ -181,7 +184,7 @@ export function ProductImportModal({ products, onImportComplete }: ProductImport
         imageUrl: null,
         stockCurrent: Number(p.estoqueAtual) || 0,
         stockIdeal: 0,
-        requestedQuantity: 0, // Quantidade solicitada zerada/vazia para o comprador definir
+        requestedQuantity: 0,
       }))
     ];
 
@@ -374,7 +377,9 @@ export function ProductImportModal({ products, onImportComplete }: ProductImport
   };
 
   return (
-    <div className="bg-white border border-indigo-100 rounded-xl p-6 mb-8 space-y-6 shadow-sm">
+    <div className={`rounded-2xl border p-6 space-y-6 transition-all ${
+      isDarkMode ? 'bg-slate-950/50 border-slate-800 text-white' : 'bg-slate-50/60 border-slate-200/80 text-slate-900'
+    }`}>
       <ImportHeader
         rawImportText={rawImportText}
         onTextChange={handleTextChange}

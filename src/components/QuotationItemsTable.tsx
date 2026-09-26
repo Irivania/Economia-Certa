@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { useRef } from 'react';
+import { useTheme } from '@/context/ThemeContext';
 
 interface QuotationItem {
   id: string;
@@ -30,7 +31,7 @@ export default function QuotationItemsTable({
   onUpdateQuantity,
   onRemoveItem,
 }: QuotationItemsTableProps) {
-  // Cria um mapa de referências para os inputs de quantidade
+  const { isDarkMode } = useTheme();
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const filteredItems = items.filter(item =>
@@ -40,47 +41,53 @@ export default function QuotationItemsTable({
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, currentIndex: number) => {
     if (e.key === 'Enter') {
-      e.preventDefault(); // Evita submeter o formulário ao pressionar Enter
+      e.preventDefault();
       const nextItem = filteredItems[currentIndex + 1];
       if (nextItem) {
         const nextId = nextItem.id || nextItem.productId;
         inputRefs.current[nextId]?.focus();
-        inputRefs.current[nextId]?.select(); // Seleciona o texto atual para facilitar a edição
+        inputRefs.current[nextId]?.select();
       }
     }
   };
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+    <div className={`rounded-2xl border p-6 space-y-4 transition-all ${
+      isDarkMode ? 'bg-slate-950/50 border-slate-800 text-white' : 'bg-slate-50/60 border-slate-200/80 text-slate-900'
+    }`}>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <h2 className="font-bold text-slate-700 text-sm">Itens da Cotação ({items.length})</h2>
-        <div className="w-full sm:w-72">
+        <h2 className="text-sm font-black uppercase tracking-wider">Itens da Cotação ({items.length})</h2>
+        <div className="w-full sm:w-80">
           <input
             type="text"
             placeholder="Buscar na lista por nome ou EAN..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+            className={`w-full rounded-xl border px-4 py-2.5 text-xs font-bold outline-none transition-all ${
+              isDarkMode ? 'bg-slate-900 border-slate-700 text-white focus:border-emerald-500' : 'bg-white border-slate-300 text-slate-800 focus:border-emerald-600'
+            }`}
           />
         </div>
       </div>
 
-      <div className="overflow-x-auto border border-slate-100 rounded-lg">
-        <table className="w-full text-left border-collapse text-sm">
+      <div className="overflow-x-auto rounded-2xl border border-slate-500/10 shadow-sm">
+        <table className="w-full text-left border-collapse text-xs">
           <thead>
-            <tr className="bg-slate-50 text-slate-600 border-b border-slate-100">
-              <th className="p-3 font-semibold">Produto / Descrição</th>
-              <th className="p-3 font-semibold">Marca / EAN</th>
-              <th className="p-3 font-semibold text-center">Estoque Atual</th>
-              <th className="p-3 font-semibold text-center">Estoque Ideal</th>
-              <th className="p-3 font-semibold text-center">Qtd. Solicitada</th>
-              <th className="p-3 font-semibold text-right">Ações</th>
+            <tr className={`border-b uppercase tracking-wider text-[11px] font-extrabold ${
+              isDarkMode ? 'border-slate-800 text-slate-400 bg-slate-900/30' : 'border-slate-200 text-slate-500 bg-slate-50/60'
+            }`}>
+              <th className="p-4 font-extrabold">Produto / Descrição</th>
+              <th className="p-4 font-extrabold">Marca / EAN</th>
+              <th className="p-4 font-extrabold text-center">Estoque Atual</th>
+              <th className="p-4 font-extrabold text-center">Estoque Ideal</th>
+              <th className="p-4 font-extrabold text-center">Qtd. Solicitada</th>
+              <th className="p-4 font-extrabold text-right">Ações</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-500/10">
             {filteredItems.length === 0 ? (
               <tr>
-                <td colSpan={6} className="p-6 text-center text-slate-400">
+                <td colSpan={6} className="p-16 text-center text-xs opacity-50 font-medium">
                   Nenhum item adicionado. Clique em &quot;+ Adicionar do Catálogo&quot; ou importe um arquivo acima.
                 </td>
               </tr>
@@ -88,11 +95,11 @@ export default function QuotationItemsTable({
               filteredItems.map((item, index) => {
                 const itemId = item.id || item.productId;
                 return (
-                  <tr key={itemId} className="hover:bg-slate-50/50">
-                    <td className="p-3 font-medium text-slate-800">
+                  <tr key={itemId} className={`transition-colors ${isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50/80'}`}>
+                    <td className="p-4 font-bold text-sm tracking-tight">
                       <div className="flex items-center gap-3">
                         {item.imageUrl ? (
-                          <div className="relative h-10 w-10 flex-shrink-0 rounded-lg overflow-hidden border border-slate-200 bg-white">
+                          <div className="relative h-10 w-10 flex-shrink-0 rounded-xl overflow-hidden border border-slate-500/20 bg-white">
                             <Image
                               src={item.imageUrl}
                               alt={item.description}
@@ -102,19 +109,19 @@ export default function QuotationItemsTable({
                             />
                           </div>
                         ) : (
-                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-slate-400 text-xs">
+                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-dashed border-slate-500/30 bg-slate-500/10 text-xs">
                             📦
                           </div>
                         )}
                         <span className="line-clamp-2">{item.description}</span>
                       </div>
                     </td>
-                    <td className="p-3 text-slate-500 text-xs font-mono">
+                    <td className="p-4 opacity-70 text-xs font-mono">
                       {item.brand || 'Geral'} {item.ean ? `| ${item.ean}` : ''}
                     </td>
-                    <td className="p-3 text-center text-amber-600 font-medium">{item.stockCurrent}</td>
-                    <td className="p-3 text-center text-slate-600">{item.stockIdeal}</td>
-                    <td className="p-3 text-center">
+                    <td className="p-4 text-center font-mono font-bold text-amber-500">{item.stockCurrent}</td>
+                    <td className="p-4 text-center font-mono font-bold opacity-80">{item.stockIdeal}</td>
+                    <td className="p-4 text-center">
                       <input
                         ref={(el) => { inputRefs.current[itemId] = el; }}
                         type="number"
@@ -127,14 +134,16 @@ export default function QuotationItemsTable({
                           onUpdateQuantity(itemId, val);
                         }}
                         onKeyDown={(e) => handleKeyDown(e, index)}
-                        className="w-20 text-center border border-slate-200 rounded-md py-1 text-sm outline-none focus:ring-2 focus:ring-indigo-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        className={`w-20 text-center rounded-xl border py-2 text-xs font-black font-mono outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                          isDarkMode ? 'bg-slate-900 border-slate-700 text-emerald-400 focus:border-emerald-500' : 'bg-white border-slate-300 text-emerald-700 focus:border-emerald-600'
+                        }`}
                       />
                     </td>
-                    <td className="p-3 text-right">
+                    <td className="p-4 text-right">
                       <button
                         type="button"
                         onClick={() => onRemoveItem(itemId)}
-                        className="text-red-500 hover:text-red-700 font-medium text-xs transition"
+                        className="text-rose-500 hover:text-rose-600 font-extrabold text-xs transition cursor-pointer"
                       >
                         Remover
                       </button>

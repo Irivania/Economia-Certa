@@ -1,7 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { useTheme } from '@/context/ThemeContext';
+import { AppHeader } from '@/components/AppHeader';
+import { CommandMenu } from '@/components/CommandMenu';
 
 interface QuotationItem {
   id: string;
@@ -39,12 +42,29 @@ function formatCurrency(value: number | null | undefined) {
   }).format(value);
 }
 
-export default function ComparativeReportPage() {
+export default function Page() {
+  const { isDarkMode } = useTheme();
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [selectedQuotationId, setSelectedQuotationId] = useState<string>('');
   const [detailedQuotation, setDetailedQuotation] = useState<Quotation | null>(null);
   const [loadingQuotations, setLoadingQuotations] = useState(true);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [isCmdOpen, setIsCmdOpen] = useState(false);
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      setIsCmdOpen((open) => !open);
+    }
+    if (e.key === 'Escape') {
+      setIsCmdOpen(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
 
   useEffect(() => {
     async function fetchQuotations() {
@@ -122,140 +142,180 @@ export default function ComparativeReportPage() {
   const productsList = Object.values(productsMap);
 
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between border-b border-slate-100 pb-3 text-sm">
-        <Link href="/" className="font-medium text-slate-500 transition hover:text-indigo-600">
-          ← Voltar para o Dashboard
-        </Link>
-        <div className="space-x-4">
-          <Link href="/cotacoes" className="text-indigo-600 font-medium hover:underline">
-            Gerenciar Cotações →
-          </Link>
-          {selectedQuotationId && (
-            <Link href={`/cotacoes/pedidos/${selectedQuotationId}`} className="text-emerald-600 font-medium hover:underline">
-              📦 Ver Pedidos desta Cotação →
-            </Link>
-          )}
-        </div>
-      </div>
+    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+      
+      {/* HEADER GLOBAL UNIFICADO */}
+      <AppHeader
+        title="Economia Certa"
+        subtitle="Painel gerencial inteligente e controle de compras em tempo real."
+        onOpenCmd={() => setIsCmdOpen(true)}
+      />
 
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">📈 Relatório Comparativo de Preços</h1>
-        <p className="mt-1 text-sm text-slate-500">Análise lado a lado de preços por fornecedor baseada na cotação selecionada.</p>
-      </div>
+      {/* CONTEÚDO PRINCIPAL */}
+      <main className="max-w-7xl mx-auto px-6 sm:px-12 -mt-12 pb-20 relative z-25 space-y-8">
+        
+        {/* Cartão Principal do Relatório */}
+        <div className={`rounded-3xl border p-8 shadow-2xl transition-all space-y-6 ${
+          isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/80 text-slate-900 shadow-slate-200/50'
+        }`}>
+          
+          {/* Cabeçalho do Cartão e Navegação */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center pb-6 border-b border-slate-500/10 gap-4">
+            <div>
+              <span className="inline-flex rounded-full bg-indigo-500/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-indigo-500 border border-indigo-500/20 mb-2">
+                Inteligência Analítica
+              </span>
+              <h1 className="text-xl md:text-2xl font-black tracking-tight">📈 Relatório Comparativo de Preços</h1>
+              <p className="text-xs opacity-60 mt-1 font-medium">Análise lado a lado de preços por fornecedor baseada na cotação selecionada.</p>
+            </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex flex-col sm:flex-row items-center gap-4">
-        <div className="w-full sm:w-1/3">
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-            Selecione a Cotação
-          </label>
-          <select
-            value={selectedQuotationId}
-            onChange={(e) => setSelectedQuotationId(e.target.value)}
-            disabled={loadingQuotations}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:outline-none"
-          >
-            {loadingQuotations ? (
-              <option>Carregando cotações...</option>
-            ) : quotations.length === 0 ? (
-              <option>Nenhuma cotação encontrada</option>
+            <div className="flex flex-wrap items-center gap-3">
+              <Link href="/" className="text-xs font-bold opacity-70 hover:opacity-100 transition flex items-center gap-1.5">
+                &larr; Voltar ao Dashboard
+              </Link>
+              <Link href="/cotacoes" className="rounded-2xl bg-slate-500/10 hover:bg-slate-500/20 px-4 py-2.5 text-xs font-bold transition-all">
+                Gerenciar Cotações &rarr;
+              </Link>
+              {selectedQuotationId && (
+                <Link href={`/cotacoes/pedidos/${selectedQuotationId}`} className="rounded-2xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2.5 text-xs font-extrabold text-white shadow-lg shadow-emerald-600/25 transition-all">
+                  📦 Ver Pedidos
+                </Link>
+              )}
+            </div>
+          </div>
+
+          {/* Seletor de Cotação */}
+          <div className={`p-6 rounded-2xl border flex flex-col sm:flex-row items-center gap-4 transition-all ${
+            isDarkMode ? 'bg-slate-950/50 border-slate-800' : 'bg-slate-50 border-slate-200/80'
+          }`}>
+            <div className="w-full sm:w-1/3">
+              <label className="block text-[10px] font-black uppercase tracking-wider opacity-60 mb-1.5">
+                Selecione a Cotação
+              </label>
+              <select
+                value={selectedQuotationId}
+                onChange={(e) => setSelectedQuotationId(e.target.value)}
+                disabled={loadingQuotations}
+                className={`w-full rounded-xl border px-3 py-2 text-xs font-bold outline-none transition-all ${
+                  isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-800'
+                }`}
+              >
+                {loadingQuotations ? (
+                  <option>Carregando cotações...</option>
+                ) : quotations.length === 0 ? (
+                  <option>Nenhuma cotação encontrada</option>
+                ) : (
+                  quotations.map((q) => (
+                    <option key={q.id} value={q.id}>
+                      {q.title}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            <div className="w-full sm:w-2/3 flex items-end">
+              <p className="text-xs opacity-60 font-medium">
+                💡 O relatório cruza automaticamente os valores respondidos por cada distribuidora nesta cotação.
+              </p>
+            </div>
+          </div>
+
+          {/* Tabela de Comparação */}
+          <div className="overflow-hidden rounded-2xl border border-slate-500/10 shadow-sm">
+            {loadingDetails ? (
+              <div className="p-16 text-center text-xs opacity-50 font-medium">Carregando dados comparativos...</div>
+            ) : productsList.length === 0 ? (
+              <div className="p-16 text-center text-xs opacity-50 font-medium">
+                Nenhum dado encontrado para esta cotação.
+              </div>
             ) : (
-              quotations.map((q) => (
-                <option key={q.id} value={q.id}>
-                  {q.title}
-                </option>
-              ))
-            )}
-          </select>
-        </div>
-
-        <div className="w-full sm:w-2/3 flex items-end">
-          <p className="text-xs text-slate-400">
-            * O relatório cruza automaticamente os valores respondidos por cada distribuidora nesta cotação.
-          </p>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-        {loadingDetails ? (
-          <div className="p-12 text-center text-slate-400 text-sm">Carregando dados comparativos...</div>
-        ) : productsList.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 text-sm">
-            Nenhum dado encontrado para esta cotação.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-slate-700">
-                <tr>
-                  <th className="p-4 font-semibold min-w-[220px]">Produto</th>
-                  <th className="p-4 text-center font-semibold">Qtd</th>
-                  {suppliers.map((sup) => (
-                    <th key={sup.supplierId} className="p-4 text-center font-semibold border-l border-slate-200">
-                      {sup.name || 'Fornecedor'}
-                    </th>
-                  ))}
-                  <th className="p-4 text-center font-semibold text-emerald-700 bg-emerald-50/50 border-l border-slate-200">Melhor Preço</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {productsList.map((prod) => {
-                  let menorPreco = Infinity;
-                  let melhorFornecedor = '';
-
-                  suppliers.forEach((sup) => {
-                    const resp = prod.responses[sup.supplierId];
-                    if (resp && !resp.outOfStock && resp.price > 0 && resp.price < menorPreco) {
-                      menorPreco = resp.price;
-                      melhorFornecedor = sup.name || 'Fornecedor';
-                    }
-                  });
-
-                  return (
-                    <tr key={prod.productId} className="hover:bg-slate-50/50">
-                      <td className="p-4 font-medium text-slate-800">{prod.description}</td>
-                      <td className="p-4 text-center text-slate-600">{prod.requestedQuantity}</td>
-
-                      {suppliers.map((sup) => {
-                        const resp = prod.responses[sup.supplierId];
-                        const isBest = resp && !resp.outOfStock && resp.price > 0 && resp.price === menorPreco;
-
-                        return (
-                          <td
-                            key={sup.supplierId}
-                            className={`p-4 text-center border-l border-slate-100 ${
-                              isBest ? 'bg-emerald-50/40 font-bold text-emerald-800' : 'text-slate-600'
-                            }`}
-                          >
-                            {!resp ? (
-                              <span className="text-slate-400 italic text-xs">Sem resposta</span>
-                            ) : resp.outOfStock ? (
-                              <span className="text-red-600 font-semibold text-xs bg-red-50 px-2 py-0.5 rounded">Não tem</span>
-                            ) : resp.price === 0 ? (
-                              <span className="text-slate-400">—</span>
-                            ) : (
-                              <div>
-                                <span>{formatCurrency(resp.price)}</span>
-                                {isBest && (
-                                  <div className="text-[10px] text-emerald-600 font-bold uppercase mt-0.5">🏆 Menor Preço</div>
-                                )}
-                              </div>
-                            )}
-                          </td>
-                        );
-                      })}
-
-                      <td className="p-4 text-center font-bold text-emerald-700 bg-emerald-50/50 border-l border-slate-200">
-                        {menorPreco !== Infinity ? `${formatCurrency(menorPreco)} (${melhorFornecedor})` : '-'}
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-left text-xs">
+                  <thead>
+                    <tr className={`border-b uppercase tracking-wider text-[11px] font-extrabold ${
+                      isDarkMode ? 'border-slate-800 text-slate-400 bg-slate-950/30' : 'border-slate-200 text-slate-500 bg-slate-50/80'
+                    }`}>
+                      <th className="p-4 font-extrabold min-w-[220px]">Produto</th>
+                      <th className="p-4 text-center font-extrabold">Qtd</th>
+                      {suppliers.map((sup) => (
+                        <th key={sup.supplierId} className="p-4 text-center font-extrabold border-l border-slate-500/10 min-w-[160px]">
+                          {sup.name || 'Fornecedor'}
+                        </th>
+                      ))}
+                      <th className="p-4 text-center font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-l border-slate-500/10 min-w-[180px]">
+                        Melhor Preço
+                      </th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-500/10">
+                    {productsList.map((prod) => {
+                      let menorPreco = Infinity;
+                      let melhorFornecedor = '';
+
+                      suppliers.forEach((sup) => {
+                        const resp = prod.responses[sup.supplierId];
+                        if (resp && !resp.outOfStock && resp.price > 0 && resp.price < menorPreco) {
+                          menorPreco = resp.price;
+                          melhorFornecedor = sup.name || 'Fornecedor';
+                        }
+                      });
+
+                      return (
+                        <tr key={prod.productId} className={`transition-colors ${isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50/80'}`}>
+                          <td className="p-4 font-bold text-sm tracking-tight">{prod.description}</td>
+                          <td className="p-4 text-center font-mono font-bold opacity-80">{prod.requestedQuantity}</td>
+
+                          {suppliers.map((sup) => {
+                            const resp = prod.responses[sup.supplierId];
+                            const isBest = resp && !resp.outOfStock && resp.price > 0 && resp.price === menorPreco;
+
+                            return (
+                              <td
+                                key={sup.supplierId}
+                                className={`p-4 text-center border-l border-slate-500/10 transition-all ${
+                                  isBest ? (isDarkMode ? 'bg-emerald-950/40 font-black text-emerald-400' : 'bg-emerald-50/60 font-black text-emerald-800') : 'opacity-80'
+                                }`}
+                              >
+                                {!resp ? (
+                                  <span className="opacity-40 italic text-[11px]">Sem resposta</span>
+                                ) : resp.outOfStock ? (
+                                  <span className="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                                    Não tem
+                                  </span>
+                                ) : resp.price === 0 ? (
+                                  <span className="opacity-40">—</span>
+                                ) : (
+                                  <div>
+                                    <span className="font-mono font-semibold">{formatCurrency(resp.price)}</span>
+                                    {isBest && (
+                                      <div className="text-[9px] text-emerald-600 dark:text-emerald-400 font-black uppercase tracking-wider mt-0.5">🏆 Menor Preço</div>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+                            );
+                          })}
+
+                          <td className="p-4 text-center font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-l border-slate-500/10">
+                            {menorPreco !== Infinity ? `${formatCurrency(menorPreco)} (${melhorFornecedor})` : '-'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+
+        </div>
+
+      </main>
+
+      {/* MENU DE COMANDOS */}
+      <CommandMenu isOpen={isCmdOpen} onClose={() => setIsCmdOpen(false)} isDarkMode={isDarkMode} latestQuotationId={selectedQuotationId} />
+
     </div>
   );
 }

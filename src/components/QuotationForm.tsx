@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { uppercaseText } from '@/lib/text';
+import { useTheme } from '@/context/ThemeContext';
 
 interface QuotationFormProps {
   companyId: string;
@@ -10,6 +11,7 @@ interface QuotationFormProps {
 }
 
 export default function QuotationForm({ companyId, onSuccess, showToast }: QuotationFormProps) {
+  const { isDarkMode } = useTheme();
   const [title, setTitle] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -45,25 +47,37 @@ export default function QuotationForm({ companyId, onSuccess, showToast }: Quota
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mb-6 p-6 bg-slate-50 rounded-lg border border-slate-200">
-      <h2 className="text-md font-bold text-slate-800 mb-3">Criar Nova Cotação</h2>
-      <div className="flex gap-4">
+    <form onSubmit={handleSubmit} className={`rounded-2xl border p-6 mb-8 space-y-4 transition-all shadow-xl ${
+      isDarkMode ? 'bg-slate-900/90 border-slate-800 text-white' : 'bg-white border-slate-200/80 text-slate-900 shadow-slate-200/50'
+    }`}>
+      <div>
+        <span className="inline-flex rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 mb-2">
+          Gestão Rápida
+        </span>
+        <h2 className="text-base font-black tracking-tight">Criar Nova Cotação</h2>
+        <p className="text-xs opacity-60 mt-0.5 font-medium">Insira o título descritivo para iniciar o processo de compras.</p>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-3">
         <input
           type="text"
           placeholder="Ex: Cotação de Perfumaria - Setembro"
           value={title}
           onChange={(e) => setTitle(uppercaseText(e.target.value))}
-          className="flex-1 px-4 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className={`flex-1 rounded-xl border px-4 py-3 text-xs font-bold outline-none transition-all ${
+            isDarkMode ? 'bg-slate-950 border-slate-700 text-white focus:border-emerald-500' : 'bg-slate-50 border-slate-300 text-slate-800 focus:border-emerald-600'
+          }`}
         />
         <button
           type="submit"
           disabled={submitting}
-          className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors disabled:opacity-50"
+          className="rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold px-6 py-3 transition-all shadow-lg shadow-emerald-600/25 disabled:opacity-50 cursor-pointer shrink-0"
         >
           {submitting ? 'Salvando...' : 'Criar Cotação'}
         </button>
       </div>
-      {formError && <p className="text-xs text-red-600 mt-2">{formError}</p>}
+
+      {formError && <p className="text-xs font-bold text-rose-500 mt-1">{formError}</p>}
     </form>
   );
 }

@@ -3,6 +3,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { useTheme } from '@/context/ThemeContext';
+import { AppHeader } from '@/components/AppHeader';
+import { CommandMenu } from '@/components/CommandMenu';
 import { ProductForm } from '@/components/ProductForm';
 import { ProductTable } from '@/components/ProductTable';
 
@@ -26,6 +29,7 @@ interface Product {
 }
 
 export default function ProductsPage() {
+  const { isDarkMode, mounted } = useTheme();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get('returnTo');
 
@@ -33,6 +37,10 @@ export default function ProductsPage() {
   const [brands, setBrands] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isCmdOpen, setIsCmdOpen] = useState(false);
+
+  // Modo de Cadastro: 'minimal' (Rápido) ou 'complete' (Fiscal & Custos)
+  const [formMode, setFormMode] = useState<'minimal' | 'complete'>('minimal');
 
   const [isFromImport] = useState(() => !!searchParams.get('description'));
 
@@ -68,6 +76,7 @@ export default function ProductsPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const companyId = '915a8bc1-5db7-4605-93a9-b78090e75679';
+  const latestQuotationId = 'd7f46ae7-19c2-409d-8ab4-dfbb458c5248';
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -147,18 +156,18 @@ export default function ProductsPage() {
         code: ean,
         description,
         brand,
-        imageUrl,
-        unit,
-        boxQuantity: boxQuantity === '' || boxQuantity === undefined ? 1 : Number(boxQuantity),
-        costPrice: costPrice ? costPrice.replace(/\./g, '').replace(',', '.') : null,
-        lastPurchasePrice: lastPurchasePrice ? lastPurchasePrice.replace(/\./g, '').replace(',', '.') : null,
+        imageUrl: formMode === 'complete' ? imageUrl : null,
+        unit: formMode === 'complete' ? unit : 'UN',
+        boxQuantity: formMode === 'complete' && boxQuantity !== '' ? Number(boxQuantity) : 1,
+        costPrice: formMode === 'complete' && costPrice ? costPrice.replace(/\./g, '').replace(',', '.') : null,
+        lastPurchasePrice: formMode === 'complete' && lastPurchasePrice ? lastPurchasePrice.replace(/\./g, '').replace(',', '.') : null,
         salePrice: salePrice ? salePrice.replace(/\./g, '').replace(',', '.') : null,
         stockCurrent: stockCurrent === '' || stockCurrent === undefined ? 0 : Number(stockCurrent),
-        stockMin: stockMin === '' || stockMin === undefined ? 0 : Number(stockMin),
-        stockIdeal: stockIdeal === '' || stockIdeal === undefined ? 0 : Number(stockIdeal),
-        stockMax: stockMax === '' || stockMax === undefined ? 0 : Number(stockMax),
-        ncm,
-        cest,
+        stockMin: formMode === 'complete' && stockMin !== '' ? Number(stockMin) : 0,
+        stockIdeal: formMode === 'complete' && stockIdeal !== '' ? Number(stockIdeal) : 0,
+        stockMax: formMode === 'complete' && stockMax !== '' ? Number(stockMax) : 0,
+        ncm: formMode === 'complete' ? ncm : null,
+        cest: formMode === 'complete' ? cest : null,
       };
 
       const res = await fetch(url, {
@@ -201,6 +210,7 @@ export default function ProductsPage() {
     setStockMax(prod.stockMax ?? '');
     setNcm(prod.ncm || '');
     setCest(prod.cest || '');
+    setFormMode('complete'); // Abre automaticamente no modo completo ao editar
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -241,98 +251,142 @@ export default function ProductsPage() {
     setCest('');
   };
 
+  if (!mounted) return <div className="min-h-screen bg-slate-50" />;
+
   return (
-    <div className="min-h-screen bg-slate-50 py-10 px-6">
-      <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-sm border border-slate-200 p-8 space-y-6">
+    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+      
+      {/* Cabeçalho Global Unificado */}
+      <AppHeader
+        title="Catálogo & Gestão de Produtos"
+        subtitle="Melo Perfumaria — Controle de itens, custos, estoque e tributos."
+        onOpenCmd={() => setIsCmdOpen(true)}
+      />
+
+      <main className="max-w-7xl mx-auto px-6 sm:px-12 -mt-12 pb-20 relative z-20 space-y-8">
         
         {returnTo && (
-          <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-xl flex items-center justify-between">
-            <span className="text-xs font-bold text-indigo-900">
+          <div className="bg-indigo-500/10 border border-indigo-500/30 p-4 rounded-2xl flex items-center justify-between">
+            <span className="text-xs font-bold text-indigo-400">
               ⚡ Você veio da criação de uma cotação. Cadastre o item e retorne para continuar!
             </span>
             <Link
               href={returnTo}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2 rounded-lg transition shadow-sm"
+              className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow-md"
             >
               &larr; Voltar para Nova Cotação
             </Link>
           </div>
         )}
 
-        <div className="flex justify-between items-center pb-4 border-b border-slate-100">
-          <div>
-            <h1 className="text-xl font-bold text-slate-800">📦 Catálogo e Gestão de Produtos</h1>
-            <p className="text-xs text-slate-500">Melo Perfumaria — Gestão de Itens, Imagens, Custos, Estoque e Tributos.</p>
+        {/* Seletor de Modo de Cadastro (Abas Sênior) */}
+        <div className={`p-8 rounded-3xl shadow-2xl border space-y-6 ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200/80'}`}>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-5 border-slate-500/10">
+            <div>
+              <h2 className="text-base font-black tracking-tight">
+                {editingId ? 'Editar Produto' : 'Cadastrar Novo Produto'}
+              </h2>
+              <p className="text-xs opacity-60 mt-0.5">Selecione o modo de preenchimento ideal para a sua operação.</p>
+            </div>
+
+            {/* Alternador de Abas */}
+            <div className="flex items-center p-1 bg-slate-500/10 rounded-2xl border border-slate-500/20">
+              <button
+                type="button"
+                onClick={() => setFormMode('minimal')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  formMode === 'minimal'
+                    ? 'bg-indigo-600 text-white shadow-lg'
+                    : 'opacity-60 hover:opacity-100'
+                }`}
+              >
+                ⚡ Cadastro Rápido (Mínimo)
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormMode('complete')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  formMode === 'complete'
+                    ? 'bg-indigo-600 text-white shadow-lg'
+                    : 'opacity-60 hover:opacity-100'
+                }`}
+              >
+                📋 Cadastro Completo (Fiscal & Custos)
+              </button>
+            </div>
           </div>
-          <div className="flex gap-4">
-            <Link href="/" className="text-xs font-semibold text-slate-600 hover:underline">
-              &larr; Dashboard
-            </Link>
-            <Link href="/cotacoes" className="text-xs font-semibold text-blue-600 hover:underline">
-              Ir para Cotações &rarr;
-            </Link>
-          </div>
+
+          <ProductForm
+            editingId={editingId}
+            description={description}
+            setDescription={setDescription}
+            ean={ean}
+            setEan={setEan}
+            brand={brand}
+            setBrand={setBrand}
+            brandsList={brands}
+            imageUrl={imageUrl}
+            setImageUrl={setImageUrl}
+            unit={unit}
+            setUnit={setUnit}
+            boxQuantity={boxQuantity === '' ? 1 : boxQuantity}
+            setBoxQuantity={setBoxQuantity}
+            costPrice={costPrice}
+            setCostPrice={setCostPrice}
+            lastPurchasePrice={lastPurchasePrice}
+            setLastPurchasePrice={setLastPurchasePrice}
+            salePrice={salePrice}
+            setSalePrice={setSalePrice}
+            stockCurrent={stockCurrent}
+            setStockCurrent={setStockCurrent}
+            stockMin={stockMin}
+            setStockMin={setStockMin}
+            stockIdeal={stockIdeal}
+            setStockIdeal={setStockIdeal}
+            stockMax={stockMax}
+            setStockMax={setStockMax}
+            ncm={ncm}
+            setNcm={setNcm}
+            cest={cest}
+            setCest={setCest}
+            submitting={submitting}
+            onSubmit={handleSubmit}
+            onCancelEdit={resetForm}
+            isFromImport={isFromImport}
+            formMode={formMode}
+          />
         </div>
 
-        <ProductForm
-          editingId={editingId}
-          description={description}
-          setDescription={setDescription}
-          ean={ean}
-          setEan={setEan}
-          brand={brand}
-          setBrand={setBrand}
-          brandsList={brands}
-          imageUrl={imageUrl}
-          setImageUrl={setImageUrl}
-          unit={unit}
-          setUnit={setUnit}
-          boxQuantity={boxQuantity === '' ? 1 : boxQuantity}
-          setBoxQuantity={setBoxQuantity}
-          costPrice={costPrice}
-          setCostPrice={setCostPrice}
-          lastPurchasePrice={lastPurchasePrice}
-          setLastPurchasePrice={setLastPurchasePrice}
-          salePrice={salePrice}
-          setSalePrice={setSalePrice}
-          stockCurrent={stockCurrent}
-          setStockCurrent={setStockCurrent}
-          stockMin={stockMin}
-          setStockMin={setStockMin}
-          stockIdeal={stockIdeal}
-          setStockIdeal={setStockIdeal}
-          stockMax={stockMax}
-          setStockMax={setStockMax}
-          ncm={ncm}
-          setNcm={setNcm}
-          cest={cest}
-          setCest={setCest}
-          submitting={submitting}
-          onSubmit={handleSubmit}
-          onCancelEdit={resetForm}
-          isFromImport={isFromImport}
-        />
+        <div className={`p-8 rounded-3xl shadow-2xl border space-y-6 ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200/80'}`}>
+          <ProductTable
+            products={products}
+            brands={brands}
+            loading={loading}
+            error={error}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            selectedBrand={selectedBrand}
+            setSelectedBrand={setSelectedBrand}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+          />
+        </div>
 
-        <ProductTable
-          products={products}
-          brands={brands}
-          loading={loading}
-          error={error}
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-          selectedBrand={selectedBrand}
-          setSelectedBrand={setSelectedBrand}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-        />
-
-      </div>
+      </main>
 
       {toastMessage && (
-        <div className="fixed bottom-5 right-5 px-5 py-3 bg-emerald-600 text-white rounded-lg shadow-lg text-sm font-semibold transition-all z-50">
+        <div className="fixed bottom-5 right-5 px-5 py-3 bg-emerald-600 text-white rounded-2xl shadow-2xl text-xs font-bold transition-all z-50">
           {toastMessage}
         </div>
       )}
+
+      <CommandMenu 
+        isOpen={isCmdOpen} 
+        onClose={() => setIsCmdOpen(false)} 
+        isDarkMode={isDarkMode} 
+        latestQuotationId={latestQuotationId} 
+      />
+
     </div>
   );
 }
