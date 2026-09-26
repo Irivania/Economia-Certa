@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { products as productsSchema } from '@/db/schema';
+import { ImportHeader } from './import/ImportHeader';
+import { ImportResultsList } from './import/ImportResultsList';
 
 export type Product = typeof productsSchema.$inferSelect & {
   ean?: string | null;
@@ -12,8 +14,8 @@ export interface ItemPendente {
   ean?: string | null;
   descricao: string;
   descricaoPadronizada: string;
-  precoVenda?: number;
-  estoqueIdeal?: number;
+  precoVenda?: string | '';
+  estoqueAtual?: number | '';
 }
 
 interface ItemReconhecido {
@@ -24,9 +26,32 @@ interface ItemReconhecido {
   matchType: 'EAN' | 'Exato' | 'Similar';
 }
 
+interface QuotationItemPayload {
+  id: string;
+  productId: string;
+  description: string;
+  brand: string | null;
+  ean: string | null;
+  imageUrl?: string | null;
+  stockCurrent: number;
+  stockIdeal: number;
+  requestedQuantity: number;
+}
+
 interface ProductImportModalProps {
   products: Product[];
-  onQuickRegister: (itemPendente: ItemPendente) => Promise<void>;
+  onQuickRegister?: (itemPendente: ItemPendente) => Promise<void>;
+  onImportComplete?: (itens: QuotationItemPayload[]) => void;
+}
+
+function formatarMoedaInput(valorStr: string): string {
+  const apenasDigitos = valorStr.replace(/\D/g, '');
+  if (!apenasDigitos) return '';
+  const numero = Number(apenasDigitos) / 100;
+  return numero.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 function calcularSimilaridade(s1: string, s2: string): number {
@@ -72,13 +97,107 @@ function normalizarTexto(texto: string): string {
     .trim();
 }
 
-export function ProductImportModal({ products, onQuickRegister }: ProductImportModalProps) {
-  const [rawImportText, setRawImportText] = useState('');
-  const [itensReconhecidos, setItensReconhecidos] = useState<ItemReconhecido[]>([]);
-  const [itensPendentes, setItensPendentes] = useState<ItemPendente[]>([]);
-  const [loadingRegister, setLoadingRegister] = useState<string | null>(null);
+export function ProductImportModal({ products, onImportComplete }: ProductImportModalProps) {
+  const [rawImportText, setRawImportText] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('melo_raw_import') || '';
+    }
+    return '';
+  });
+
+  const [itensReconhecidos, setItensReconhecidos] = useState<ItemReconhecido[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('melo_reconhecidos');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+
+  const [itensPendentes, setItensPendentes] = useState<ItemPendente[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('melo_pendentes');
+      let pendentesSalvos: ItemPendente[] = saved ? JSON.parse(saved) : [];
+      
+      pendentesSalvos = pendentesSalvos.map(p => ({
+        ...p,
+        estoqueAtual: (p.estoqueAtual === 10 || p.estoqueAtual === undefined) ? '' : p.estoqueAtual
+      }));
+
+      if (pendentesSalvos.length > 0 && products.length > 0) {
+        pendentesSalvos = pendentesSalvos.filter((pendente) => {
+          const jaExistePorEan = pendente.ean ? products.some(p => p.ean && p.ean.trim() === pendente.ean?.trim()) : false;
+          const jaExistePorDesc = products.some(p => normalizarTexto(p.description) === pendente.descricaoPadronizada);
+          return !jaExistePorEan && !jaExistePorDesc;
+        });
+      }
+      return pendentesSalvos;
+    }
+    return [];
+  });
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
+
+  const handleTextChange = (text: string) => {
+    setRawImportText(text);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('melo_raw_import', text);
+    }
+  };
+
+  const atualizarPendentes = (novosPendentes: ItemPendente[]) => {
+    setItensPendentes(novosPendentes);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('melo_pendentes', JSON.stringify(novosPendentes));
+    }
+  };
+
+  const atualizarReconhecidos = (novosReconhecidos: ItemReconhecido[]) => {
+    setItensReconhecidos(novosReconhecidos);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('melo_reconhecidos', JSON.stringify(novosReconhecidos));
+    }
+  };
+
+  const handleFinalizarImportacao = () => {
+    const itensParaCotacao: QuotationItemPayload[] = [
+      ...itensReconhecidos.map(r => ({
+        id: r.product.id,
+        productId: r.product.id,
+        description: r.product.description,
+        brand: r.product.brand || null,
+        ean: r.product.ean || r.ean || null,
+        imageUrl: r.product.imageUrl || null,
+        stockCurrent: r.product.stockCurrent || 0,
+        stockIdeal: r.product.stockIdeal || 0, // Estoque ideal puxado do cadastro do produto
+        requestedQuantity: 0, // Quantidade solicitada zerada/vazia para o comprador definir
+      })),
+      ...itensPendentes.map((p, idx) => ({
+        id: `pendente_${idx}_${Date.now()}`,
+        productId: `pendente_${idx}`,
+        description: p.descricaoPadronizada,
+        brand: null,
+        ean: p.ean || null,
+        imageUrl: null,
+        stockCurrent: Number(p.estoqueAtual) || 0,
+        stockIdeal: 0,
+        requestedQuantity: 0, // Quantidade solicitada zerada/vazia para o comprador definir
+      }))
+    ];
+
+    if (onImportComplete && itensParaCotacao.length > 0) {
+      onImportComplete(itensParaCotacao);
+    }
+
+    setRawImportText('');
+    setItensReconhecidos([]);
+    setItensPendentes([]);
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('melo_raw_import');
+      sessionStorage.removeItem('melo_reconhecidos');
+      sessionStorage.removeItem('melo_pendentes');
+    }
+  };
 
   const processarLinhasExtraidas = (linhas: Array<{ ean: string | null; descricao: string }>) => {
     const reconhecidos: ItemReconhecido[] = [];
@@ -140,8 +259,8 @@ export function ProductImportModal({ products, onQuickRegister }: ProductImportM
             ean: item.ean,
             descricao: item.descricao,
             descricaoPadronizada: descNormalizada,
-            precoVenda: 34.99,
-            estoqueIdeal: 10,
+            precoVenda: '',
+            estoqueAtual: '',
           });
         }
       }
@@ -153,8 +272,8 @@ export function ProductImportModal({ products, onQuickRegister }: ProductImportM
       if (indexAtual < totalItens) {
         setTimeout(processarLote, 10);
       } else {
-        setItensReconhecidos(reconhecidos);
-        setItensPendentes(pendentes);
+        atualizarReconhecidos(reconhecidos);
+        atualizarPendentes(pendentes);
         setIsProcessing(false);
       }
     };
@@ -239,185 +358,39 @@ export function ProductImportModal({ products, onQuickRegister }: ProductImportM
       processarLinhasExtraidas(itensExtraidos);
     } catch (err) {
       console.error(err);
-      alert('Erro ao ler o arquivo Excel/CSV.');
+      alert('Erro ao ler o ficheiro Excel/CSV.');
       setIsProcessing(false);
     }
   };
 
-  const handleUpdatePendingItem = (index: number, field: 'descricaoPadronizada' | 'precoVenda' | 'estoqueIdeal', value: string | number) => {
-    setItensPendentes(prev => {
-      const updated = [...prev];
+  const handleUpdatePendingItem = (index: number, field: 'descricaoPadronizada' | 'precoVenda' | 'estoqueAtual', value: string | number) => {
+    const updated = [...itensPendentes];
+    if (field === 'precoVenda') {
+      updated[index] = { ...updated[index], [field]: formatarMoedaInput(String(value)) };
+    } else {
       updated[index] = { ...updated[index], [field]: value };
-      return updated;
-    });
-  };
-
-  const handleAction = async (item: ItemPendente) => {
-    try {
-      setLoadingRegister(item.descricaoPadronizada);
-      await onQuickRegister(item);
-      
-      setItensPendentes((prev) => prev.filter((p) => p.descricaoPadronizada !== item.descricaoPadronizada));
-      setItensReconhecidos((prev) => [
-        ...prev,
-        {
-          ean: item.ean || null,
-          descricao: item.descricao,
-          product: { 
-            id: '', 
-            description: item.descricaoPadronizada,
-            ean: item.ean || null,
-            sellingPrice: item.precoVenda || 34.99,
-            stockIdeal: item.estoqueIdeal || 10,
-          } as unknown as Product,
-          matchType: 'Exato',
-        },
-      ]);
-    } catch (error) {
-      console.error('Erro ao realizar cadastro rápido:', error);
-      alert('Não foi possível concluir o cadastro rápido.');
-    } finally {
-      setLoadingRegister(null);
     }
-  };
-
-  const handleRegisterAllPendentes = async () => {
-    if (itensPendentes.length === 0) return;
-    for (const item of [...itensPendentes]) {
-      await handleAction(item);
-    }
+    atualizarPendentes(updated);
   };
 
   return (
-    <div className="bg-indigo-50/50 border border-indigo-200 rounded-xl p-5 mb-8 space-y-4">
-      <div>
-        <h2 className="text-sm font-bold text-indigo-900 mb-1">🔄 Central de Importação Inteligente</h2>
-        <p className="text-xs text-indigo-700">
-          Importe ficheiros (.xlsx, .xls, .csv) ou cole os dados. O sistema valida os produtos já cadastrados e separa os novos para cadastro rápido.
-        </p>
-      </div>
-
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-        <label className="bg-white border border-indigo-300 text-indigo-700 hover:bg-indigo-50 font-semibold px-4 py-2 rounded-lg text-xs cursor-pointer transition shadow-xs flex items-center gap-2">
-          📁 Carregar Ficheiro (Excel / CSV)
-          <input type="file" accept=".xlsx, .xls, .csv, .txt" onChange={handleFileUpload} className="hidden" />
-        </label>
-        <span className="text-xs text-slate-400 font-medium">ou cole os dados abaixo:</span>
-      </div>
-
-      <textarea
-        rows={3}
-        placeholder="Cole aqui os dados (Ex: 7891001234567	Shampoo Anticaspa...)"
-        value={rawImportText}
-        onChange={(e) => setRawImportText(e.target.value)}
-        disabled={isProcessing}
-        className="w-full p-3 text-xs border border-indigo-200 rounded-lg bg-white text-slate-800 font-mono disabled:opacity-50"
+    <div className="bg-white border border-indigo-100 rounded-xl p-6 mb-8 space-y-6 shadow-sm">
+      <ImportHeader
+        rawImportText={rawImportText}
+        onTextChange={handleTextChange}
+        isProcessing={isProcessing}
+        progress={progress}
+        onProcessImport={handleProcessImport}
+        onFileUpload={handleFileUpload}
       />
-      
-      <div className="flex items-center gap-3">
-        <button
-          onClick={handleProcessImport}
-          disabled={isProcessing}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg text-xs transition-colors disabled:opacity-50 cursor-pointer"
-        >
-          {isProcessing ? `Analisando... (${progress}%)` : 'Analisar e Cruzar Dados'}
-        </button>
-
-        {itensPendentes.length > 0 && !isProcessing && (
-          <button
-            onClick={handleRegisterAllPendentes}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2 rounded-lg text-xs transition-colors cursor-pointer"
-          >
-            🚀 Cadastrar Todos os Pendentes ({itensPendentes.length})
-          </button>
-        )}
-      </div>
-
-      {isProcessing && (
-        <div className="w-full bg-indigo-200 rounded-full h-2 overflow-hidden">
-          <div className="bg-indigo-600 h-2 transition-all duration-300" style={{ width: `${progress}%` }}></div>
-        </div>
-      )}
 
       {(itensReconhecidos.length > 0 || itensPendentes.length > 0) && !isProcessing && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2">
-          {/* Já Cadastrados */}
-          <div className="bg-white p-4 rounded-lg border border-emerald-200 shadow-xs">
-            <h3 className="text-xs font-bold text-emerald-800 mb-2">✅ Já Cadastrados no ERP ({itensReconhecidos.length})</h3>
-            <ul className="space-y-1.5 max-h-56 overflow-y-auto text-[11px] text-slate-700 pr-1">
-              {itensReconhecidos.map((item, idx) => (
-                <li key={idx} className="border-b border-slate-100 py-1.5 flex justify-between items-center">
-                  <span className="truncate pr-2">
-                    {item.ean && <span className="text-indigo-600 font-mono mr-1">[{item.ean}]</span>}
-                    <b>{item.descricao}</b> &rarr; <span className="uppercase text-slate-500">{item.product.description}</span>
-                  </span>
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold whitespace-nowrap ${
-                    item.matchType === 'EAN' ? 'bg-indigo-100 text-indigo-800' :
-                    item.matchType === 'Exato' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
-                  }`}>
-                    {item.matchType}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Novos / Pendentes */}
-          <div className="bg-white p-4 rounded-lg border border-amber-200 shadow-xs">
-            <h3 className="text-xs font-bold text-amber-800 mb-2">⚠️ Novos / Não Cadastrados ({itensPendentes.length})</h3>
-            {itensPendentes.length === 0 ? (
-              <p className="text-[11px] text-slate-500 py-4 text-center">Nenhum item pendente de cadastro!</p>
-            ) : (
-              <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
-                {itensPendentes.map((item, idx) => (
-                  <div key={idx} className="bg-amber-50/50 p-2.5 rounded-lg border border-amber-100 space-y-2">
-                    <div className="flex items-center gap-2">
-                      {item.ean && <span className="text-[10px] bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded font-mono font-bold">{item.ean}</span>}
-                      <input
-                        type="text"
-                        value={item.descricaoPadronizada}
-                        onChange={(e) => handleUpdatePendingItem(idx, 'descricaoPadronizada', e.target.value)}
-                        className="w-full bg-white border border-amber-200 rounded px-2 py-1 text-xs font-bold uppercase text-slate-800 focus:outline-none focus:border-indigo-500"
-                        placeholder="Nome do produto"
-                      />
-                    </div>
-                    
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 text-[11px]">
-                        <span className="text-slate-600">Venda: R$</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={item.precoVenda ?? 34.99}
-                          onChange={(e) => handleUpdatePendingItem(idx, 'precoVenda', Number(e.target.value))}
-                          className="w-20 bg-white border border-amber-200 rounded px-1.5 py-0.5 text-xs text-center font-bold text-slate-800"
-                        />
-                      </div>
-
-                      <div className="flex items-center gap-1.5 text-[11px]">
-                        <span className="text-slate-600">Estq. Ideal:</span>
-                        <input
-                          type="number"
-                          value={item.estoqueIdeal ?? 10}
-                          onChange={(e) => handleUpdatePendingItem(idx, 'estoqueIdeal', Number(e.target.value))}
-                          className="w-16 bg-white border border-amber-200 rounded px-1.5 py-0.5 text-xs text-center font-bold text-slate-800"
-                        />
-                      </div>
-
-                      <button
-                        onClick={() => handleAction(item)}
-                        disabled={loadingRegister === item.descricaoPadronizada}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-3 py-1.5 rounded transition disabled:opacity-50 whitespace-nowrap cursor-pointer"
-                      >
-                        {loadingRegister === item.descricaoPadronizada ? 'Cadastrando...' : 'Cadastrar Rápido'}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+        <ImportResultsList
+          itensReconhecidos={itensReconhecidos}
+          itensPendentes={itensPendentes}
+          onUpdatePendingItem={handleUpdatePendingItem}
+          onFinalizarImportacao={handleFinalizarImportacao}
+        />
       )}
     </div>
   );

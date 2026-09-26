@@ -1,6 +1,12 @@
 'use client';
 
-import { FormEvent, useEffect, useState, useCallback } from 'react';
+import {
+  FormEvent,
+  useEffect,
+  useState,
+  useCallback,
+  useSyncExternalStore,
+} from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ProductSelectionModal from '@/components/ProductSelectionModal';
@@ -30,6 +36,7 @@ interface QuotationItem {
 }
 
 const companyId = '915a8bc1-5db7-4605-93a9-b78090e75679';
+const emptySubscribe = () => () => {};
 
 function getTodayDateString() {
   const today = new Date();
@@ -41,6 +48,11 @@ function getTodayDateString() {
 
 export default function NewQuotationPage() {
   const router = useRouter();
+  const mounted = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
 
@@ -55,7 +67,6 @@ export default function NewQuotationPage() {
   const [quotationItems, setQuotationItems] = useState<QuotationItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
-  const [attachedFile, setAttachedFile] = useState<File | null>(null);
 
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -89,15 +100,22 @@ export default function NewQuotationPage() {
 
   useEffect(() => {
     let isMounted = true;
+
     async function init() {
       if (!isMounted) return;
       await loadProductsAndSuppliers();
     }
-    init();
+
+    void init();
+
     return () => {
       isMounted = false;
     };
   }, [loadProductsAndSuppliers]);
+
+  if (!mounted) {
+    return null;
+  }
 
   const toggleSupplier = (supplierId: string) => {
     setSelectedSupplierIds((current) =>
@@ -172,7 +190,7 @@ export default function NewQuotationPage() {
           description: itemPendente.descricaoPadronizada,
           code: itemPendente.ean || null,
           salePrice: itemPendente.precoVenda || 34.99,
-          stockIdeal: itemPendente.estoqueIdeal || 10,
+          stockIdeal: 10,
           stockCurrent: 0,
         }),
       });
@@ -181,24 +199,6 @@ export default function NewQuotationPage() {
       if (!res.ok) throw new Error(data.error || 'Erro ao cadastrar produto.');
 
       await loadProductsAndSuppliers();
-
-      if (data.product) {
-        const prod = data.product;
-        setQuotationItems(prev => {
-          if (prev.some(i => i.productId === prod.id)) return prev;
-          return [...prev, {
-            id: prod.id,
-            productId: prod.id,
-            description: prod.description,
-            brand: prod.brand || null,
-            ean: prod.ean || null,
-            imageUrl: prod.imageUrl || null,
-            stockCurrent: prod.stockCurrent || 0,
-            stockIdeal: prod.stockIdeal || 10,
-            requestedQuantity: prod.stockIdeal || 10,
-          }];
-        });
-      }
     } catch (err) {
       console.error(err);
       throw err;
@@ -228,7 +228,6 @@ export default function NewQuotationPage() {
           endDate: endDate || null,
           closingTime: closingTime || null,
           items: quotationItems,
-          fileName: attachedFile ? attachedFile.name : null,
         }),
       });
 
@@ -258,14 +257,18 @@ export default function NewQuotationPage() {
             setClosingTime={setClosingTime}
             paymentTerms={paymentTerms}
             setPaymentTerms={setPaymentTerms}
-            attachedFile={attachedFile}
-            onFileChange={(e) => setAttachedFile(e.target.files?.[0] || null)}
-            onRemoveFile={() => setAttachedFile(null)}
           />
 
           <ProductImportModal 
             products={catalogProducts} 
             onQuickRegister={handleQuickRegister} 
+            onImportComplete={(itensImportados) => {
+              setQuotationItems((prev) => {
+                const existingIds = new Set(prev.map(i => i.productId));
+                const novos = itensImportados.filter(i => !existingIds.has(i.productId));
+                return [...prev, ...novos];
+              });
+            }}
           />
 
           <QuotationSuggestionBar

@@ -25,14 +25,14 @@ interface ProductFormProps {
   setLastPurchasePrice: (val: string) => void;
   salePrice: string;
   setSalePrice: (val: string) => void;
-  stockCurrent: number;
-  setStockCurrent: (val: number) => void;
-  stockMin: number;
-  setStockMin: (val: number) => void;
-  stockIdeal: number;
-  setStockIdeal: (val: number) => void;
-  stockMax: number;
-  setStockMax: (val: number) => void;
+  stockCurrent: number | '';
+  setStockCurrent: (val: number | '') => void;
+  stockMin: number | '';
+  setStockMin: (val: number | '') => void;
+  stockIdeal: number | '';
+  setStockIdeal: (val: number | '') => void;
+  stockMax: number | '';
+  setStockMax: (val: number | '') => void;
   ncm: string;
   setNcm: (val: string) => void;
   cest: string;
@@ -41,6 +41,24 @@ interface ProductFormProps {
   onSubmit: (e: React.FormEvent) => void;
   onCancelEdit: () => void;
   brandsList?: string[];
+  isFromImport?: boolean;
+}
+
+function formatarMoedaInput(valorStr: string): string {
+  const apenasDigitos = valorStr.replace(/\D/g, '');
+  if (!apenasDigitos) return '';
+  const numero = Number(apenasDigitos) / 100;
+  return numero.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function parseMoedaParaFloat(valorStr: string): number {
+  if (!valorStr) return 0;
+  const limpo = valorStr.replace(/\./g, '').replace(',', '.');
+  const num = parseFloat(limpo);
+  return isNaN(num) ? 0 : num;
 }
 
 export function ProductForm({
@@ -64,32 +82,47 @@ export function ProductForm({
   onSubmit,
   onCancelEdit,
   brandsList = [],
+  isFromImport = false,
 }: ProductFormProps) {
   const [margin, setMargin] = useState<string>('');
-  
-  // Estado para controlar se o usuário quer digitar uma nova marca ou selecionar da lista
   const [isNewBrandMode, setIsNewBrandMode] = useState(false);
 
   const handlePriceChange = (type: 'cost' | 'margin' | 'sale', val: string) => {
-    if (type === 'cost') setCostPrice(val);
-    if (type === 'margin') setMargin(val);
-    if (type === 'sale') setSalePrice(val);
+    let formattedVal = val;
+    if (type === 'cost' || type === 'sale') {
+      formattedVal = formatarMoedaInput(val);
+      if (type === 'cost') setCostPrice(formattedVal);
+      if (type === 'sale') setSalePrice(formattedVal);
+    } else {
+      setMargin(val);
+    }
 
-    const cost = type === 'cost' ? parseFloat(val) : parseFloat(costPrice);
+    const cost = type === 'cost' ? parseMoedaParaFloat(formattedVal) : parseMoedaParaFloat(costPrice);
     const m = type === 'margin' ? parseFloat(val) : parseFloat(margin);
-    const sale = type === 'sale' ? parseFloat(val) : parseFloat(salePrice);
+    const sale = type === 'sale' ? parseMoedaParaFloat(formattedVal) : parseMoedaParaFloat(salePrice);
 
     if (type === 'cost' || type === 'sale') {
-      if (!isNaN(cost) && cost > 0 && !isNaN(sale) && sale >= cost) {
+      if (cost > 0 && sale >= cost) {
         setMargin((((sale - cost) / cost) * 100).toFixed(2));
-      } else if (!val) setMargin('');
+      } else if (!val) {
+        setMargin('');
+      }
     }
 
     if (type === 'margin') {
-      if (!isNaN(cost) && cost > 0 && !isNaN(m)) {
-        setSalePrice((cost + (cost * m) / 100).toFixed(2));
-      } else if (!val) setSalePrice('');
+      if (cost > 0 && !isNaN(m)) {
+        const novoPreco = cost + (cost * m) / 100;
+        setSalePrice(
+          novoPreco.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        );
+      } else if (!val) {
+        setSalePrice('');
+      }
     }
+  };
+
+  const handleLastPurchaseChange = (val: string) => {
+    setLastPurchasePrice(formatarMoedaInput(val));
   };
 
   return (
@@ -99,7 +132,7 @@ export function ProductForm({
           {editingId ? 'Editar Produto' : 'Cadastrar Novo Produto'}
         </h2>
         {editingId && (
-          <button type="button" onClick={onCancelEdit} className="text-xs text-rose-600 hover:underline font-semibold">
+          <button type="button" onClick={onCancelEdit} className="text-xs text-rose-600 hover:underline font-semibold cursor-pointer">
             Cancelar Edição
           </button>
         )}
@@ -137,7 +170,7 @@ export function ProductForm({
                   setIsNewBrandMode(!isNewBrandMode);
                   setBrand('');
                 }}
-                className="text-[11px] text-blue-600 hover:underline font-semibold"
+                className="text-[11px] text-blue-600 hover:underline font-semibold cursor-pointer"
               >
                 {isNewBrandMode ? '← Selecionar existente' : '+ Nova Marca'}
               </button>
@@ -216,17 +249,16 @@ export function ProductForm({
 
       <hr className="border-slate-200" />
 
-      {/* Seção 2: Preços, Margem e Custos */}
+      {/* Seção 2: Preços, Custos e Margem */}
       <div>
         <h3 className="text-xs font-bold text-slate-700 mb-3 uppercase tracking-wider">Preços, Custos e Margem</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Preço de Custo Atual (R$)</label>
             <input
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="0.00"
+              type="text"
+              inputMode="numeric"
+              placeholder="0,00"
               value={costPrice}
               onChange={(e) => handlePriceChange('cost', e.target.value)}
               className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white"
@@ -235,12 +267,11 @@ export function ProductForm({
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Valor Última Compra (R$)</label>
             <input
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="0.00"
+              type="text"
+              inputMode="numeric"
+              placeholder="0,00"
               value={lastPurchasePrice}
-              onChange={(e) => setLastPurchasePrice(e.target.value)}
+              onChange={(e) => handleLastPurchaseChange(e.target.value)}
               className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white"
             />
           </div>
@@ -258,10 +289,9 @@ export function ProductForm({
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Preço de Venda (R$)</label>
             <input
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="0.00"
+              type="text"
+              inputMode="numeric"
+              placeholder="0,00"
               value={salePrice}
               onChange={(e) => handlePriceChange('sale', e.target.value)}
               className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-emerald-50 font-semibold text-emerald-800"
@@ -272,16 +302,16 @@ export function ProductForm({
 
       <hr className="border-slate-200" />
 
-      {/* Seção 3: Parâmetros de Estoque (com travas para não aceitar negativos) */}
+      {/* Seção 3: Parâmetros de Estoque */}
       <ProductStockSection
         stockCurrent={stockCurrent} 
-        setStockCurrent={(val) => setStockCurrent(Math.max(0, val))}
+        setStockCurrent={setStockCurrent}
         stockMin={stockMin} 
-        setStockMin={(val) => setStockMin(Math.max(0, val))}
+        setStockMin={setStockMin}
         stockIdeal={stockIdeal} 
-        setStockIdeal={(val) => setStockIdeal(Math.max(0, val))}
+        setStockIdeal={setStockIdeal}
         stockMax={stockMax} 
-        setStockMax={(val) => setStockMax(Math.max(0, val))}
+        setStockMax={setStockMax}
       />
 
       <hr className="border-slate-200" />
@@ -289,13 +319,24 @@ export function ProductForm({
       {/* Seção 4: Tributação */}
       <ProductTaxSection ncm={ncm} setNcm={setNcm} cest={cest} setCest={setCest} />
 
-      <div className="flex justify-end pt-2">
+      <div className="flex justify-between items-center pt-2">
+        {isFromImport ? (
+          <a
+            href="/importar"
+            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-4 py-2.5 rounded-lg border border-indigo-200 transition-colors flex items-center gap-1.5"
+          >
+            &larr; Voltar para Central de Importação
+          </a>
+        ) : (
+          <span />
+        )}
+
         <button
           type="submit"
           disabled={submitting}
           className={`text-xs font-semibold px-6 py-3 rounded-lg transition-colors text-white ${
             editingId ? 'bg-amber-600 hover:bg-amber-700' : 'bg-blue-600 hover:bg-blue-700'
-          } disabled:opacity-50 shadow-sm`}
+          } disabled:opacity-50 shadow-sm cursor-pointer`}
         >
           {submitting ? 'Salvando...' : editingId ? 'Salvar Alterações do Produto' : '+ Cadastrar Produto no Catálogo'}
         </button>

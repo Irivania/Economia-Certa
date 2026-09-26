@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { ProductForm } from '@/components/ProductForm';
 import { ProductTable } from '@/components/ProductTable';
 
@@ -25,30 +26,41 @@ interface Product {
 }
 
 export default function ProductsPage() {
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get('returnTo');
+
   const [products, setProducts] = useState<Product[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Estados de Filtro e Busca
+  const [isFromImport] = useState(() => !!searchParams.get('description'));
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBrand, setSelectedBrand] = useState('');
 
-  // Estados do formulário de Cadastro / Edição
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [description, setDescription] = useState('');
-  const [ean, setEan] = useState('');
+  const [description, setDescription] = useState(() => searchParams.get('description') || '');
+  const [ean, setEan] = useState(() => searchParams.get('ean') || '');
   const [brand, setBrand] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [unit, setUnit] = useState('UN');
-  const [boxQuantity, setBoxQuantity] = useState(1);
+  const [boxQuantity, setBoxQuantity] = useState<number | ''>(1);
   const [costPrice, setCostPrice] = useState('');
   const [lastPurchasePrice, setLastPurchasePrice] = useState('');
-  const [salePrice, setSalePrice] = useState('');
-  const [stockCurrent, setStockCurrent] = useState(0);
-  const [stockMin, setStockMin] = useState(0);
-  const [stockIdeal, setStockIdeal] = useState(0);
-  const [stockMax, setStockMax] = useState(0);
+  const [salePrice, setSalePrice] = useState(() => searchParams.get('salePrice') || '');
+  
+  const [stockCurrent, setStockCurrent] = useState<number | ''>(() => {
+    const stock = searchParams.get('stockCurrent');
+    return stock ? Number(stock) : '';
+  });
+  const [stockMin, setStockMin] = useState<number | ''>('');
+  const [stockIdeal, setStockIdeal] = useState<number | ''>(() => {
+    const stock = searchParams.get('stockIdeal');
+    return stock ? Number(stock) : '';
+  });
+  const [stockMax, setStockMax] = useState<number | ''>('');
+
   const [ncm, setNcm] = useState('');
   const [cest, setCest] = useState('');
 
@@ -128,6 +140,7 @@ export default function ProductsPage() {
       setSubmitting(true);
       const url = '/api/products';
       const method = editingId ? 'PUT' : 'POST';
+      
       const bodyData = {
         id: editingId || undefined,
         companyId,
@@ -136,14 +149,14 @@ export default function ProductsPage() {
         brand,
         imageUrl,
         unit,
-        boxQuantity,
-        costPrice: costPrice || null,
-        lastPurchasePrice: lastPurchasePrice || null,
-        salePrice: salePrice || null,
-        stockCurrent,
-        stockMin,
-        stockIdeal,
-        stockMax,
+        boxQuantity: boxQuantity === '' || boxQuantity === undefined ? 1 : Number(boxQuantity),
+        costPrice: costPrice ? costPrice.replace(/\./g, '').replace(',', '.') : null,
+        lastPurchasePrice: lastPurchasePrice ? lastPurchasePrice.replace(/\./g, '').replace(',', '.') : null,
+        salePrice: salePrice ? salePrice.replace(/\./g, '').replace(',', '.') : null,
+        stockCurrent: stockCurrent === '' || stockCurrent === undefined ? 0 : Number(stockCurrent),
+        stockMin: stockMin === '' || stockMin === undefined ? 0 : Number(stockMin),
+        stockIdeal: stockIdeal === '' || stockIdeal === undefined ? 0 : Number(stockIdeal),
+        stockMax: stockMax === '' || stockMax === undefined ? 0 : Number(stockMax),
         ncm,
         cest,
       };
@@ -182,10 +195,10 @@ export default function ProductsPage() {
     setCostPrice(prod.costPrice || '');
     setLastPurchasePrice(prod.lastPurchasePrice || '');
     setSalePrice(prod.salePrice || '');
-    setStockCurrent(prod.stockCurrent ?? 0);
-    setStockMin(prod.stockMin ?? 0);
-    setStockIdeal(prod.stockIdeal ?? 0);
-    setStockMax(prod.stockMax ?? 0);
+    setStockCurrent(prod.stockCurrent ?? '');
+    setStockMin(prod.stockMin ?? '');
+    setStockIdeal(prod.stockIdeal ?? '');
+    setStockMax(prod.stockMax ?? '');
     setNcm(prod.ncm || '');
     setCest(prod.cest || '');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -220,20 +233,33 @@ export default function ProductsPage() {
     setCostPrice('');
     setLastPurchasePrice('');
     setSalePrice('');
-    setStockCurrent(0);
-    setStockMin(0);
-    setStockIdeal(0);
-    setStockMax(0);
+    setStockCurrent('');
+    setStockMin('');
+    setStockIdeal('');
+    setStockMax('');
     setNcm('');
     setCest('');
   };
 
   return (
     <div className="min-h-screen bg-slate-50 py-10 px-6">
-      <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+      <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-sm border border-slate-200 p-8 space-y-6">
         
-        {/* Cabeçalho */}
-        <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
+        {returnTo && (
+          <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-xl flex items-center justify-between">
+            <span className="text-xs font-bold text-indigo-900">
+              ⚡ Você veio da criação de uma cotação. Cadastre o item e retorne para continuar!
+            </span>
+            <Link
+              href={returnTo}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2 rounded-lg transition shadow-sm"
+            >
+              &larr; Voltar para Nova Cotação
+            </Link>
+          </div>
+        )}
+
+        <div className="flex justify-between items-center pb-4 border-b border-slate-100">
           <div>
             <h1 className="text-xl font-bold text-slate-800">📦 Catálogo e Gestão de Produtos</h1>
             <p className="text-xs text-slate-500">Melo Perfumaria — Gestão de Itens, Imagens, Custos, Estoque e Tributos.</p>
@@ -248,7 +274,6 @@ export default function ProductsPage() {
           </div>
         </div>
 
-        {/* Formulário Modularizado */}
         <ProductForm
           editingId={editingId}
           description={description}
@@ -262,7 +287,7 @@ export default function ProductsPage() {
           setImageUrl={setImageUrl}
           unit={unit}
           setUnit={setUnit}
-          boxQuantity={boxQuantity}
+          boxQuantity={boxQuantity === '' ? 1 : boxQuantity}
           setBoxQuantity={setBoxQuantity}
           costPrice={costPrice}
           setCostPrice={setCostPrice}
@@ -285,9 +310,9 @@ export default function ProductsPage() {
           submitting={submitting}
           onSubmit={handleSubmit}
           onCancelEdit={resetForm}
+          isFromImport={isFromImport}
         />
 
-        {/* Tabela Modularizada */}
         <ProductTable
           products={products}
           brands={brands}

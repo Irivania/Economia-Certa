@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
 import { quotations, quotationItems, products, quotationSuppliers } from '@/db/schema';
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { uppercaseText } from '@/lib/text';
 import crypto from 'crypto';
 
@@ -54,20 +54,7 @@ export async function GET(request: NextRequest) {
       .select({
         id: quotationItems.id,
         productId: quotationItems.productId,
-        requestedQuantity: quotationItems.requestedQuantity,
-        description: products.description,
-        ean: products.ean,
-        brand: products.brand,
-        imageUrl: products.imageUrl,
-      })
-      .from(quotationItems)
-      .innerJoin(products, eq(quotationItems.productId, products.id))
-      .where(and(eq(quotationItems.quotationId, quotation.id), isNull(quotationItems.supplierId)));
-
-    const fallbackItems = itemsList.length > 0 ? itemsList : await db
-      .select({
-        id: quotationItems.id,
-        productId: quotationItems.productId,
+        supplierId: quotationItems.supplierId,
         requestedQuantity: quotationItems.requestedQuantity,
         description: products.description,
         ean: products.ean,
@@ -78,6 +65,9 @@ export async function GET(request: NextRequest) {
       .innerJoin(products, eq(quotationItems.productId, products.id))
       .where(eq(quotationItems.quotationId, quotation.id));
 
+    const baseItems = itemsList.filter((item: { supplierId?: string | null }) => !item.supplierId);
+    const finalItems = baseItems.length > 0 ? baseItems : itemsList;
+
     return NextResponse.json({
       id: quotation.id,
       title: quotation.title,
@@ -85,7 +75,7 @@ export async function GET(request: NextRequest) {
       startDate: quotation.startDate,
       endDate: quotation.endDate,
       closingTime: quotation.closingTime,
-      items: fallbackItems,
+      items: finalItems,
     });
   } catch (error) {
     console.error('Erro ao buscar cotação para resposta:', error);

@@ -1,6 +1,6 @@
 'use client';
 
-import { ChangeEvent, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { uppercaseText } from '@/lib/text';
 
 interface QuotationBasicInfoProps {
@@ -14,9 +14,6 @@ interface QuotationBasicInfoProps {
   setClosingTime: (val: string) => void;
   paymentTerms: string;
   setPaymentTerms: (val: string) => void;
-  attachedFile: File | null;
-  onFileChange: (e: ChangeEvent<HTMLInputElement>) => void;
-  onRemoveFile: () => void;
 }
 
 const DEFAULT_TERMS = [
@@ -57,9 +54,6 @@ export default function QuotationBasicInfo({
   setClosingTime,
   paymentTerms,
   setPaymentTerms,
-  attachedFile,
-  onFileChange,
-  onRemoveFile,
 }: QuotationBasicInfoProps) {
   
   const [termsList, setTermsList] = useState<string[]>(() => {
@@ -132,7 +126,7 @@ export default function QuotationBasicInfo({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-100 pb-3">
         <div>
           <h2 className="text-sm font-bold text-slate-800">Informações e Prazos da Cotação</h2>
-          <p className="text-xs text-slate-500">Defina o identificador, vigência, condições de pagamento e anexe a lista.</p>
+          <p className="text-xs text-slate-500">Defina o identificador, vigência e condições de pagamento.</p>
         </div>
         <button
           type="button"
@@ -205,27 +199,7 @@ export default function QuotationBasicInfo({
         </label>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <label className="block text-sm font-medium text-slate-700">
-          Importar Lista (TXT, CSV ou Excel)
-          <div className="mt-1.5 flex items-center gap-2">
-            <label className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border border-dashed border-slate-300 rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100 transition text-xs font-medium text-slate-600">
-              <span>{attachedFile ? `📎 ${attachedFile.name}` : '📁 Escolher arquivo (.txt, .xlsx)'}</span>
-              <input type="file" accept=".txt,.csv,.xlsx,.xls" onChange={onFileChange} className="hidden" />
-            </label>
-            {attachedFile && (
-              <button
-                type="button"
-                onClick={onRemoveFile}
-                className="px-3 py-2.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition"
-                title="Remover arquivo"
-              >
-                Remover
-              </button>
-            )}
-          </div>
-        </label>
-
+      <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
         <div className="grid grid-cols-3 gap-2">
           <label className="text-sm font-medium text-slate-700">
             Início

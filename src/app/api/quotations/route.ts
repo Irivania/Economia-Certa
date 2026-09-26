@@ -159,12 +159,18 @@ export async function POST(request: Request) {
 
     if (items && Array.isArray(items)) {
       for (const item of items) {
+        const itemObj = item as Record<string, unknown>;
+        const pId = String(itemObj.productId || itemObj.id || '');
+        const qQty = Number(itemObj.requestedQuantity || itemObj.quantity || 0);
+
+        if (!pId) continue;
+
         await db.insert(quotationItems).values({
           id: crypto.randomUUID(),
           quotationId: newQuotation.id,
-          productId: String(item.id || item.productId || ''),
-          requestedQuantity: String(item.requestedQuantity || 0),
-          price: String(item.costPrice || item.unitPrice || 0),
+          productId: pId,
+          requestedQuantity: String(qQty),
+          price: String(itemObj.costPrice || itemObj.unitPrice || 0),
         });
       }
     }
@@ -237,12 +243,18 @@ export async function PUT(request: Request) {
     if (items && Array.isArray(items)) {
       await db.delete(quotationItems).where(eq(quotationItems.quotationId, id));
       for (const item of items) {
+        const itemObj = item as Record<string, unknown>;
+        const pId = String(itemObj.productId || itemObj.id || '');
+        const qQty = Number(itemObj.requestedQuantity || itemObj.quantity || 0);
+
+        if (!pId) continue;
+
         await db.insert(quotationItems).values({
           id: crypto.randomUUID(),
           quotationId: id,
-          productId: String(item.id || item.productId || ''),
-          requestedQuantity: String(item.requestedQuantity || 0),
-          price: String(item.costPrice || item.unitPrice || 0),
+          productId: pId,
+          requestedQuantity: String(qQty),
+          price: String(itemObj.costPrice || itemObj.unitPrice || 0),
         });
       }
     }

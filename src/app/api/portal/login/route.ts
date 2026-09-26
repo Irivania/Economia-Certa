@@ -11,11 +11,12 @@ export async function POST(request: Request) {
 
     if (!email || !password) {
       return NextResponse.json(
-        { error: 'E-mail e senha são obrigatórios.' },
+        { error: 'E-mail e palavra-passe são obrigatórios.' },
         { status: 400 },
       );
     }
 
+    // Procura o fornecedor pelo e-mail
     const [supplier] = await db
       .select({
         id: suppliers.id,
@@ -27,9 +28,19 @@ export async function POST(request: Request) {
       .from(suppliers)
       .where(eq(suppliers.email, email));
 
-    if (!supplier || supplier.passwordHash !== password) {
+    if (!supplier) {
       return NextResponse.json(
-        { error: 'E-mail ou senha inválidos.' },
+        { error: 'E-mail não encontrado no sistema.' },
+        { status: 401 },
+      );
+    }
+
+    // Validação da senha (suporta texto plano guardado no banco)
+    const isPasswordValid = supplier.passwordHash === password;
+
+    if (!isPasswordValid) {
+      return NextResponse.json(
+        { error: 'Palavra-passe incorreta.' },
         { status: 401 },
       );
     }
