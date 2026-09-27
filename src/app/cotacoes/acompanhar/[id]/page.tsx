@@ -2,6 +2,9 @@
 
 import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
+import { useTheme } from '@/context/ThemeContext';
+import { AppHeader } from '@/components/AppHeader';
+import { CommandMenu } from '@/components/CommandMenu';
 
 interface QuotationInfo {
   id: string;
@@ -19,7 +22,7 @@ interface TrackingItem {
   status: string;
   answeredAt?: string | null;
   totalOffered: number;
-  token: string; // Token individual e exclusivo do distribuidor
+  token: string;
 }
 
 function formatDate(value?: string | null) {
@@ -42,10 +45,14 @@ export default function QuotationTrackingPage({ params }: { params: Promise<{ id
   const resolvedParams = use(params);
   const quotationId = resolvedParams.id;
 
+  const { isDarkMode, mounted } = useTheme();
   const [quotation, setQuotation] = useState<QuotationInfo | null>(null);
   const [tracking, setTracking] = useState<TrackingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isCmdOpen, setIsCmdOpen] = useState(false);
+
+  const latestQuotationId = quotationId;
 
   useEffect(() => {
     async function loadTracking() {
@@ -72,98 +79,123 @@ export default function QuotationTrackingPage({ params }: { params: Promise<{ id
     loadTracking();
   }, [quotationId]);
 
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-slate-50 px-6 py-10">
-        <p className="mx-auto max-w-4xl text-center text-sm text-slate-400">Carregando acompanhamento...</p>
-      </main>
-    );
-  }
-
-  if (error || !quotation) {
-    return (
-      <main className="min-h-screen bg-slate-50 px-6 py-10">
-        <div className="mx-auto max-w-4xl space-y-4">
-          <Link href="/cotacoes" className="text-sm font-medium text-slate-500 transition hover:text-indigo-600">← Voltar para cotações</Link>
-          <p className="rounded-lg bg-red-50 p-4 text-sm text-red-700">{error || 'Cotação não encontrada.'}</p>
-        </div>
-      </main>
-    );
-  }
+  if (!mounted) return <div className="min-h-screen bg-slate-950" />;
 
   return (
-    <main className="min-h-screen bg-slate-50 px-6 py-10">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <Link href="/cotacoes" className="text-sm font-medium text-slate-500 transition hover:text-indigo-600">← Voltar para cotações</Link>
+    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+      
+      <AppHeader
+        title="Acompanhamento de Cotação"
+        subtitle="Melo Perfumaria — Monitorização em tempo real de distribuidores."
+        onOpenCmd={() => setIsCmdOpen(true)}
+      />
 
-        <header className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 space-y-2">
-          <p className="text-sm font-semibold uppercase tracking-wide text-indigo-600">Acompanhamento de Cotação</p>
-          <h1 className="text-2xl font-bold text-slate-900">{quotation.title}</h1>
-          <div className="flex flex-wrap gap-4 text-xs text-slate-500 pt-1">
-            <span>Início: <strong className="text-slate-700">{formatDate(quotation.startDate)}</strong></span>
-            <span>Término: <strong className="text-slate-700">{formatDate(quotation.endDate)}{quotation.closingTime ? ` às ${quotation.closingTime}` : ''}</strong></span>
+      <main className="max-w-7xl mx-auto px-6 sm:px-12 -mt-12 pb-20 relative z-20 space-y-8">
+        
+        <div>
+          <Link href="/cotacoes" className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 px-4 py-2 rounded-xl shadow-md border border-slate-200 dark:border-slate-800 transition hover:text-indigo-600 dark:hover:text-indigo-400 inline-flex items-center gap-2">
+            ← Voltar para cotações
+          </Link>
+        </div>
+
+        {loading ? (
+          <div className={`p-12 text-center rounded-3xl shadow-2xl border ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200'}`}>
+            <p className="text-xs font-medium opacity-60">A carregar dados de acompanhamento...</p>
           </div>
-        </header>
-
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="p-4 border-b border-slate-100 bg-slate-50 font-semibold text-slate-700 text-sm">
-            Distribuidores Convidados ({tracking.length})
+        ) : error || !quotation ? (
+          <div className="p-6 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs font-semibold">
+            {error || 'Cotação não encontrada.'}
           </div>
+        ) : (
+          <>
+            <header className={`p-8 rounded-3xl shadow-2xl border space-y-3 ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200/80'}`}>
+              <span className="text-xs font-mono font-bold uppercase tracking-widest bg-indigo-500/10 text-indigo-500 px-3 py-1 rounded-full">
+                Painel Ativo
+              </span>
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight">{quotation.title}</h1>
+              <div className="flex flex-wrap gap-6 text-xs opacity-70 pt-1 font-medium">
+                <span>Início: <strong className="opacity-100">{formatDate(quotation.startDate)}</strong></span>
+                <span>Término: <strong className="opacity-100">{formatDate(quotation.endDate)}{quotation.closingTime ? ` às ${quotation.closingTime}` : ''}</strong></span>
+              </div>
+            </header>
 
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-sm">
-              <thead className="border-b border-slate-100 bg-slate-50/50 text-slate-600">
-                <tr>
-                  <th className="p-4 font-semibold">Distribuidor / Fornecedor</th>
-                  <th className="p-4 text-center font-semibold">Status</th>
-                  <th className="p-4 text-center font-semibold">Total Oferecido</th>
-                  <th className="p-4 text-right font-semibold">Ações / Envio</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {tracking.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="p-6 text-center text-slate-400">
-                      Nenhum distribuidor vinculado a esta cotação.
-                    </td>
-                  </tr>
-                ) : (
-                  tracking.map((item) => {
-                    const whatsUrl = getWhatsappUrl(quotation.title, item.name, item.phone || '', item.token);
+            <div className={`p-8 rounded-3xl shadow-2xl border space-y-6 ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200/80'}`}>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-5 border-slate-500/10">
+                <div>
+                  <h2 className="text-base font-black tracking-tight">Distribuidores Convidados</h2>
+                  <p className="text-xs opacity-60 mt-0.5">Acompanhe o estado de resposta e envie links seguros via WhatsApp.</p>
+                </div>
+                <span className="text-xs font-mono font-bold opacity-70 bg-slate-500/10 px-3 py-2 rounded-xl whitespace-nowrap">
+                  {tracking.length} convidados
+                </span>
+              </div>
 
-                    return (
-                      <tr key={item.id} className="hover:bg-slate-50/60">
-                        <td className="p-4 font-medium text-slate-800">
-                          <div>{item.name}</div>
-                          {item.phone && <div className="text-xs text-slate-400 font-normal">Tel: {item.phone}</div>}
-                        </td>
-                        <td className="p-4 text-center">
-                          <span className={`inline-block rounded-full px-2.5 py-1 text-xs font-medium ${item.status === 'RESPONDIDO' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                            {item.status === 'RESPONDIDO' ? 'Respondido' : 'Pendente'}
-                          </span>
-                        </td>
-                        <td className="p-4 text-center font-semibold text-slate-700">
-                          {item.totalOffered > 0 ? `R$ ${item.totalOffered.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}
-                        </td>
-                        <td className="p-4 text-right">
-                          <a
-                            href={whatsUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-700 shadow-sm"
-                          >
-                            💬 Enviar WhatsApp
-                          </a>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-left text-xs sm:text-sm">
+                  <thead className={`border-b ${isDarkMode ? 'border-slate-800 text-slate-400 bg-slate-950/40' : 'border-slate-200 text-slate-600 bg-slate-50/50'}`}>
+                    <tr>
+                      <th className="p-4 font-bold">Distribuidor / Fornecedor</th>
+                      <th className="p-4 text-center font-bold">Status</th>
+                      <th className="p-4 text-center font-bold">Total Oferecido</th>
+                      <th className="p-4 text-right font-bold">Ações / Envio</th>
+                    </tr>
+                  </thead>
+                  <tbody className={`divide-y ${isDarkMode ? 'divide-slate-800/60' : 'divide-slate-100'}`}>
+                    {tracking.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="p-12 text-center opacity-60">
+                          Nenhum distribuidor vinculado a esta cotação.
                         </td>
                       </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </main>
+                    ) : (
+                      tracking.map((item) => {
+                        const whatsUrl = getWhatsappUrl(quotation.title, item.name, item.phone || '', item.token);
+                        const isAnswered = item.status === 'RESPONDIDO';
+
+                        return (
+                          <tr key={item.id} className={`transition ${isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50/60'}`}>
+                            <td className="p-4 font-semibold">
+                              <div className="text-sm">{item.name}</div>
+                              {item.phone && <div className="text-xs opacity-50 font-normal mt-0.5">Tel: {item.phone}</div>}
+                            </td>
+                            <td className="p-4 text-center">
+                              <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${isAnswered ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'}`}>
+                                {isAnswered ? 'Respondido' : 'Pendente'}
+                              </span>
+                            </td>
+                            <td className="p-4 text-center font-mono font-bold opacity-90">
+                              {item.totalOffered > 0 ? `R$ ${item.totalOffered.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}
+                            </td>
+                            <td className="p-4 text-right">
+                              <a
+                                href={whatsUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-emerald-500 shadow-lg shadow-emerald-600/20"
+                              >
+                                💬 Enviar WhatsApp
+                              </a>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
+
+      </main>
+
+      <CommandMenu 
+        isOpen={isCmdOpen} 
+        onClose={() => setIsCmdOpen(false)} 
+        isDarkMode={isDarkMode} 
+        latestQuotationId={latestQuotationId} 
+      />
+
+    </div>
   );
 }

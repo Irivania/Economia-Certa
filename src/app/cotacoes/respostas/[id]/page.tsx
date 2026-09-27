@@ -53,7 +53,7 @@ function formatDate(value?: string | Date | null) {
   return new Intl.DateTimeFormat('pt-BR').format(date);
 }
 
-export default function Page({ params }: { params: Promise<{ id: string }> }) {
+export default function QuotationResponsesPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const quotationId = resolvedParams?.id;
   const { isDarkMode } = useTheme();
@@ -305,8 +305,8 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
       {/* CONTEÚDO PRINCIPAL */}
       <main className="max-w-7xl mx-auto px-6 sm:px-12 -mt-12 pb-20 relative z-20 space-y-8">
         
-        <div className="flex items-center justify-between text-xs">
-          <Link href="/cotacoes" className="font-bold opacity-70 hover:opacity-100 transition flex items-center gap-1.5">
+        <div>
+          <Link href="/cotacoes" className="font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 px-4 py-2 rounded-xl shadow-md border border-slate-200 dark:border-slate-800 transition hover:text-indigo-600 dark:hover:text-indigo-400 inline-flex items-center gap-2 text-xs">
             ← Voltar para listagem de cotações
           </Link>
         </div>

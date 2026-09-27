@@ -7,6 +7,9 @@ import ProductSelectionModal from '@/components/ProductSelectionModal';
 import QuotationBasicInfo from '@/components/QuotationBasicInfo';
 import QuotationSuppliersSection from '@/components/QuotationSuppliersSection';
 import QuotationItemsSection from '@/components/QuotationItemsSection';
+import { useTheme } from '@/context/ThemeContext';
+import { AppHeader } from '@/components/AppHeader';
+import { CommandMenu } from '@/components/CommandMenu';
 
 interface Supplier {
   id: string;
@@ -85,6 +88,7 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
   const resolvedParams = use(params);
   const quotationId = resolvedParams.id;
   const router = useRouter();
+  const { isDarkMode } = useTheme();
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [catalogProducts, setCatalogProducts] = useState<ProductFromDb[]>([]);
@@ -99,6 +103,7 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
   const [quotationItems, setQuotationItems] = useState<QuotationItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCmdOpen, setIsCmdOpen] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
@@ -297,19 +302,39 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
   };
 
   if (loading) {
-    return <main className="min-h-screen bg-slate-50 px-6 py-10"><p className="mx-auto max-w-4xl text-center text-sm text-slate-400">Carregando cotação...</p></main>;
+    return (
+      <div className={`min-h-screen flex items-center justify-center text-xs font-medium ${isDarkMode ? 'bg-slate-950 text-slate-400' : 'bg-slate-50 text-slate-500'}`}>
+        Carregando cotação...
+      </div>
+    );
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 px-6 py-10">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <Link href="/cotacoes" className="text-sm font-medium text-slate-500 transition hover:text-indigo-600">← Voltar para cotações</Link>
+    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+      
+      <AppHeader
+        title="Economia Certa"
+        subtitle="Painel gerencial inteligente e controle de compras em tempo real."
+        onOpenCmd={() => setIsCmdOpen(true)}
+      />
+
+      <main className="max-w-7xl mx-auto px-6 sm:px-12 -mt-12 pb-20 relative z-20 space-y-8">
         
-        <header className="flex justify-between items-center bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+        <div>
+          <Link href="/cotacoes" className="font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 px-4 py-2 rounded-xl shadow-md border border-slate-200 dark:border-slate-800 transition hover:text-indigo-600 dark:hover:text-indigo-400 inline-flex items-center gap-2 text-xs">
+            ← Voltar para cotações
+          </Link>
+        </div>
+
+        <header className={`rounded-3xl border p-8 shadow-2xl flex justify-between items-center transition-all ${
+          isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/80 text-slate-900'
+        }`}>
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-amber-600">Edição de Cotação</p>
-            <h1 className="mt-1 text-2xl font-bold text-slate-900">Modificar Solicitação e Produtos</h1>
-            <p className="mt-1 text-sm text-slate-500">Altere os dados gerais, adicione/remova produtos e ajuste quantidades.</p>
+            <span className="inline-flex rounded-full bg-amber-500/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-amber-500 border border-amber-500/20">
+              Edição de Cotação
+            </span>
+            <h1 className="text-xl md:text-2xl font-black tracking-tight mt-2">Modificar Solicitação e Produtos</h1>
+            <p className="text-xs opacity-60 mt-1 font-medium">Altere os dados gerais, adicione/remova produtos e ajuste quantidades.</p>
           </div>
         </header>
 
@@ -325,9 +350,6 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
             setClosingTime={setClosingTime}
             paymentTerms={paymentTerms}
             setPaymentTerms={setPaymentTerms}
-            attachedFile={null}
-            onFileChange={() => {}}
-            onRemoveFile={() => {}}
           />
 
           <QuotationItemsSection
@@ -347,11 +369,13 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
             loading={loadingSuppliers}
           />
 
-          {error && <p role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+          {error && <p role="alert" className="rounded-2xl bg-rose-500/10 border border-rose-500/20 px-4 py-3 text-xs font-semibold text-rose-500">{error}</p>}
 
           <div className="flex justify-end gap-3 pt-2">
-            <Link href="/cotacoes" className="rounded-lg px-5 py-2.5 text-center text-sm font-semibold text-slate-600 transition hover:bg-slate-100 bg-white border border-slate-200">Cancelar</Link>
-            <button type="submit" disabled={submitting} className="rounded-lg bg-amber-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-700 disabled:opacity-50">
+            <Link href="/cotacoes" className="rounded-2xl px-6 py-3 text-center text-xs font-bold text-slate-600 dark:text-slate-300 transition hover:bg-slate-100 dark:hover:bg-slate-800 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+              Cancelar
+            </Link>
+            <button type="submit" disabled={submitting} className="rounded-2xl bg-amber-600 px-6 py-3 text-xs font-extrabold text-white shadow-xl shadow-amber-600/25 transition hover:bg-amber-500 disabled:opacity-50 cursor-pointer">
               {submitting ? 'Salvando...' : 'Salvar Alterações'}
             </button>
           </div>
@@ -368,7 +392,10 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
           }))}
           onAddSelectedProducts={handleAddSelectedProducts}
         />
-      </div>
-    </main>
+      </main>
+
+      <CommandMenu isOpen={isCmdOpen} onClose={() => setIsCmdOpen(false)} isDarkMode={isDarkMode} latestQuotationId={quotationId} />
+
+    </div>
   );
 }
