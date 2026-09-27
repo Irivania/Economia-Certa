@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Testes de Segurança e Resiliência das APIs', () => {
   
   test('Deve rejeitar requisições de relatórios sem companyId ou quotationId', async ({ request }) => {
-    // Tenta acessar a rota de economia sem passar os parâmetros obrigatórios
+    // Tenta aceder à rota de economia sem passar os parâmetros obrigatórios
     const response = await request.get('http://localhost:3000/api/reports/savings');
     
     // Deve retornar erro 400 (Bad Request)
@@ -24,6 +24,22 @@ test.describe('Testes de Segurança e Resiliência das APIs', () => {
     // Aceita 404 (Not Found) ou 400/500 caso a API trate o ID inválido de outra forma controlada
     const status = response.status();
     expect([400, 404, 500]).toContain(status);
+  });
+
+  test('Deve listar produtos apenas com companyId válido', async ({ request }) => {
+    const validCompanyId = '915a8bc1-5db7-4605-93a9-b78090e75679';
+    const response = await request.get(`http://localhost:3000/api/products?companyId=${validCompanyId}`);
+    
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(Array.isArray(body)).toBeTruthy();
+  });
+
+  test('Deve rejeitar a listagem de produtos quando o companyId está ausente', async ({ request }) => {
+    const response = await request.get('http://localhost:3000/api/products');
+    
+    // Deve barrar o acesso por falta de contexto corporativo
+    expect(response.status()).toBeGreaterThanOrEqual(400);
   });
 
 });
