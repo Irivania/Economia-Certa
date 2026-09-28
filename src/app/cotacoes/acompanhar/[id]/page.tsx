@@ -23,6 +23,7 @@ interface TrackingItem {
   answeredAt?: string | null;
   totalOffered: number;
   token: string;
+  isB2BActive: boolean;
 }
 
 function formatDate(value?: string | null) {
@@ -51,6 +52,7 @@ export default function QuotationTrackingPage({ params }: { params: Promise<{ id
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCmdOpen, setIsCmdOpen] = useState(false);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
 
   const latestQuotationId = quotationId;
 
@@ -78,6 +80,28 @@ export default function QuotationTrackingPage({ params }: { params: Promise<{ id
 
     loadTracking();
   }, [quotationId]);
+
+  const handlePublishToPortal = async (supplierId: string, supplierName: string) => {
+    try {
+      setPublishingId(supplierId);
+      const response = await fetch(`/api/quotations/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quotationId, supplierId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao publicar cotação no portal.');
+      }
+
+      alert(`Cotação liberada com sucesso para ${supplierName} no portal B2B!`);
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao liberar cotação no portal.');
+    } finally {
+      setPublishingId(null);
+    }
+  };
 
   if (!mounted) return <div className="min-h-screen bg-slate-950" />;
 
@@ -122,8 +146,8 @@ export default function QuotationTrackingPage({ params }: { params: Promise<{ id
             <div className={`p-8 rounded-3xl shadow-2xl border space-y-6 ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200/80'}`}>
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-5 border-slate-500/10">
                 <div>
-                  <h2 className="text-base font-black tracking-tight">Distribuidores Convidados</h2>
-                  <p className="text-xs opacity-60 mt-0.5">Acompanhe o estado de resposta e envie links seguros via WhatsApp.</p>
+                  <h2 className="text-base font-black tracking-tight">Distribuidores Convidados e Parceiros B2B</h2>
+                  <p className="text-xs opacity-60 mt-0.5">Liberte a cotação no painel dos parceiros ativos ou utilize o WhatsApp para o fluxo tradicional.</p>
                 </div>
                 <span className="text-xs font-mono font-bold opacity-70 bg-slate-500/10 px-3 py-2 rounded-xl whitespace-nowrap">
                   {tracking.length} convidados
@@ -137,7 +161,7 @@ export default function QuotationTrackingPage({ params }: { params: Promise<{ id
                       <th className="p-4 font-bold">Distribuidor / Fornecedor</th>
                       <th className="p-4 text-center font-bold">Status</th>
                       <th className="p-4 text-center font-bold">Total Oferecido</th>
-                      <th className="p-4 text-right font-bold">Ações / Envio</th>
+                      <th className="p-4 text-right font-bold">Ações de Envio / Liberação</th>
                     </tr>
                   </thead>
                   <tbody className={`divide-y ${isDarkMode ? 'divide-slate-800/60' : 'divide-slate-100'}`}>
@@ -155,7 +179,14 @@ export default function QuotationTrackingPage({ params }: { params: Promise<{ id
                         return (
                           <tr key={item.id} className={`transition ${isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50/60'}`}>
                             <td className="p-4 font-semibold">
-                              <div className="text-sm">{item.name}</div>
+                              <div className="text-sm flex items-center gap-2">
+                                {item.name}
+                                {item.isB2BActive && (
+                                  <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                                    Parceiro Ativo
+                                  </span>
+                                )}
+                              </div>
                               {item.phone && <div className="text-xs opacity-50 font-normal mt-0.5">Tel: {item.phone}</div>}
                             </td>
                             <td className="p-4 text-center">
@@ -167,14 +198,28 @@ export default function QuotationTrackingPage({ params }: { params: Promise<{ id
                               {item.totalOffered > 0 ? `R$ ${item.totalOffered.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}
                             </td>
                             <td className="p-4 text-right">
-                              <a
-                                href={whatsUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-emerald-500 shadow-lg shadow-emerald-600/20"
-                              >
-                                💬 Enviar WhatsApp
-                              </a>
+                              <div className="flex items-center justify-end gap-2.5">
+                                {item.isB2BActive ? (
+                                  <button
+                                    onClick={() => handlePublishToPortal(item.id, item.name)}
+                                    disabled={publishingId === item.id}
+                                    className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-indigo-600/20 transition disabled:opacity-50 cursor-pointer"
+                                  >
+                                    {publishingId === item.id ? 'A publicar...' : '⚡ Publicar no Portal'}
+                                  </button>
+                                ) : (
+                                  item.phone && (
+                                    <a
+                                      href={whatsUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-500"
+                                    >
+                                      💬 Enviar WhatsApp
+                                    </a>
+                                  )
+                                )}
+                              </div>
                             </td>
                           </tr>
                         );

@@ -1,400 +1,347 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
-import { uppercaseText } from '@/lib/text';
+import {
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  useSyncExternalStore,
+} from 'react';
+import { useRouter } from 'next/navigation';
+import { useTheme } from '@/context/ThemeContext';
+import { SupplierHeader } from '@/components/portal/SupplierHeader';
 
-interface QuotationResponseItem {
-  id: string;
-  productId: string;
-  description: string;
-  ean?: string | null;
-  imageUrl?: string | null;
-  brand?: string | null;
-  requestedQuantity: number;
-}
-
-interface QuotationData {
-  id: string;
-  title: string;
-  storeName: string;
+interface QuotationSupplierResult {
+  quotationSupplierId: string;
+  quotationId: string;
+  title?: string | null;
   startDate?: string | null;
   endDate?: string | null;
   closingTime?: string | null;
-  items: QuotationResponseItem[];
+  status: string;
+  totalOffered?: number | null;
+  token?: string | null;
+  companyName: string;
 }
 
-interface PageProps {
-  params: Promise<{ token: string }>;
+interface Connection {
+  id: string;
+  companyId: string;
+  status: string;
+  initiatedBy: string;
 }
 
-function parseDateValue(value?: string | Date | null) {
-  if (!value) return null;
-
-  if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? null : value;
-  }
-
-  if (typeof value !== 'string') return null;
-
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-
-  const isoDateMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
-  if (isoDateMatch) {
-    return new Date(`${isoDateMatch[1]}T00:00:00`);
-  }
-
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
-    const [day, month, year] = trimmed.split('/');
-    return new Date(`${year}-${month}-${day}T00:00:00`);
-  }
-
-  const parsed = new Date(trimmed);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+interface SupplierSession {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string | null;
 }
 
-function getDateKey(value?: string | Date | null) {
-  if (typeof value === 'string') {
-    const isoDateMatch = value.trim().match(/^(\d{4}-\d{2}-\d{2})/);
-    if (isoDateMatch) return isoDateMatch[1];
-  }
+const subscribeToHydration = () => () => {};
 
-  const parsed = parseDateValue(value);
-  return parsed ? toLocalDateString(parsed) : null;
-}
+export default function SupplierPortalDashboard() {
+  const router = useRouter();
+  const { isDarkMode, mounted: themeMounted } = useTheme();
 
-function formatDateValue(value?: string | Date | null) {
-  const parsed = parseDateValue(value);
-  if (!parsed) return 'Não definido';
-  return parsed.toLocaleDateString('pt-BR');
-}
+  const mounted = useSyncExternalStore(subscribeToHydration, () => true, () => false);
+  const sessionData = useSyncExternalStore(
+    subscribeToHydration,
+    () => sessionStorage.getItem('melo_supplier_session') ?? '',
+    () => ''
+  );
 
-function toLocalDateString(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+  const supplier = useMemo<SupplierSession | null>(() => {
+    if (!sessionData) return null;
+    try {
+      return JSON.parse(sessionData) as SupplierSession;
+    } catch {
+      return null;
+    }
+  }, [sessionData]);
 
-function getDeadlineTimestamp(dateKey: string, closingTime?: string | null) {
-  const [year, month, day] = dateKey.split('-').map(Number);
-  const [hours = 23, minutes = 59] = (closingTime || '23:59').split(':').map(Number);
-  const deadline = new Date(year, month - 1, day, hours, minutes, 0, 0);
-
-  return Number.isNaN(deadline.getTime()) ? null : deadline.getTime();
-}
-
-export default function ResponderCotacaoPage({ params }: PageProps) {
-  const resolvedParams = use(params);
-  const token = resolvedParams.token;
-
+  const [quotations, setQuotations] = useState<QuotationSupplierResult[]>([]);
+  const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [quotation, setQuotation] = useState<QuotationData | null>(null);
-
-  const [responses, setResponses] = useState<Record<string, { price: string; outOfStock: boolean }>>({});
-  const [observation, setObservation] = useState('');
-  const [timeLeft, setTimeLeft] = useState<string>('Prazo não definido');
-
-  useEffect(() => {
-    async function loadQuotation() {
-      if (!token) return;
-      try {
-        const res = await fetch(`/api/quotations/responder?token=${token}`);
-        if (res.ok) {
-          const data = await res.json();
-          setQuotation(data);
-
-          const initialResp: Record<string, { price: string; outOfStock: boolean }> = {};
-          data.items.forEach((item: QuotationResponseItem) => {
-            initialResp[item.id] = { price: '', outOfStock: false };
-          });
-          setResponses(initialResp);
-        }
-      } catch (err) {
-        console.error('Erro ao carregar cotação para resposta:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadQuotation();
-  }, [token]);
-
-  useEffect(() => {
-    if (!quotation) {
-      return;
-    }
-
-    const targetDateKey = getDateKey(quotation.endDate ?? quotation.startDate) ?? toLocalDateString(new Date());
-    const targetTime = getDeadlineTimestamp(targetDateKey, quotation.closingTime);
-
-    if (targetTime === null) {
-      return;
-    }
-
-    let timer: ReturnType<typeof setInterval> | null = null;
-
-    const updateTimer = () => {
-      const now = Date.now();
-      const difference = targetTime - now;
-
-      if (difference <= 0) {
-        setTimeLeft('Encerrado');
-        if (timer) clearInterval(timer);
-        return;
-      }
-
-      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((difference % (1000 * 60)) / 1000);
-
-      setTimeLeft(
-        days > 0
-          ? `${days}d ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-          : `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-      );
-    };
-
-    updateTimer();
-    timer = setInterval(updateTimer, 1000);
-
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [quotation]);
-
-  const handlePriceChange = (itemId: string, rawValue: string) => {
-    const numbersOnly = rawValue.replace(/\D/g, '');
-    if (!numbersOnly) {
-      setResponses(prev => ({ ...prev, [itemId]: { ...prev[itemId], price: '' } }));
-      return;
-    }
-
-    const amount = Number(numbersOnly) / 100;
-    const formatted = amount.toLocaleString('pt-BR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-
-    setResponses(prev => ({
-      ...prev,
-      [itemId]: { ...prev[itemId], price: formatted, outOfStock: false }
-    }));
-  };
-
-  const handleToggleOutOfStock = (itemId: string) => {
-    setResponses(prev => ({
-      ...prev,
-      [itemId]: {
-        ...prev[itemId],
-        outOfStock: !prev[itemId].outOfStock,
-        price: !prev[itemId].outOfStock ? '' : prev[itemId].price
-      }
-    }));
-  };
-
-  // 🚀 Lógica de navegação rápida por Enter (Avança ou marca "Não tenho" se vazio)
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-
-      const currentItem = quotation?.items[index];
-      if (currentItem) {
-        const resp = responses[currentItem.id];
-        const hasPrice = resp && resp.price.trim() !== '';
-
-        if (!hasPrice) {
-          handleToggleOutOfStock(currentItem.id);
-        }
-      }
-
-      const nextInput = document.getElementById(`price-input-${index + 1}`);
-      if (nextInput) {
-        (nextInput as HTMLInputElement).focus();
-      }
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!quotation) return;
-
-    const missingItems = quotation.items.filter(item => {
-      const resp = responses[item.id];
-      const hasPrice = resp && resp.price.trim() !== '';
-      const isOut = resp && resp.outOfStock;
-      return !hasPrice && !isOut;
-    });
-
-    if (missingItems.length > 0) {
-      const names = missingItems.map(i => `• ${i.description}`).join('\n');
-      alert(`Atenção! Você deixou ${missingItems.length} item(ns) sem preço e sem marcar "Não tenho":\n\n${names}\n\nPor favor, preencha todos os itens antes de enviar.`);
-      return;
-    }
-
-    setSubmitting(true);
+  
+  const [representedCompanies, setRepresentedCompanies] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return ['MARTINS', 'ROGÊ', 'DPC'];
+    const currentSession = sessionStorage.getItem('melo_supplier_session');
+    if (!currentSession) return ['MARTINS', 'ROGÊ', 'DPC'];
 
     try {
-      const res = await fetch(`/api/quotations/responder`, {
-        method: 'POST',
+      const currentSupplier = JSON.parse(currentSession) as SupplierSession;
+      const savedCompanies = localStorage.getItem(`represented_companies_${currentSupplier.id}`);
+      return savedCompanies ? (JSON.parse(savedCompanies) as string[]) : ['MARTINS', 'ROGÊ', 'DPC'];
+    } catch {
+      return ['MARTINS', 'ROGÊ', 'DPC'];
+    }
+  });
+
+  const [newCompanyInput, setNewCompanyInput] = useState('');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = useCallback((msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  }, []);
+
+  const loadPortalData = useCallback(async (supplierId: string) => {
+    try {
+      const [cotRes, connRes] = await Promise.all([
+        fetch(`/api/portal/quotations`),
+        fetch(`/api/portal/connections?supplierId=${supplierId}`)
+      ]);
+
+      if (cotRes.ok) {
+        const cotData = await cotRes.json();
+        setQuotations(Array.isArray(cotData) ? cotData : []);
+      }
+      if (connRes.ok) {
+        const connData = await connRes.json();
+        setConnections(Array.isArray(connData) ? connData : []);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar dados do portal:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!sessionData || !supplier) {
+      router.push('/portal/login');
+      return;
+    }
+    queueMicrotask(() => {
+      void loadPortalData(supplier.id);
+    });
+  }, [router, loadPortalData, sessionData, supplier]);
+
+  if (!mounted || !themeMounted) {
+    return null;
+  }
+
+  const handleUpdateConnection = async (connectionId: string, status: 'ACCEPTED' | 'REJECTED') => {
+    try {
+      const res = await fetch('/api/portal/connections', {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token,
-          responses,
-          observation,
-        }),
+        body: JSON.stringify({ connectionId, status })
       });
 
-      if (!res.ok) throw new Error('Erro ao enviar resposta.');
-      setSuccess(true);
-    } catch (err) {
-      console.error(err);
-      alert('Erro ao enviar sua resposta. Tente novamente.');
-    } finally {
-      setSubmitting(false);
+      if (!res.ok) throw new Error('Erro ao atualizar convite.');
+
+      showToast(status === 'ACCEPTED' ? 'Parceria aceita com sucesso!' : 'Convite recusado.');
+      if (supplier) {
+        await loadPortalData(supplier.id);
+      }
+    } catch {
+      showToast('Erro ao processar convite.');
     }
   };
 
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-sm text-slate-500">Carregando cotação...</div>;
-  }
+  const handleAddCompany = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCompanyInput.trim() || !supplier) return;
 
-  if (!quotation) {
-    return <div className="min-h-screen flex items-center justify-center text-sm text-red-500">Cotação não encontrada ou link expirado.</div>;
-  }
+    const companyNameClean = newCompanyInput.trim().toUpperCase();
+    if (representedCompanies.includes(companyNameClean)) return;
 
-  if (success) {
+    const updatedList = [...representedCompanies, companyNameClean];
+    setRepresentedCompanies(updatedList);
+    localStorage.setItem(`represented_companies_${supplier.id}`, JSON.stringify(updatedList));
+    setNewCompanyInput('');
+  };
+
+  const handleRemoveCompany = (companyToRemove: string) => {
+    if (!supplier) return;
+    const updatedList = representedCompanies.filter((comp) => comp !== companyToRemove);
+    setRepresentedCompanies(updatedList);
+    localStorage.setItem(`represented_companies_${supplier.id}`, JSON.stringify(updatedList));
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('melo_supplier_session');
+    router.push('/portal/login');
+  };
+
+  if (!supplier) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200 text-center max-w-md space-y-3">
-          <h1 className="text-xl font-bold text-green-600">✅ Cotação Enviada com Sucesso!</h1>
-          <p className="text-xs text-slate-600">Obrigado por responder. Seus preços e observações foram registrados para a loja <strong>{quotation.storeName}</strong>.</p>
-        </div>
+      <div className={`min-h-screen flex items-center justify-center text-xs ${isDarkMode ? 'bg-slate-950 text-slate-400' : 'bg-slate-50 text-slate-500'}`}>
+        A carregar portal...
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 py-10 px-4 md:px-6">
-      <div className="max-w-4xl mx-auto space-y-6">
-        
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div className="space-y-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md">
-              Painel do Fornecedor
-            </span>
-            <h1 className="text-xl font-bold text-slate-800 mt-2">{quotation.title}</h1>
-            <p className="text-xs text-slate-500">Solicitante: <strong className="text-slate-700">{quotation.storeName}</strong></p>
-            
-            <div className="flex flex-wrap items-center gap-3 pt-2 text-xs text-slate-600 font-medium">
-              <span>📅 Início: <strong className="text-slate-800">{quotation.startDate ? formatDateValue(quotation.startDate) : 'Imediato'}</strong></span>
-              <span>•</span>
-              <span>⏰ Término: <strong className="text-slate-800">{quotation.endDate ? formatDateValue(quotation.endDate) : quotation.startDate ? formatDateValue(quotation.startDate) : 'Hoje'} {quotation.closingTime ? `às ${quotation.closingTime}` : ''}</strong></span>
+    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+      
+      <SupplierHeader
+        title="Painel do Representante"
+        subtitle={`Logado como: ${supplier.name} (${supplier.email})`}
+        onLogout={handleLogout}
+      />
+
+      <main className="max-w-7xl mx-auto px-6 sm:px-12 mt-8 pb-20 relative z-20 space-y-8">
+
+        {/* SECÇÃO DE CONVITES PENDENTES DE LOJISTAS */}
+        {connections.length > 0 && (
+          <div className={`p-8 rounded-3xl shadow-2xl border space-y-4 ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200/80'}`}>
+            <h2 className="text-sm font-black tracking-tight">🤝 Convites e Parcerias Comerciais</h2>
+            <div className="space-y-3">
+              {connections.map((conn) => (
+                <div key={conn.id} className={`p-4 rounded-2xl border flex items-center justify-between gap-4 ${isDarkMode ? 'border-slate-800 bg-slate-950/40' : 'border-slate-200 bg-slate-50/50'}`}>
+                  <div>
+                    <p className="text-xs font-bold">Solicitação de Parceria (Loja ID: #{conn.companyId.slice(0, 8)})</p>
+                    <p className="text-[10px] opacity-60 font-mono mt-0.5">Estado atual: <span className="uppercase font-bold">{conn.status}</span></p>
+                  </div>
+
+                  {conn.status === 'PENDING' ? (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleUpdateConnection(conn.id, 'ACCEPTED')}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition cursor-pointer shadow-md"
+                      >
+                        Aceitar Parceria
+                      </button>
+                      <button
+                        onClick={() => handleUpdateConnection(conn.id, 'REJECTED')}
+                        className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 font-bold px-4 py-2 rounded-xl text-xs transition cursor-pointer"
+                      >
+                        Recusar
+                      </button>
+                    </div>
+                  ) : (
+                    <span className={`text-xs font-bold px-3 py-1 rounded-full border ${
+                      conn.status === 'ACCEPTED' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-rose-500/10 text-rose-500 border-rose-500/20'
+                    }`}>
+                      {conn.status === 'ACCEPTED' ? 'PARCERIA ATIVA' : 'RECUSADO'}
+                    </span>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
+        )}
 
-          <div className="bg-amber-50 border border-amber-200 px-4 py-3 rounded-lg text-right shrink-0">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Tempo Restante</p>
-            <p className="text-lg font-mono font-bold text-amber-900">{timeLeft}</p>
+        <div className={`p-8 rounded-3xl shadow-2xl border space-y-5 ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200/80'}`}>
+          <div>
+            <h2 className="text-sm font-black tracking-tight">🏭 Minhas Distribuidoras / Marcas Representadas</h2>
+            <p className="text-xs opacity-60 mt-0.5">Adicione as empresas e distribuidoras pelas quais atua (ex: Rogê, DPC, Martins).</p>
+          </div>
+
+          <form onSubmit={handleAddCompany} className="flex gap-3">
+            <input
+              type="text"
+              placeholder="Nome da Distribuidora (ex: Martins)"
+              value={newCompanyInput}
+              onChange={(e) => setNewCompanyInput(e.target.value)}
+              className={`flex-1 px-4 py-3 text-xs border rounded-2xl outline-none uppercase ${isDarkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+            />
+            <button
+              type="submit"
+              className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-2xl text-xs font-bold transition cursor-pointer shadow-lg shadow-indigo-600/20 whitespace-nowrap"
+            >
+              + Adicionar Marca
+            </button>
+          </form>
+
+          <div className="flex flex-wrap gap-2 pt-2">
+            {representedCompanies.map((comp) => (
+              <div
+                key={comp}
+                className={`border text-xs font-semibold px-4 py-2 rounded-xl flex items-center gap-2.5 shadow-sm ${isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-200' : 'bg-slate-100 border-slate-200 text-slate-800'}`}
+              >
+                <span>📦 {comp}</span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveCompany(comp)}
+                  className="opacity-50 hover:opacity-100 text-rose-500 font-bold ml-1 cursor-pointer text-sm"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
-            <h2 className="font-bold text-slate-800 text-sm border-b pb-3">Itens Solicitados ({quotation.items.length})</h2>
-
-            <div className="space-y-4">
-              {quotation.items.map((item, index) => {
-                const itemResp = responses[item.id] || { price: '', outOfStock: false };
-                return (
-                  <div key={item.id} className="p-4 rounded-lg border border-slate-200 bg-slate-50/50 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                    
-                    <div className="flex items-center gap-4 w-full md:w-3/5">
-                      <div className="w-14 h-14 min-w-[3.5rem] rounded-lg border border-slate-200 bg-white flex items-center justify-center overflow-hidden shrink-0">
-                        {item.imageUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={item.imageUrl} alt={item.description} className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-xs text-slate-400">📦</span>
-                        )}
-                      </div>
-                      <div className="overflow-hidden">
-                        <p className="font-bold text-slate-800 text-sm truncate">{item.description}</p>
-                        <p className="text-[11px] text-slate-500 font-mono truncate">
-                          EAN: {item.ean || 'N/A'} {item.brand ? `| Marca: ${item.brand}` : ''}
-                        </p>
-                        <p className="text-xs text-indigo-600 font-medium mt-1">
-                          Qtd. Solicitada: <span className="font-bold">{item.requestedQuantity} un</span>
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row items-end sm:items-center gap-4 w-full md:w-auto justify-end">
-                      <div className="w-full sm:w-auto">
-                        <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Preço de Custo (Unit.)</label>
-                        <div className="relative flex items-center">
-                          <span className="absolute left-3 text-xs text-slate-400 font-medium">R$</span>
-                          <input
-                            id={`price-input-${index}`}
-                            type="text"
-                            inputMode="numeric"
-                            placeholder="0,00"
-                            disabled={itemResp.outOfStock}
-                            value={itemResp.price}
-                            onChange={(e) => handlePriceChange(item.id, e.target.value)}
-                            onKeyDown={(e) => handleKeyDown(e, index)}
-                            className="w-full sm:w-36 pl-9 pr-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-400 font-medium"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 pt-4">
-                        <input
-                          type="checkbox"
-                          id={`out-${item.id}`}
-                          checked={itemResp.outOfStock}
-                          onChange={() => handleToggleOutOfStock(item.id)}
-                          className="rounded border-slate-300 text-red-600 focus:ring-red-500 h-4 w-4"
-                        />
-                        <label htmlFor={`out-${item.id}`} className="text-xs font-medium text-red-600 cursor-pointer">
-                          Não tenho
-                        </label>
-                      </div>
-                    </div>
-
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+        <div className={`p-8 rounded-3xl shadow-2xl border space-y-6 ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200/80'}`}>
+          <div className="flex justify-between items-center border-b pb-4 border-slate-500/10">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Observações Finais da Cotação (Opcional)</label>
-              <textarea
-                rows={3}
-                placeholder="Insira condições de pagamento, prazo de entrega ou descontos..."
-                value={observation}
-                onChange={(e) => setObservation(uppercaseText(e.target.value))}
-                className="w-full border border-slate-300 rounded-lg p-3 text-xs focus:ring-2 focus:ring-indigo-500"
-              />
+              <h2 className="text-sm font-black tracking-tight">📋 Cotações e Notificações por Empresa Lojista</h2>
+              <p className="text-xs opacity-60 mt-0.5">Selecione uma cotação abaixo para preencher preços e prazos diretamente no portal.</p>
             </div>
-
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={submitting}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs px-8 py-3 rounded-lg transition shadow-sm disabled:opacity-50"
-              >
-                {submitting ? 'Enviando...' : '🚀 Enviar Resposta da Cotação'}
-              </button>
-            </div>
+            <span className="text-xs font-mono font-bold px-3 py-1.5 rounded-xl bg-indigo-500/10 text-indigo-500">
+              {quotations.length} disponíveis
+            </span>
           </div>
-        </form>
 
-      </div>
+          {loading ? (
+            <p className="text-xs opacity-60 py-12 text-center font-medium">A carregar cotações...</p>
+          ) : quotations.length === 0 ? (
+            <div className={`text-center py-16 border-2 border-dashed rounded-3xl ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`}>
+              <p className="opacity-60 text-xs font-medium">Não existem cotações atribuídas no momento.</p>
+            </div>
+          ) : (
+            <div className={`rounded-2xl border overflow-hidden shadow-inner ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className={`border-b ${isDarkMode ? 'border-slate-800 text-slate-400 bg-slate-950/40' : 'border-slate-200 text-slate-600 bg-slate-50/50'}`}>
+                    <th className="p-4 font-bold">Empresa Lojista</th>
+                    <th className="p-4 font-bold">Título / Referência</th>
+                    <th className="p-4 font-bold text-center">Status</th>
+                    <th className="p-4 font-bold text-right">Total Oferecido (R$)</th>
+                    <th className="p-4 font-bold text-center">Ação</th>
+                  </tr>
+                </thead>
+                <tbody className={`divide-y ${isDarkMode ? 'divide-slate-800/60' : 'divide-slate-100'}`}>
+                  {quotations.map((cot) => (
+                    <tr key={cot.quotationSupplierId || cot.quotationId} className={`transition ${isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50/60'}`}>
+                      <td className="p-4 font-bold text-indigo-500">
+                        🏪 {cot.companyName || 'Melo Perfumaria'}
+                      </td>
+                      <td className="p-4 font-semibold">{cot.title || 'Cotação de Reposição'}</td>
+                      <td className="p-4 text-center">
+                        <span className={`font-bold px-3 py-1 rounded-full text-[10px] border ${
+                          cot.status === 'SENT' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                        }`}>
+                          {cot.status === 'SENT' ? 'RESPONDIDA' : 'PENDENTE'}
+                        </span>
+                      </td>
+                      <td className="p-4 text-right font-mono font-bold opacity-90">
+                        R$ {cot.totalOffered ? Number(cot.totalOffered).toFixed(2) : '0,00'}
+                      </td>
+                      <td className="p-4 text-center">
+                        <button
+                          onClick={() => {
+                            if (cot.token) {
+                              router.push(`/portal/cotacao/${cot.token}`);
+                            } else {
+                              alert('Token de cotação não disponível.');
+                            }
+                          }}
+                          className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition cursor-pointer shadow-lg shadow-indigo-600/20"
+                        >
+                          Responder Cotação
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+      </main>
+
+      {toastMessage && (
+        <div className="fixed bottom-5 right-5 px-5 py-3 bg-emerald-600 text-white rounded-2xl shadow-2xl text-xs font-bold transition-all z-50">
+          {toastMessage}
+        </div>
+      )}
+
     </div>
   );
 }

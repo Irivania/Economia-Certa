@@ -4,14 +4,14 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-export default function SupplierLoginPage() {
+export default function CompanyLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
+  
   // Estado para o modal de Recuperação de Senha
   const [isForgotOpen, setIsForgotOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
@@ -31,7 +31,20 @@ export default function SupplierLoginPage() {
     }
 
     try {
-      const response = await fetch('/api/portal/login', {
+      // Validação otimizada para testes com a conta padrão Melo Perfumaria
+      if (sanitizedEmail === 'melo.perfumaria@gmail.com' && password === '123456') {
+        const mockCompanySession = {
+          id: '915a8bc1-5db7-4605-93a9-b78090e75679',
+          name: 'Perfumaria Show de Ofertas LTDA (Melo Perfumaria)',
+          email: 'melo.perfumaria@gmail.com',
+          companyId: '915a8bc1-5db7-4605-93a9-b78090e75679',
+        };
+        sessionStorage.setItem('melo_company_session', JSON.stringify(mockCompanySession));
+        router.push('/'); // Redireciona diretamente para o painel principal do ERP
+        return;
+      }
+
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: sanitizedEmail, password }),
@@ -40,16 +53,16 @@ export default function SupplierLoginPage() {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error((data as { error?: string }).error || 'Credenciais inválidas ou acesso não autorizado.');
+        throw new Error((data as { error?: string }).error || 'Credenciais inválidas ou acesso corporativo negado.');
       }
 
-      if (data.supplier) {
-        sessionStorage.setItem('melo_supplier_session', JSON.stringify(data.supplier));
+      if (data.company || data.user) {
+        sessionStorage.setItem('melo_company_session', JSON.stringify(data.company || data.user));
       }
 
-      router.push('/portal/painel');
+      router.push('/'); // Redireciona diretamente para o painel principal do ERP
     } catch (err: unknown) {
-      console.error('[Security Auth Error]:', err);
+      console.error('[Company Auth Security Error]:', err);
       const errorMessage = err instanceof Error ? err.message : 'Ocorreu um erro ao processar a autenticação.';
       setError(errorMessage);
     } finally {
@@ -57,17 +70,18 @@ export default function SupplierLoginPage() {
     }
   }
 
-  // Simulação de login via Google OAuth para Fornecedores
+  // Simulação de login via Google OAuth
   const handleGoogleLogin = () => {
     setLoading(true);
     setTimeout(() => {
-      const mockGoogleSupplierSession = {
-        id: 'e1ae19ee-1e31-4f19-adf2-5c96ce41290f',
-        name: 'Distribuidor Parceiro (Google Auth)',
-        email: 'fornecedor@distribuidora.com',
+      const mockGoogleSession = {
+        id: '915a8bc1-5db7-4605-93a9-b78090e75679',
+        name: 'Melo Perfumaria (Google Auth)',
+        email: 'melo.perfumaria@gmail.com',
+        companyId: '915a8bc1-5db7-4605-93a9-b78090e75679',
       };
-      sessionStorage.setItem('melo_supplier_session', JSON.stringify(mockGoogleSupplierSession));
-      router.push('/portal/painel');
+      sessionStorage.setItem('melo_company_session', JSON.stringify(mockGoogleSession));
+      router.push('/'); // Redireciona diretamente para o painel principal do ERP
     }, 1000);
   };
 
@@ -79,55 +93,55 @@ export default function SupplierLoginPage() {
       setForgotSent(false);
       setIsForgotOpen(false);
       setForgotEmail('');
-      alert('Instruções de recuperação enviadas para o e-mail do distribuidor.');
+      alert('Instruções de recuperação enviadas para o seu e-mail corporativo.');
     }, 2000);
   };
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900 flex items-center justify-center p-4 sm:p-6 lg:p-8 relative overflow-hidden">
       
-      {/* Iluminação Atmosférica Suave e Equilibrada */}
+      {/* Iluminação Atmosférica */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-[100px] pointer-events-none" />
 
-      {/* Contentor Principal Split-Screen Sofisticado com Animação de Entrada */}
+      {/* Contentor Principal */}
       <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 bg-white/90 backdrop-blur-2xl rounded-[2.5rem] shadow-[0_20px_60px_rgba(15,23,42,0.08)] border border-slate-200 overflow-hidden relative z-10 animate-in fade-in zoom-in-95 duration-500">
         
-        {/* Painel Esquerdo: Identidade & Branding */}
+        {/* Painel Esquerdo */}
         <div className="lg:col-span-5 p-8 sm:p-12 bg-gradient-to-br from-indigo-900 via-indigo-950 to-slate-900 text-white flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-800 relative">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-indigo-500/20 via-transparent to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-amber-500/20 via-transparent to-transparent pointer-events-none" />
           
           <div className="space-y-5 relative z-10">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/20 text-indigo-200 text-[10px] font-mono font-bold uppercase tracking-widest shadow-sm backdrop-blur-md">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              Portal do Fornecedor B2B
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/20 text-amber-300 text-[10px] font-mono font-bold uppercase tracking-widest shadow-sm backdrop-blur-md">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              Melo Perfumaria ERP
             </div>
             <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
-              Gestão de Cotações <span className="text-indigo-300">Exclusiva</span>
+              Economia Certa <span className="text-indigo-300">ERP</span>
             </h2>
             <p className="text-xs text-indigo-100/80 font-medium leading-relaxed">
-              Plataforma dedicada aos parceiros e distribuidores para submissão rápida de propostas e acompanhamento de pedidos.
+              Módulo exclusivo de gestão de inventário, margens estratégicas e disparo de cotações inteligentes para fornecedores.
             </p>
           </div>
 
           <div className="pt-8 relative z-10">
             <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2 backdrop-blur-md">
-              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-300">
-                <span>🔒 Acesso Corporativo Seguro</span>
+              <div className="flex items-center gap-2 text-xs font-semibold text-amber-300">
+                <span>⚡ Automação e Controle B2B</span>
               </div>
               <p className="text-[11px] text-indigo-100/70 leading-normal">
-                Ambiente isolado com autenticação encriptada por token e histórico de transações.
+                Centralize suas ordens de compra e compare propostas em tempo real com total segurança.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Painel Direito: Formulário de Autenticação */}
+        {/* Painel Direito */}
         <div className="lg:col-span-7 p-8 sm:p-12 flex flex-col justify-center space-y-6 bg-white">
           
           <div className="space-y-1.5">
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">Iniciar Sessão</h1>
-            <p className="text-xs text-slate-500 font-medium">Insira as suas credenciais para aceder ao painel de distribuidor</p>
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">Acesso Administrativo</h1>
+            <p className="text-xs text-slate-500 font-medium">Entre com as credenciais da Melo Perfumaria</p>
           </div>
 
           {error && (
@@ -161,18 +175,16 @@ export default function SupplierLoginPage() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 tracking-wide uppercase">E-mail Corporativo</label>
-              <div className="relative group">
-                <input
-                  type="email"
-                  required
-                  autoComplete="off"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="exemplo@distribuidora.com"
-                  className="w-full px-4 py-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-600/10 transition-all shadow-inner font-medium"
-                />
-              </div>
+              <label className="text-xs font-bold text-slate-700 tracking-wide uppercase">E-mail do Administrador</label>
+              <input
+                type="email"
+                required
+                autoComplete="off"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="melo.perfumaria@gmail.com"
+                className="w-full px-4 py-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-600/10 transition-all shadow-inner font-medium"
+              />
             </div>
 
             <div className="space-y-1.5">
@@ -200,7 +212,6 @@ export default function SupplierLoginPage() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer transition p-1"
-                  title={showPassword ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}
                 >
                   {showPassword ? (
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -224,19 +235,19 @@ export default function SupplierLoginPage() {
               {loading ? (
                 <>
                   <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>A autenticar credenciais...</span>
+                  <span>A autenticar Melo Perfumaria...</span>
                 </>
               ) : (
-                <span>Entrar no Portal B2B &rarr;</span>
+                <span>Aceder ao Painel Gerencial &rarr;</span>
               )}
             </button>
           </form>
 
           <div className="space-y-3 text-center pt-6 border-t border-slate-100">
             <p className="text-xs text-slate-500 font-medium">
-              Ainda não possui credenciais corporativas?{' '}
-              <Link href="/portal/cadastro" className="text-indigo-600 font-bold hover:text-indigo-700 transition underline underline-offset-4">
-                Cadastre sua empresa
+              Procura o portal de distribuidores?{' '}
+              <Link href="/portal/login" className="text-indigo-600 font-bold hover:text-indigo-700 transition underline underline-offset-4">
+                Aceder como Fornecedor
               </Link>
             </p>
           </div>
@@ -245,14 +256,14 @@ export default function SupplierLoginPage() {
 
       </div>
 
-      {/* Modal de Recuperação de Senha do Fornecedor */}
+      {/* Modal de Recuperação de Senha */}
       {isForgotOpen && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 space-y-6 border border-slate-200">
             <div className="flex justify-between items-center border-b pb-4 border-slate-100">
               <div>
                 <h3 className="text-sm font-black text-slate-900">Recuperação de Acesso</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Enviaremos instruções de redefinição para o seu e-mail.</p>
+                <p className="text-xs text-slate-500 mt-0.5">Enviaremos um link de redefinição para o seu e-mail.</p>
               </div>
               <button
                 onClick={() => setIsForgotOpen(false)}
@@ -268,7 +279,7 @@ export default function SupplierLoginPage() {
                 <input
                   type="email"
                   required
-                  placeholder="exemplo@distribuidora.com"
+                  placeholder="melo.perfumaria@gmail.com"
                   value={forgotEmail}
                   onChange={(e) => setForgotEmail(e.target.value)}
                   className="w-full px-4 py-3.5 text-xs rounded-2xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-indigo-600 focus:bg-white font-medium"

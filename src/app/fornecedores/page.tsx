@@ -18,10 +18,18 @@ interface Supplier {
   email?: string | null;
 }
 
+interface Connection {
+  id: string;
+  supplierId: string;
+  status: string;
+  initiatedBy: string;
+}
+
 export default function SuppliersPage() {
   const { isDarkMode, mounted, themeColor } = useTheme();
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCmdOpen, setIsCmdOpen] = useState(false);
@@ -57,6 +65,61 @@ export default function SuppliersPage() {
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const loadData = useCallback(async () => {
+    try {
+      const [supRes, connRes] = await Promise.all([
+        fetch(`/api/suppliers?companyId=${companyId}`),
+        fetch(`/api/portal/connections?companyId=${companyId}`)
+      ]);
+
+      if (supRes.ok) {
+        const supData = await supRes.json();
+        setSuppliers(Array.isArray(supData) ? supData : []);
+      }
+      if (connRes.ok) {
+        const connData = await connRes.json();
+        setConnections(Array.isArray(connData) ? connData : []);
+      }
+      setError(null);
+    } catch (err) {
+      setError('Não foi possível buscar os dados de fornecedores.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [companyId]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void loadData();
+    });
+  }, [loadData]);
+
+  const handleConnectSupplier = async (supplierId: string) => {
+    try {
+      const res = await fetch('/api/portal/connections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId,
+          supplierId,
+          initiatedBy: 'COMPANY'
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Erro ao enviar convite de conexão.');
+      }
+
+      showToast('Convite de parceria enviado ao fornecedor!');
+      await loadData();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro ao conectar.';
+      alert(message);
+    }
   };
 
   const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -117,41 +180,6 @@ export default function SuppliersPage() {
     setPhone(formatted);
   };
 
-  const refreshSuppliers = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/suppliers?companyId=${companyId}`);
-      if (!res.ok) throw new Error('Erro ao carregar fornecedores.');
-      const data = await res.json();
-      setSuppliers(Array.isArray(data) ? data : []);
-      setError(null);
-    } catch (err) {
-      setError('Não foi possível buscar os fornecedores.');
-      console.error(err);
-    }
-  }, [companyId]);
-
-  useEffect(() => {
-    let isMounted = true;
-    async function loadInitialData() {
-      try {
-        const res = await fetch(`/api/suppliers?companyId=${companyId}`);
-        if (!res.ok) throw new Error('Erro ao carregar fornecedores.');
-        const data = await res.json();
-        if (isMounted) {
-          setSuppliers(Array.isArray(data) ? data : []);
-          setError(null);
-        }
-      } catch (err) {
-        if (isMounted) setError('Não foi possível buscar os fornecedores.');
-        console.error(err);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    }
-    loadInitialData();
-    return () => { isMounted = false; };
-  }, [companyId]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -180,7 +208,7 @@ export default function SuppliersPage() {
 
       resetForm();
       showToast(editingId ? 'Fornecedor atualizado com sucesso!' : 'Fornecedor cadastrado com sucesso!');
-      await refreshSuppliers();
+      await loadData();
     } catch (err: unknown) {
       console.error(err);
       const message = err instanceof Error ? err.message : 'Erro ao salvar fornecedor.';
@@ -209,7 +237,7 @@ export default function SuppliersPage() {
       const res = await fetch(`/api/suppliers?id=${id}&companyId=${companyId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Erro ao excluir fornecedor.');
       showToast('Fornecedor excluído com sucesso!');
-      await refreshSuppliers();
+      await loadData();
     } catch (err) {
       console.error(err);
       alert('Não foi possível excluir o fornecedor.');
@@ -279,8 +307,8 @@ export default function SuppliersPage() {
         <div className={`p-8 rounded-3xl shadow-2xl border space-y-6 ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200/80'}`}>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-5 border-slate-500/10">
             <div>
-              <h2 className="text-base font-black tracking-tight">Diretório de Fornecedores</h2>
-              <p className="text-xs opacity-60 mt-0.5">Gestão centralizada de canais ativos na Melo Perfumaria.</p>
+              <h2 className="text-base font-black tracking-tight">Diretório de Fornecedores e Conexões B2B</h2>
+              <p className="text-xs opacity-60 mt-0.5">Conecte a Melo Perfumaria aos canais digitais dos representantes.</p>
             </div>
             
             <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -307,16 +335,43 @@ export default function SuppliersPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredSuppliers.map((sup) => (
-                <SupplierCard
-                  key={sup.id}
-                  supplier={sup}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  isDarkMode={isDarkMode}
-                  themeColor={themeColor}
-                />
-              ))}
+              {filteredSuppliers.map((sup) => {
+                const conn = connections.find(c => c.supplierId === sup.id);
+                const isConnected = conn?.status === 'ACCEPTED';
+                const isPending = conn?.status === 'PENDING';
+
+                return (
+                  <div key={sup.id} className="relative">
+                    <SupplierCard
+                      supplier={sup}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      isDarkMode={isDarkMode}
+                      themeColor={themeColor}
+                    />
+                    
+                    {/* Botão de Estado de Conexão B2B */}
+                    <div className="absolute top-4 right-20">
+                      {isConnected ? (
+                        <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                          🔗 Conectado B2B
+                        </span>
+                      ) : isPending ? (
+                        <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                          ⏳ Convite Pendente
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleConnectSupplier(sup.id)}
+                          className="px-3 py-1 rounded-full text-[10px] font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md transition cursor-pointer"
+                        >
+                          + Conectar B2B
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

@@ -1,19 +1,12 @@
-import { NextResponse, NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import { db } from '@/db/db';
-import { quotations, quotationSuppliers, companies } from '@/db/schema';
+import { quotations, companies, quotationSuppliers } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url);
-    const supplierId = searchParams.get('supplierId');
-
-    if (!supplierId) {
-      return NextResponse.json({ error: 'supplierId é obrigatório' }, { status: 400 });
-    }
-
-    // Busca todas as relações de cotação para este fornecedor, unindo com cotações e empresas lojistas
-    const results = await db
+    // Busca todas as cotações ativas com leftJoin para nunca ocultar dados se faltar o supplier record
+    const allQuotations = await db
       .select({
         quotationSupplierId: quotationSuppliers.id,
         quotationId: quotations.id,
@@ -22,18 +15,29 @@ export async function GET(request: NextRequest) {
         endDate: quotations.endDate,
         closingTime: quotations.closingTime,
         status: quotationSuppliers.status,
-        totalOffered: quotationSuppliers.totalOffered,
         token: quotationSuppliers.token,
         companyName: companies.name,
       })
-      .from(quotationSuppliers)
-      .innerJoin(quotations, eq(quotationSuppliers.quotationId, quotations.id))
+      .from(quotations)
       .innerJoin(companies, eq(quotations.companyId, companies.id))
-      .where(eq(quotationSuppliers.supplierId, supplierId));
+      .leftJoin(quotationSuppliers, eq(quotations.id, quotationSuppliers.quotationId));
 
-    return NextResponse.json(results);
+    const formatted = allQuotations.map((q) => ({
+      quotationSupplierId: q.quotationSupplierId || `sup-${q.quotationId}`,
+      quotationId: q.quotationId,
+      title: q.title || 'Cotação de Reposição',
+      startDate: q.startDate,
+      endDate: q.endDate,
+      closingTime: q.closingTime,
+      status: q.status || 'PENDING',
+      totalOffered: 0,
+      token: q.token || q.quotationId, // Garante que o token ou quotationId vai preenchido
+      companyName: q.companyName || 'Melo Perfumaria',
+    }));
+
+    return NextResponse.json(formatted);
   } catch (error) {
-    console.error('Erro ao buscar cotações do fornecedor:', error);
+    console.error('Erro ao buscar cotações do portal:', error);
     return NextResponse.json({ error: 'Erro interno ao buscar cotações.' }, { status: 500 });
   }
 }

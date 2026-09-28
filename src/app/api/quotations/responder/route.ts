@@ -29,13 +29,20 @@ export async function GET(request: NextRequest) {
     const token = searchParams.get('token');
 
     if (!token) {
-      return NextResponse.json({ error: 'Token não fornecido.' }, { status: 400 });
+      return NextResponse.json({ error: 'Token ou ID não fornecido.' }, { status: 400 });
     }
 
-    const [qSupplier] = await db
+    let [qSupplier] = await db
       .select()
       .from(quotationSuppliers)
       .where(eq(quotationSuppliers.token, token));
+
+    if (!qSupplier) {
+      [qSupplier] = await db
+        .select()
+        .from(quotationSuppliers)
+        .where(eq(quotationSuppliers.quotationId, token));
+    }
 
     if (!qSupplier) {
       return NextResponse.json({ error: 'Link de cotação inválido ou não encontrado.' }, { status: 404 });
@@ -92,10 +99,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Dados incompletos.' }, { status: 400 });
     }
 
-    const [qSupplier] = await db
+    let [qSupplier] = await db
       .select()
       .from(quotationSuppliers)
       .where(eq(quotationSuppliers.token, token));
+
+    if (!qSupplier) {
+      [qSupplier] = await db
+        .select()
+        .from(quotationSuppliers)
+        .where(eq(quotationSuppliers.quotationId, token));
+    }
 
     if (!qSupplier) {
       return NextResponse.json({ error: 'Fornecedor ou cotação não encontrados.' }, { status: 404 });

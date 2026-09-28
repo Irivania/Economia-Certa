@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
-import { quotations, quotationSuppliers, suppliers } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { quotations, quotationSuppliers, suppliers, supplierConnections } from '@/db/schema';
+import { eq, and } from 'drizzle-orm';
 
 export async function GET(
   request: NextRequest,
@@ -25,7 +25,7 @@ export async function GET(
       return NextResponse.json({ error: 'Cotação não encontrada.' }, { status: 404 });
     }
 
-    // 2. Busca apenas os fornecedores vinculados a esta cotação através da tabela quotationSuppliers
+    // 2. Busca os fornecedores vinculados a esta cotação
     const linkedSuppliers = await db
       .select({
         supplierId: suppliers.id,
@@ -39,7 +39,20 @@ export async function GET(
       .innerJoin(suppliers, eq(quotationSuppliers.supplierId, suppliers.id))
       .where(eq(quotationSuppliers.quotationId, quotationId));
 
-    // Mapeia os dados reais vinculados, trazendo o token individual de cada distribuidor
+    // 3. Buscar conexões B2B ativas (ACCEPTED) para a empresa desta cotação
+    const activeConnections = await db
+      .select({ supplierId: supplierConnections.supplierId })
+      .from(supplierConnections)
+      .where(
+        and(
+          eq(supplierConnections.companyId, quotation.companyId),
+          eq(supplierConnections.status, 'ACCEPTED')
+        )
+      );
+
+    const activeSupplierIds = new Set(activeConnections.map((c) => c.supplierId));
+
+    // Mapeia os dados indicando se cada fornecedor é ou não um parceiro B2B ativo
     const trackingData = linkedSuppliers.map((sup) => ({
       id: sup.supplierId,
       name: sup.name,
@@ -47,7 +60,8 @@ export async function GET(
       status: sup.status === 'RESPONDIDO' ? 'RESPONDIDO' : 'PENDENTE',
       answeredAt: null,
       totalOffered: sup.totalOffered ? Number(sup.totalOffered) : 0,
-      token: sup.token, // Token exclusivo do distribuidor para o link do WhatsApp!
+      token: sup.token,
+      isB2BActive: activeSupplierIds.has(sup.supplierId), // True apenas para quem tem parceria aceite (ex: Martins)
     }));
 
     return NextResponse.json({

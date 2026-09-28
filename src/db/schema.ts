@@ -98,3 +98,12 @@ export const quotationItems = pgTable('quotation_items', {
   price: numeric('price', { precision: 10, scale: 2 }),
   outOfStock: boolean('out_of_stock').default(false),
 });
+
+export const supplierConnections = pgTable('supplier_connections', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  companyId: text('company_id').notNull(),
+  supplierId: text('supplier_id').notNull(),
+  initiatedBy: text('initiated_by').notNull(), // 'COMPANY' (Lojista) ou 'SUPPLIER' (Representante)
+  status: text('status').default('PENDING').notNull(), // 'PENDING', 'ACCEPTED', 'REJECTED'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
