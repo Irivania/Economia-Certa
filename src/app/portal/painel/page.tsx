@@ -185,6 +185,7 @@ export default function SupplierPortalDashboard() {
 
       <main className="max-w-7xl mx-auto px-6 sm:px-12 mt-8 pb-20 relative z-20 space-y-8">
 
+        {/* SECÇÃO DE CONVITES PENDENTES DE LOJISTAS */}
         {connections.length > 0 && (
           <div className={`p-8 rounded-3xl shadow-2xl border space-y-4 ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200/80'}`}>
             <h2 className="text-sm font-black tracking-tight">🤝 Convites e Parcerias Comerciais</h2>
@@ -314,7 +315,8 @@ export default function SupplierPortalDashboard() {
                       <td className="p-4 text-center">
                         <button
                           onClick={() => {
-                            router.push(`/portal/cotacao/${cot.quotationId}`);
+                            const targetToken = cot.token || cot.quotationId;
+                            router.push(`/portal/cotacao/${targetToken}`);
                           }}
                           className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition cursor-pointer shadow-lg shadow-indigo-600/20"
                         >

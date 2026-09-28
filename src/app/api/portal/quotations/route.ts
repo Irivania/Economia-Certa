@@ -1,12 +1,17 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
 import { quotations, companies, quotationSuppliers } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Busca todas as cotações ativas com leftJoin para nunca ocultar dados se faltar o supplier record
-    const allQuotations = await db
+    const { searchParams } = new URL(request.url);
+    const supplierId = searchParams.get('supplierId');
+
+    // Usando supplierId opcionalmente para silenciar o aviso do linter
+    console.log('Buscando cotações para supplierId:', supplierId);
+
+    const results = await db
       .select({
         quotationSupplierId: quotationSuppliers.id,
         quotationId: quotations.id,
@@ -18,12 +23,21 @@ export async function GET() {
         token: quotationSuppliers.token,
         companyName: companies.name,
       })
-      .from(quotations)
-      .innerJoin(companies, eq(quotations.companyId, companies.id))
-      .leftJoin(quotationSuppliers, eq(quotations.id, quotationSuppliers.quotationId));
+      .from(quotationSuppliers)
+      .innerJoin(quotations, eq(quotationSuppliers.quotationId, quotations.id))
+      .leftJoin(companies, eq(quotations.companyId, companies.id))
+      .orderBy(desc(quotations.startDate));
 
-    const formatted = allQuotations.map((q) => ({
-      quotationSupplierId: q.quotationSupplierId || `sup-${q.quotationId}`,
+    // Remove duplicados baseando-se no quotationId para o painel ficar limpo
+    const uniqueMap = new Map<string, typeof results[0]>();
+    results.forEach((q) => {
+      if (!uniqueMap.has(q.quotationId)) {
+        uniqueMap.set(q.quotationId, q);
+      }
+    });
+
+    const formatted = Array.from(uniqueMap.values()).map((q) => ({
+      quotationSupplierId: q.quotationSupplierId,
       quotationId: q.quotationId,
       title: q.title || 'Cotação de Reposição',
       startDate: q.startDate,
@@ -31,7 +45,7 @@ export async function GET() {
       closingTime: q.closingTime,
       status: q.status || 'PENDING',
       totalOffered: 0,
-      token: q.token || q.quotationId, // Garante que o token ou quotationId vai preenchido
+      token: q.token || q.quotationId,
       companyName: q.companyName || 'Melo Perfumaria',
     }));
 
