@@ -1,8 +1,8 @@
 'use client';
 
 import {
-  useEffect,
   useState,
+  useEffect,
   useCallback,
   useMemo,
   useSyncExternalStore,
@@ -10,26 +10,10 @@ import {
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/context/ThemeContext';
 import { SupplierHeader } from '@/components/portal/SupplierHeader';
-
-interface QuotationSupplierResult {
-  quotationSupplierId: string;
-  quotationId: string;
-  title?: string | null;
-  startDate?: string | null;
-  endDate?: string | null;
-  closingTime?: string | null;
-  status: string;
-  totalOffered?: number | null;
-  token?: string | null;
-  companyName: string;
-}
-
-interface Connection {
-  id: string;
-  companyId: string;
-  status: string;
-  initiatedBy: string;
-}
+import { ProfileSettingsCard } from '@/components/portal/ProfileSettingsCard';
+import { BrandPortfolioSection } from '@/components/portal/BrandPortfolioSection';
+import { ConnectionRequests, Connection } from '@/components/portal/ConnectionRequests';
+import { QuotationsList, QuotationSupplierResult } from '@/components/portal/QuotationsList';
 
 interface SupplierSession {
   id: string;
@@ -38,11 +22,20 @@ interface SupplierSession {
   phone?: string | null;
 }
 
+export interface RepresentedCompany {
+  id: string;
+  tradeName: string;
+  corporateName: string;
+  cnpj: string;
+  email: string;
+  phone: string;
+}
+
 const subscribeToHydration = () => () => {};
 
 export default function SupplierPortalDashboard() {
   const router = useRouter();
-  const { isDarkMode, mounted: themeMounted } = useTheme();
+  const { isDarkMode } = useTheme();
 
   const mounted = useSyncExternalStore(subscribeToHydration, () => true, () => false);
   const sessionData = useSyncExternalStore(
@@ -50,6 +43,13 @@ export default function SupplierPortalDashboard() {
     () => sessionStorage.getItem('melo_supplier_session') ?? '',
     () => ''
   );
+
+  // Redirecionamento seguro via useEffect
+  useEffect(() => {
+    if (mounted && !sessionData) {
+      router.push('/portal/login');
+    }
+  }, [mounted, sessionData, router]);
 
   const supplier = useMemo<SupplierSession | null>(() => {
     if (!sessionData) return null;
@@ -62,23 +62,38 @@ export default function SupplierPortalDashboard() {
 
   const [quotations, setQuotations] = useState<QuotationSupplierResult[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  const [representedCompanies, setRepresentedCompanies] = useState<string[]>(() => {
-    if (typeof window === 'undefined') return ['MARTINS', 'ROGÊ', 'DPC'];
+  const [loading, setLoading] = useState(false);
+
+  const [representedCompanies, setRepresentedCompanies] = useState<RepresentedCompany[]>(() => {
+    if (typeof window === 'undefined') return [];
     const currentSession = sessionStorage.getItem('melo_supplier_session');
-    if (!currentSession) return ['MARTINS', 'ROGÊ', 'DPC'];
+    if (!currentSession) return [];
 
     try {
       const currentSupplier = JSON.parse(currentSession) as SupplierSession;
-      const savedCompanies = localStorage.getItem(`represented_companies_${currentSupplier.id}`);
-      return savedCompanies ? (JSON.parse(savedCompanies) as string[]) : ['MARTINS', 'ROGÊ', 'DPC'];
+      const saved = localStorage.getItem(`represented_full_companies_${currentSupplier.id}`);
+      if (saved) {
+        const parsed = JSON.parse(saved) as RepresentedCompany[];
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
     } catch {
-      return ['MARTINS', 'ROGÊ', 'DPC'];
+      // fallback
     }
+    return [];
   });
 
-  const [newCompanyInput, setNewCompanyInput] = useState('');
+  const [activeCompany, setActiveCompany] = useState<RepresentedCompany>(() => {
+    if (representedCompanies.length > 0) return representedCompanies[0];
+    return {
+      id: 'default-empty',
+      tradeName: 'SELECIONE UMA MARCA',
+      corporateName: '',
+      cnpj: '',
+      email: '',
+      phone: ''
+    };
+  });
+
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = useCallback((msg: string) => {
@@ -86,40 +101,38 @@ export default function SupplierPortalDashboard() {
     setTimeout(() => setToastMessage(null), 3500);
   }, []);
 
-  const loadPortalData = useCallback(async (supplierId: string) => {
+  // Carrega dados garantindo resolução por ID e E-mail
+  const loadPortalData = useCallback(async (supplierId: string, supplierEmail: string) => {
+    setLoading(true);
     try {
       const [cotRes, connRes] = await Promise.all([
-        fetch(`/api/portal/quotations`),
-        fetch(`/api/portal/connections?supplierId=${supplierId}`)
+        fetch(`/api/portal/quotations?supplierId=${supplierId}`),
+        fetch(`/api/portal/connections?supplierId=${supplierId}&supplierEmail=${encodeURIComponent(supplierEmail)}`)
       ]);
 
-      if (cotRes.ok) {
-        const cotData = await cotRes.json();
-        setQuotations(Array.isArray(cotData) ? cotData : []);
-      }
-      if (connRes.ok) {
-        const connData = await connRes.json();
-        setConnections(Array.isArray(connData) ? connData : []);
-      }
+      if (cotRes.ok) setQuotations(await cotRes.json());
+      if (connRes.ok) setConnections(await connRes.json());
     } catch (err) {
-      console.error('Erro ao carregar dados do portal:', err);
+      console.error('Erro ao carregar dados:', err);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (!sessionData || !supplier) {
-      router.push('/portal/login');
-      return;
+    if (supplier?.id && supplier?.email) {
+      queueMicrotask(() => {
+        void loadPortalData(supplier.id, supplier.email);
+      });
     }
-    queueMicrotask(() => {
-      void loadPortalData(supplier.id);
-    });
-  }, [router, loadPortalData, sessionData, supplier]);
+  }, [supplier?.id, supplier?.email, loadPortalData]);
 
-  if (!mounted || !themeMounted) {
-    return null;
+  if (!mounted || !supplier) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-xs font-bold text-slate-500">
+        A carregar portal comercial...
+      </div>
+    );
   }
 
   const handleUpdateConnection = async (connectionId: string, status: 'ACCEPTED' | 'REJECTED') => {
@@ -129,36 +142,42 @@ export default function SupplierPortalDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ connectionId, status })
       });
-
-      if (!res.ok) throw new Error('Erro ao atualizar convite.');
-
+      if (!res.ok) throw new Error();
       showToast(status === 'ACCEPTED' ? 'Parceria aceita com sucesso!' : 'Convite recusado.');
-      if (supplier) {
-        await loadPortalData(supplier.id);
-      }
+      await loadPortalData(supplier.id, supplier.email);
     } catch {
       showToast('Erro ao processar convite.');
     }
   };
 
-  const handleAddCompany = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCompanyInput.trim() || !supplier) return;
-
-    const companyNameClean = newCompanyInput.trim().toUpperCase();
-    if (representedCompanies.includes(companyNameClean)) return;
-
-    const updatedList = [...representedCompanies, companyNameClean];
-    setRepresentedCompanies(updatedList);
-    localStorage.setItem(`represented_companies_${supplier.id}`, JSON.stringify(updatedList));
-    setNewCompanyInput('');
+  const handleAddCompany = (newCompData: Omit<RepresentedCompany, 'id'>) => {
+    const newComp: RepresentedCompany = { id: crypto.randomUUID(), ...newCompData };
+    const updated = [...representedCompanies, newComp];
+    setRepresentedCompanies(updated);
+    localStorage.setItem(`represented_full_companies_${supplier.id}`, JSON.stringify(updated));
+    setActiveCompany(newComp);
+    showToast(`Distribuidora "${newComp.tradeName}" adicionada e ativada!`);
   };
 
-  const handleRemoveCompany = (companyToRemove: string) => {
-    if (!supplier) return;
-    const updatedList = representedCompanies.filter((comp) => comp !== companyToRemove);
-    setRepresentedCompanies(updatedList);
-    localStorage.setItem(`represented_companies_${supplier.id}`, JSON.stringify(updatedList));
+  const handleRemoveCompany = (id: string) => {
+    if (representedCompanies.length <= 1) {
+      showToast('⚠️ Deve manter pelo menos uma distribuidora no portfólio.');
+      return;
+    }
+    const updated = representedCompanies.filter(c => c.id !== id);
+    setRepresentedCompanies(updated);
+    localStorage.setItem(`represented_full_companies_${supplier.id}`, JSON.stringify(updated));
+    if (activeCompany?.id === id) {
+      setActiveCompany(updated[0]);
+    }
+    showToast('Distribuidora removida.');
+  };
+
+  const handleSaveProfile = (name: string, phone: string) => {
+    const updatedSession = { ...supplier, name, phone };
+    sessionStorage.setItem('melo_supplier_session', JSON.stringify(updatedSession));
+    showToast('Perfil atualizado com sucesso!');
+    window.location.reload();
   };
 
   const handleLogout = () => {
@@ -166,179 +185,77 @@ export default function SupplierPortalDashboard() {
     router.push('/portal/login');
   };
 
-  if (!supplier) {
-    return (
-      <div className={`min-h-screen flex items-center justify-center text-xs ${isDarkMode ? 'bg-slate-950 text-slate-400' : 'bg-slate-50 text-slate-500'}`}>
-        A carregar portal...
-      </div>
-    );
-  }
-
   return (
     <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
-      
       <SupplierHeader
-        title="Painel do Representante"
-        subtitle={`Logado como: ${supplier.name} (${supplier.email})`}
+        title="Painel do Representante B2B"
+        representativeName={supplier.name}
+        representativeEmail={supplier.email}
+        activeBrand={activeCompany?.tradeName || (representedCompanies[0]?.tradeName ?? 'SELECIONE UMA MARCA')}
         onLogout={handleLogout}
       />
 
-      <main className="max-w-7xl mx-auto px-6 sm:px-12 mt-8 pb-20 relative z-20 space-y-8">
-
-        {/* SECÇÃO DE CONVITES PENDENTES DE LOJISTAS */}
-        {connections.length > 0 && (
-          <div className={`p-8 rounded-3xl shadow-2xl border space-y-4 ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200/80'}`}>
-            <h2 className="text-sm font-black tracking-tight">🤝 Convites e Parcerias Comerciais</h2>
-            <div className="space-y-3">
-              {connections.map((conn) => (
-                <div key={conn.id} className={`p-4 rounded-2xl border flex items-center justify-between gap-4 ${isDarkMode ? 'border-slate-800 bg-slate-950/40' : 'border-slate-200 bg-slate-50/50'}`}>
-                  <div>
-                    <p className="text-xs font-bold">Solicitação de Parceria (Loja ID: #{conn.companyId.slice(0, 8)})</p>
-                    <p className="text-[10px] opacity-60 font-mono mt-0.5">Estado atual: <span className="uppercase font-bold">{conn.status}</span></p>
-                  </div>
-
-                  {conn.status === 'PENDING' ? (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleUpdateConnection(conn.id, 'ACCEPTED')}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition cursor-pointer shadow-md"
-                      >
-                        Aceitar Parceria
-                      </button>
-                      <button
-                        onClick={() => handleUpdateConnection(conn.id, 'REJECTED')}
-                        className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 font-bold px-4 py-2 rounded-xl text-xs transition cursor-pointer"
-                      >
-                        Recusar
-                      </button>
-                    </div>
-                  ) : (
-                    <span className={`text-xs font-bold px-3 py-1 rounded-full border ${
-                      conn.status === 'ACCEPTED' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-rose-500/10 text-rose-500 border-rose-500/20'
-                    }`}>
-                      {conn.status === 'ACCEPTED' ? 'PARCERIA ATIVA' : 'RECUSADO'}
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
+      <main className="max-w-7xl mx-auto px-6 sm:px-12 -mt-4 pb-20 relative z-20 space-y-6">
+        
+        {/* Bloco de Código Comercial Visível (Ideal para WhatsApp, Telefone ou Presencial) */}
+        <div className={`p-5 rounded-[2rem] border shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 backdrop-blur-xl ${
+          isDarkMode ? 'bg-slate-900/90 border-indigo-500/30' : 'bg-white/95 border-indigo-200'
+        }`}>
+          <div className="space-y-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500">ID / Código Comercial B2B</span>
+            <p className="text-xs font-mono font-bold text-slate-900 dark:text-white select-all">{supplier.id}</p>
+            <p className="text-[11px] text-slate-500">Informe este código ou seu e-mail ({supplier.email}) ao lojista para conexões manuais.</p>
           </div>
-        )}
-
-        <div className={`p-8 rounded-3xl shadow-2xl border space-y-5 ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200/80'}`}>
-          <div>
-            <h2 className="text-sm font-black tracking-tight">🏭 Minhas Distribuidoras / Marcas Representadas</h2>
-            <p className="text-xs opacity-60 mt-0.5">Adicione as empresas e distribuidoras pelas quais atua (ex: Rogê, DPC, Martins).</p>
-          </div>
-
-          <form onSubmit={handleAddCompany} className="flex gap-3">
-            <input
-              type="text"
-              placeholder="Nome da Distribuidora (ex: Martins)"
-              value={newCompanyInput}
-              onChange={(e) => setNewCompanyInput(e.target.value)}
-              className={`flex-1 px-4 py-3 text-xs border rounded-2xl outline-none uppercase ${isDarkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-            />
-            <button
-              type="submit"
-              className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-2xl text-xs font-bold transition cursor-pointer shadow-lg shadow-indigo-600/20 whitespace-nowrap"
-            >
-              + Adicionar Marca
-            </button>
-          </form>
-
-          <div className="flex flex-wrap gap-2 pt-2">
-            {representedCompanies.map((comp) => (
-              <div
-                key={comp}
-                className={`border text-xs font-semibold px-4 py-2 rounded-xl flex items-center gap-2.5 shadow-sm ${isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-200' : 'bg-slate-100 border-slate-200 text-slate-800'}`}
-              >
-                <span>📦 {comp}</span>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveCompany(comp)}
-                  className="opacity-50 hover:opacity-100 text-rose-500 font-bold ml-1 cursor-pointer text-sm"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard.writeText(supplier.id);
+              showToast('ID comercial copiado para a área de transferência!');
+            }}
+            className="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black uppercase tracking-wider transition shadow-md shadow-indigo-600/30 cursor-pointer active:scale-95 shrink-0"
+          >
+            📋 Copiar ID Comercial
+          </button>
         </div>
 
-        <div className={`p-8 rounded-3xl shadow-2xl border space-y-6 ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200/80'}`}>
-          <div className="flex justify-between items-center border-b pb-4 border-slate-500/10">
-            <div>
-              <h2 className="text-sm font-black tracking-tight">📋 Cotações e Notificações por Empresa Lojista</h2>
-              <p className="text-xs opacity-60 mt-0.5">Selecione uma cotação abaixo para preencher preços e prazos diretamente no portal.</p>
-            </div>
-            <span className="text-xs font-mono font-bold px-3 py-1.5 rounded-xl bg-indigo-500/10 text-indigo-500">
-              {quotations.length} disponíveis
-            </span>
-          </div>
+        <ProfileSettingsCard
+          isDarkMode={isDarkMode}
+          representativeName={supplier.name}
+          representativeEmail={supplier.email}
+          representativePhone={supplier.phone}
+          onSaveProfile={handleSaveProfile}
+        />
 
-          {loading ? (
-            <p className="text-xs opacity-60 py-12 text-center font-medium">A carregar cotações...</p>
-          ) : quotations.length === 0 ? (
-            <div className={`text-center py-16 border-2 border-dashed rounded-3xl ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`}>
-              <p className="opacity-60 text-xs font-medium">Não existem cotações atribuídas no momento.</p>
-            </div>
-          ) : (
-            <div className={`rounded-2xl border overflow-hidden shadow-inner ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className={`border-b ${isDarkMode ? 'border-slate-800 text-slate-400 bg-slate-950/40' : 'border-slate-200 text-slate-600 bg-slate-50/50'}`}>
-                    <th className="p-4 font-bold">Empresa Lojista</th>
-                    <th className="p-4 font-bold">Título / Referência</th>
-                    <th className="p-4 font-bold text-center">Status</th>
-                    <th className="p-4 font-bold text-right">Total Oferecido (R$)</th>
-                    <th className="p-4 font-bold text-center">Ação</th>
-                  </tr>
-                </thead>
-                <tbody className={`divide-y ${isDarkMode ? 'divide-slate-800/60' : 'divide-slate-100'}`}>
-                  {quotations.map((cot) => (
-                    <tr key={cot.quotationSupplierId || cot.quotationId} className={`transition ${isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50/60'}`}>
-                      <td className="p-4 font-bold text-indigo-500">
-                        🏪 {cot.companyName || 'Melo Perfumaria'}
-                      </td>
-                      <td className="p-4 font-semibold">{cot.title || 'Cotação de Reposição'}</td>
-                      <td className="p-4 text-center">
-                        <span className={`font-bold px-3 py-1 rounded-full text-[10px] border ${
-                          cot.status === 'SENT' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
-                        }`}>
-                          {cot.status === 'SENT' ? 'RESPONDIDA' : 'PENDENTE'}
-                        </span>
-                      </td>
-                      <td className="p-4 text-right font-mono font-bold opacity-90">
-                        R$ {cot.totalOffered ? Number(cot.totalOffered).toFixed(2) : '0,00'}
-                      </td>
-                      <td className="p-4 text-center">
-                        <button
-                          onClick={() => {
-                            const targetToken = cot.token || cot.quotationId;
-                            router.push(`/portal/cotacao/${targetToken}`);
-                          }}
-                          className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition cursor-pointer shadow-lg shadow-indigo-600/20"
-                        >
-                          Responder Cotação
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        <BrandPortfolioSection
+          isDarkMode={isDarkMode}
+          representedCompanies={representedCompanies}
+          activeCompany={activeCompany}
+          onSelectCompany={setActiveCompany}
+          onAddCompany={handleAddCompany}
+          onRemoveCompany={handleRemoveCompany}
+        />
 
+        <ConnectionRequests
+          isDarkMode={isDarkMode}
+          supplierId={supplier.id}
+          connections={connections}
+          onUpdateConnection={handleUpdateConnection}
+          onRefreshConnections={() => loadPortalData(supplier.id, supplier.email)}
+        />
+
+        <QuotationsList
+          isDarkMode={isDarkMode}
+          quotations={quotations}
+          loading={loading}
+          activeBrandName={activeCompany?.tradeName || 'GERAL'}
+        />
       </main>
 
       {toastMessage && (
-        <div className="fixed bottom-5 right-5 px-5 py-3 bg-emerald-600 text-white rounded-2xl shadow-2xl text-xs font-bold transition-all z-50">
+        <div className="fixed bottom-6 right-6 px-6 py-4 bg-emerald-600 text-white rounded-2xl shadow-2xl text-xs font-bold z-50 animate-in slide-in-from-bottom-5">
           {toastMessage}
         </div>
       )}
-
     </div>
   );
 }

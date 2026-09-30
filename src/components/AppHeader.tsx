@@ -9,56 +9,60 @@ interface AppHeaderProps {
   onOpenCmd: () => void;
 }
 
-export function AppHeader({ title, subtitle, onOpenCmd }: AppHeaderProps) {
-  const { themeColor, setThemeColor, isDarkMode, toggleDarkMode } = useTheme();
+const colorMap = {
+  emerald: {
+    header: 'bg-gradient-to-r from-emerald-900 via-teal-800 to-emerald-950 border-emerald-700/40 text-white',
+    badge: 'bg-emerald-500/20 border-emerald-400/40 text-emerald-100',
+    dot: 'bg-emerald-300',
+    accentText: 'text-emerald-300',
+    button: 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/25 border-emerald-300/50',
+  },
+  'emerald-light': {
+    header: 'bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-700 border-emerald-400/40 text-white',
+    badge: 'bg-white/20 border-white/30 text-white',
+    dot: 'bg-emerald-200',
+    accentText: 'text-emerald-100',
+    button: 'bg-white hover:bg-emerald-50 text-emerald-900 shadow-emerald-600/20 border-white',
+  },
+  blue: {
+    header: 'bg-gradient-to-r from-blue-900 via-indigo-800 to-slate-950 border-blue-700/40 text-white',
+    badge: 'bg-blue-500/20 border-blue-400/40 text-blue-100',
+    dot: 'bg-blue-300',
+    accentText: 'text-blue-300',
+    button: 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/25 border-blue-400/50',
+  },
+  'blue-light': {
+    header: 'bg-gradient-to-r from-blue-600 via-sky-500 to-indigo-600 border-blue-400/40 text-white',
+    badge: 'bg-white/20 border-white/30 text-white',
+    dot: 'bg-blue-200',
+    accentText: 'text-blue-100',
+    button: 'bg-white hover:bg-blue-50 text-blue-900 shadow-blue-600/20 border-white',
+  },
+  purple: {
+    header: 'bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-950 border-purple-800/40 text-white',
+    badge: 'bg-purple-500/20 border-purple-400/40 text-purple-100',
+    dot: 'bg-purple-300',
+    accentText: 'text-purple-300',
+    button: 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/25 border-purple-400/50',
+  },
+  'purple-light': {
+    header: 'bg-gradient-to-r from-purple-600 via-indigo-500 to-purple-700 border-purple-400/40 text-white',
+    badge: 'bg-white/20 border-white/30 text-white',
+    dot: 'bg-purple-200',
+    accentText: 'text-purple-100',
+    button: 'bg-white hover:bg-purple-50 text-purple-900 shadow-purple-600/20 border-white',
+  },
+};
 
-  const themeStyles = {
-    emerald: {
-      header: 'bg-gradient-to-r from-emerald-900 via-teal-800 to-emerald-950 border-emerald-700/40 text-white',
-      badge: 'bg-emerald-500/20 border-emerald-400/40 text-emerald-100',
-      dot: 'bg-emerald-300',
-      accentText: 'text-emerald-300',
-      button: 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/25 border-emerald-300/50',
-    },
-    'emerald-light': {
-      header: 'bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-700 border-emerald-400/40 text-white',
-      badge: 'bg-white/20 border-white/30 text-white',
-      dot: 'bg-emerald-200',
-      accentText: 'text-emerald-100',
-      button: 'bg-white hover:bg-emerald-50 text-emerald-900 shadow-emerald-600/20 border-white',
-    },
-    blue: {
-      header: 'bg-gradient-to-r from-blue-900 via-indigo-800 to-slate-950 border-blue-700/40 text-white',
-      badge: 'bg-blue-500/20 border-blue-400/40 text-blue-100',
-      dot: 'bg-blue-300',
-      accentText: 'text-blue-300',
-      button: 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/25 border-blue-400/50',
-    },
-    'blue-light': {
-      header: 'bg-gradient-to-r from-blue-600 via-sky-500 to-indigo-600 border-blue-400/40 text-white',
-      badge: 'bg-white/20 border-white/30 text-white',
-      dot: 'bg-blue-200',
-      accentText: 'text-blue-100',
-      button: 'bg-white hover:bg-blue-50 text-blue-900 shadow-blue-600/20 border-white',
-    },
-    purple: {
-      header: 'bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-950 border-purple-800/40 text-white',
-      badge: 'bg-purple-500/20 border-purple-400/40 text-purple-100',
-      dot: 'bg-purple-300',
-      accentText: 'text-purple-300',
-      button: 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/25 border-purple-400/50',
-    },
-    'purple-light': {
-      header: 'bg-gradient-to-r from-purple-600 via-indigo-500 to-purple-700 border-purple-400/40 text-white',
-      badge: 'bg-white/20 border-white/30 text-white',
-      dot: 'bg-purple-200',
-      accentText: 'text-purple-100',
-      button: 'bg-white hover:bg-purple-50 text-purple-900 shadow-purple-600/20 border-white',
-    },
-  }[themeColor];
+export function AppHeader({ title, subtitle, onOpenCmd }: AppHeaderProps) {
+  const { themeColor, setThemeColor, isDarkMode, toggleDarkMode, mounted } = useTheme();
+
+  // Garante consistência exata no SSR usando 'blue-light' como padrão antes de hidratar no cliente
+  const activeThemeKey: ThemeColor = mounted && themeColor ? themeColor : 'blue-light';
+  const themeStyles = colorMap[activeThemeKey] || colorMap['blue-light'];
 
   return (
-    <header className={`${themeStyles.header} pb-20 pt-10 px-6 sm:px-12 shadow-xl relative overflow-hidden border-b`}>
+    <header className={`${themeStyles.header} pb-20 pt-10 px-6 sm:px-12 shadow-xl relative overflow-hidden border-b transition-colors duration-300`}>
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent pointer-events-none" />
       
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
@@ -77,7 +81,7 @@ export function AppHeader({ title, subtitle, onOpenCmd }: AppHeaderProps) {
                   onClick={() => setThemeColor(c)}
                   className={`w-3.5 h-3.5 rounded-full transition-transform ${
                     c.includes('emerald') ? 'bg-emerald-500' : c.includes('blue') ? 'bg-blue-500' : 'bg-purple-500'
-                  } ${themeColor === c ? 'scale-125 ring-2 ring-white' : 'opacity-70'}`}
+                  } ${activeThemeKey === c ? 'scale-125 ring-2 ring-white' : 'opacity-70'}`}
                 />
               ))}
               
@@ -88,8 +92,9 @@ export function AppHeader({ title, subtitle, onOpenCmd }: AppHeaderProps) {
               </button>
 
               <button
+                key="cmd-k-btn"
                 onClick={onOpenCmd}
-                className="bg-white/20 hover:bg-white/30 text-white px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider transition-colors border border-white/20"
+                className="bg-white/20 hover:bg-white/30 text-white px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider transition-colors border border-white/20 cursor-pointer"
               >
                 ⌘K
               </button>

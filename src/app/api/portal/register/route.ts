@@ -1,62 +1,64 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
 import { suppliers } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import bcrypt from 'bcryptjs';
 
-export async function POST(request: Request) {
+export const dynamic = 'force-dynamic';
+
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const name = String(body.name || '').trim().toUpperCase();
-    const representativeName = String(body.representativeName || '').trim().toUpperCase();
-    const email = String(body.email || '').trim().toLowerCase();
-    const password = String(body.password || '').trim();
-    const phone = String(body.phone || '').trim();
-    const companyId = String(body.companyId || '915a8bc1-5db7-4605-93a9-b78090e75679').trim();
+    console.log('[Register Payload Received]:', body);
+
+    const name = body.name ? String(body.name).trim() : '';
+    const email = body.email ? String(body.email).trim().toLowerCase() : '';
+    const phone = body.phone ? String(body.phone).trim() : '';
+    const password = body.password ? String(body.password) : '';
 
     if (!name || !email || !password) {
       return NextResponse.json(
-        { error: 'Nome da empresa, e-mail e palavra-passe são obrigatórios.' },
-        { status: 400 },
+        { error: 'Por favor, preencha todos os campos obrigatórios.' },
+        { status: 400 }
       );
     }
 
-    const [existingSupplier] = await db
-      .select()
-      .from(suppliers)
-      .where(eq(suppliers.email, email));
-
-    if (existingSupplier) {
+    const existingSupplier = await db.select().from(suppliers).where(eq(suppliers.email, email));
+    if (existingSupplier.length > 0) {
       return NextResponse.json(
-        { error: 'Já existe um fornecedor registado com este e-mail.' },
-        { status: 400 },
+        { error: 'Este e-mail já está associado a uma conta de representante.' },
+        { status: 400 }
       );
     }
 
-    const [newSupplier] = await db
-      .insert(suppliers)
-      .values({
-        companyId,
-        name: `${name} ${representativeName ? `(Rep: ${representativeName})` : ''}`.trim(),
-        email,
-        phone,
-        passwordHash: password,
-      })
-      .returning({
-        id: suppliers.id,
-        name: suppliers.name,
-        email: suppliers.email,
-        phone: suppliers.phone,
-      });
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const newSupplierList = await db.insert(suppliers).values({
+      companyId: 'portal-representante-independente',
+      name: name,
+      email: email,
+      phone: phone,
+      passwordHash: passwordHash,
+    }).returning();
+
+    const createdSupplier = newSupplierList[0];
 
     return NextResponse.json({
-      supplier: newSupplier,
-      message: 'Cadastro realizado com sucesso!',
+      success: true,
+      message: 'Conta de representante criada com sucesso!',
+      supplier: {
+        id: createdSupplier.id,
+        name: createdSupplier.name,
+        email: createdSupplier.email,
+        phone: createdSupplier.phone || '',
+      },
     });
+
   } catch (error) {
-    console.error('Erro ao realizar cadastro do fornecedor:', error);
+    console.error('[Portal Register Critical Error Details]:', error);
     return NextResponse.json(
-      { error: 'Erro interno ao realizar cadastro.' },
-      { status: 500 },
+      { error: 'Ocorreu um erro interno no servidor ao processar o registo.' },
+      { status: 500 }
     );
   }
 }

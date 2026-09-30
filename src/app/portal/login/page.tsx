@@ -40,7 +40,10 @@ export default function SupplierLoginPage() {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error((data as { error?: string }).error || 'Credenciais inválidas ou acesso não autorizado.');
+        // 🌟 Tratamento limpo do erro no estado visual (sem lançar exceções)
+        setError(data.error || 'Credenciais inválidas ou acesso não autorizado.');
+        setLoading(false);
+        return;
       }
 
       if (data.supplier) {
@@ -50,9 +53,7 @@ export default function SupplierLoginPage() {
       router.push('/portal/painel');
     } catch (err: unknown) {
       console.error('[Security Auth Error]:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Ocorreu um erro ao processar a autenticação.';
-      setError(errorMessage);
-    } finally {
+      setError('Ocorreu um erro ao processar a autenticação.');
       setLoading(false);
     }
   }
@@ -71,16 +72,30 @@ export default function SupplierLoginPage() {
     }, 1000);
   };
 
-  const handleForgotPassword = (e: React.FormEvent) => {
+  // Função de Recuperação Segura integrada com a API
+  const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!forgotEmail) return;
+    const sanitizedForgotEmail = forgotEmail.trim().toLowerCase();
+    if (!sanitizedForgotEmail) return;
+
     setForgotSent(true);
-    setTimeout(() => {
-      setForgotSent(false);
+    try {
+      const res = await fetch('/api/portal/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: sanitizedForgotEmail }),
+      });
+
+      const data = await res.json();
+      alert(data.message || 'Instruções enviadas para o e-mail informado.');
       setIsForgotOpen(false);
       setForgotEmail('');
-      alert('Instruções de recuperação enviadas para o e-mail do distribuidor.');
-    }, 2000);
+    } catch (err) {
+      console.error('[Forgot Error]:', err);
+      alert('Erro ao processar solicitação de recuperação.');
+    } finally {
+      setForgotSent(false);
+    }
   };
 
   return (
@@ -127,7 +142,7 @@ export default function SupplierLoginPage() {
           
           <div className="space-y-1.5">
             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">Iniciar Sessão</h1>
-            <p className="text-xs text-slate-500 font-medium">Insira as suas credenciais para aceder ao painel de distribuidor</p>
+            <p className="text-xs text-slate-500 font-medium">Insira as suas credenciais para aceder ao painel de representante</p>
           </div>
 
           {error && (
@@ -155,42 +170,42 @@ export default function SupplierLoginPage() {
 
           <div className="flex items-center my-2">
             <div className="flex-grow border-t border-slate-200"></div>
-            <span className="px-3 text-[10px] uppercase font-bold text-slate-400 tracking-widest">ou e-mail corporativo</span>
+            <span className="px-3 text-[10px] uppercase font-bold text-slate-400 tracking-widest">ou e-mail de acesso</span>
             <div className="flex-grow border-t border-slate-200"></div>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 tracking-wide uppercase">E-mail Corporativo</label>
+              <label className="text-xs font-bold text-slate-700 tracking-wide uppercase">E-mail de Acesso</label>
               <div className="relative group">
                 <input
                   type="email"
                   required
                   autoComplete="off"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => setEmail(e.target.value.toLowerCase())}
                   placeholder="exemplo@distribuidora.com"
-                  className="w-full px-4 py-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-600/10 transition-all shadow-inner font-medium"
+                  className="w-full px-4 py-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-600/10 transition-all shadow-inner font-medium lowercase"
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-700 tracking-wide uppercase">Palavra-passe</label>
+                <label className="text-xs font-bold text-slate-700 tracking-wide uppercase">Senha</label>
                 <button
                   type="button"
                   onClick={() => setIsForgotOpen(true)}
                   className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 transition cursor-pointer"
                 >
-                  Esqueceu a palavra-passe?
+                  Esqueceu a senha?
                 </button>
               </div>
               <div className="relative group">
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
-                  autoComplete="off"
+                  autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
@@ -200,7 +215,7 @@ export default function SupplierLoginPage() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer transition p-1"
-                  title={showPassword ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}
+                  title={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                 >
                   {showPassword ? (
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -234,9 +249,9 @@ export default function SupplierLoginPage() {
 
           <div className="space-y-3 text-center pt-6 border-t border-slate-100">
             <p className="text-xs text-slate-500 font-medium">
-              Ainda não possui credenciais corporativas?{' '}
+              Ainda não possui credenciais comerciais?{' '}
               <Link href="/portal/cadastro" className="text-indigo-600 font-bold hover:text-indigo-700 transition underline underline-offset-4">
-                Cadastre sua empresa
+                Cadastre-se como Representante
               </Link>
             </p>
           </div>
@@ -245,7 +260,7 @@ export default function SupplierLoginPage() {
 
       </div>
 
-      {/* Modal de Recuperação de Senha do Fornecedor */}
+      {/* Modal de Recuperação de Senha do Representante */}
       {isForgotOpen && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 space-y-6 border border-slate-200">
@@ -264,14 +279,14 @@ export default function SupplierLoginPage() {
 
             <form onSubmit={handleForgotPassword} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase">E-mail Corporativo</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase">E-mail de Acesso</label>
                 <input
                   type="email"
                   required
                   placeholder="exemplo@distribuidora.com"
                   value={forgotEmail}
-                  onChange={(e) => setForgotEmail(e.target.value)}
-                  className="w-full px-4 py-3.5 text-xs rounded-2xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-indigo-600 focus:bg-white font-medium"
+                  onChange={(e) => setForgotEmail(e.target.value.toLowerCase())}
+                  className="w-full px-4 py-3.5 text-xs rounded-2xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-indigo-600 focus:bg-white font-medium lowercase"
                 />
               </div>
 

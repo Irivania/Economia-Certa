@@ -8,13 +8,12 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { token, prices, outOfStock } = body;
+    const { token, prices, outOfStock, observation } = body;
 
     if (!token) {
       return NextResponse.json({ error: 'Token não fornecido.' }, { status: 400 });
     }
 
-    // 1. Localiza o fornecedor pelo token
     const supplierRecords = await db
       .select()
       .from(quotationSuppliers)
@@ -27,48 +26,60 @@ export async function POST(request: NextRequest) {
     }
 
     const quotationId = supplierRecord.quotationId;
+    const supplierId = supplierRecord.supplierId;
 
-    // 2. Busca os itens da cotação
     const items = await db
       .select()
       .from(quotationItems)
       .where(eq(quotationItems.quotationId, quotationId));
 
-    // 3. Atualiza cada item com segurança usando o Drizzle ORM
+    let calculatedTotal = 0;
+
     for (const item of items) {
       const itemId = item.id;
-      const isUnavailable = outOfStock?.[itemId] || false;
-      const unitPrice = prices?.[itemId] !== undefined ? Number(prices[itemId]) : 0;
+      const productId = item.productId;
+      const isUnavailable = outOfStock?.[productId] || outOfStock?.[itemId] || false;
+      const unitPrice = prices?.[productId] !== undefined ? Number(prices[productId]) : (prices?.[itemId] !== undefined ? Number(prices[itemId]) : 0);
       const finalPrice = isUnavailable ? 0 : unitPrice;
 
-      try {
-        await db
-          .update(quotationItems)
-          .set({
-            unitPrice: finalPrice,
-          } as Record<string, unknown>)
-          .where(
-            and(
-              eq(quotationItems.id, itemId),
-              eq(quotationItems.quotationId, quotationId)
-            )
-          );
-      } catch (err) {
-        console.error(`Erro ao atualizar item ${itemId}:`, err);
+      // Soma ao total oferecido usando a propriedade correta requestedQuantity
+      const requestedQty = Number(item.requestedQuantity || 1);
+      if (!isUnavailable) {
+        calculatedTotal += finalPrice * requestedQty;
       }
+
+      await db
+        .update(quotationItems)
+        .set({
+          price: String(finalPrice),
+          supplierId: supplierId,
+          outOfStock: isUnavailable,
+        } as Record<string, unknown>)
+        .where(
+          and(
+            eq(quotationItems.quotationId, quotationId),
+            eq(quotationItems.productId, productId)
+          )
+        );
     }
 
-    // 4. Marca o fornecedor como respondido
+    const updateData: Record<string, unknown> = {
+      status: 'responded',
+      totalOffered: calculatedTotal,
+    };
+
+    if (observation) {
+      updateData.observation = observation;
+    }
+
     await db
       .update(quotationSuppliers)
-      .set({
-        status: 'responded',
-      } as Record<string, unknown>)
+      .set(updateData)
       .where(eq(quotationSuppliers.token, token));
 
     return NextResponse.json({ success: true, message: 'Proposta enviada com sucesso!' });
   } catch (error) {
-    console.error('Erro crítico ao responder cotação:', error);
+    console.error('❌ [API Responder] Erro crítico:', error);
     return NextResponse.json({ error: 'Erro interno ao salvar resposta da cotação.' }, { status: 500 });
   }
 }

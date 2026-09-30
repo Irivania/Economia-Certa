@@ -14,6 +14,8 @@ interface QuotationItem {
   imageUrl?: string | null;
   quantity: number;
   unit: string;
+  price?: number;
+  outOfStock?: boolean;
 }
 
 interface QuotationDetail {
@@ -51,6 +53,7 @@ export default function SupplierQuotationResponsePage() {
   const [quotation, setQuotation] = useState<QuotationDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [successSubmitted, setSuccessSubmitted] = useState(false);
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [outOfStock, setOutOfStock] = useState<Record<string, boolean>>({});
   const [observation, setObservation] = useState('');
@@ -70,7 +73,27 @@ export default function SupplierQuotationResponsePage() {
         const data = (await res.json()) as QuotationDetail;
         setQuotation(data);
 
+        // Popula os preços e status de estoque salvos anteriormente para exibição correta
         if (data.items && data.items.length > 0) {
+          const initialPrices: Record<string, string> = {};
+          const initialOutOfStock: Record<string, boolean> = {};
+
+          data.items.forEach((item) => {
+            if (item.price && item.price > 0) {
+              const cents = Math.round(item.price * 100);
+              initialPrices[item.id] = (cents / 100).toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+              });
+            }
+            if (item.outOfStock) {
+              initialOutOfStock[item.id] = true;
+            }
+          });
+
+          setPrices(initialPrices);
+          setOutOfStock(initialOutOfStock);
+
           setTimeout(() => {
             const firstId = data.items[0].id;
             inputRefs.current[firstId]?.focus();
@@ -149,20 +172,24 @@ export default function SupplierQuotationResponsePage() {
 
   const handleSubmitResponse = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🚀 [Portal] Botão "Enviar Proposta" acionado.');
 
     if (quotation) {
       for (const item of quotation.items) {
         const hasPrice = prices[item.id] && prices[item.id] !== 'R$ 0,00';
         const isMissing = outOfStock[item.id];
         if (!hasPrice && !isMissing) {
-          showToast(`⚠️ Atenção: O produto "${item.productName}" está sem preço e não foi marcado como indisponível.`);
+          console.warn(`⚠️ [Portal] Validação parou no produto: ${item.productName}`);
+          showToast(`⚠️️ O produto "${item.productName}" está sem preço e não foi marcado como indisponível.`);
           inputRefs.current[item.id]?.focus();
           return;
         }
       }
     }
 
+    console.log('✅ [Portal] Todos os itens validados. A iniciar envio...');
     setSubmitting(true);
+    
     try {
       const cleanPrices: Record<string, number> = {};
       for (const [id, val] of Object.entries(prices)) {
@@ -172,22 +199,25 @@ export default function SupplierQuotationResponsePage() {
         }
       }
 
+      const payload = { token, prices: cleanPrices, outOfStock, observation };
+      console.log('📦 [Portal] Payload a ser enviado:', payload);
+
       const res = await fetch(`/api/portal/cotacoes/responder`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, prices: cleanPrices, outOfStock, observation }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
+      console.log('📥 [Portal] Resposta da API de resposta:', data);
 
       if (!res.ok) {
         throw new Error(data.error || 'Erro ao enviar resposta');
       }
 
-      showToast('Proposta enviada com sucesso!');
-      setTimeout(() => router.push('/portal/painel'), 1500);
+      setSuccessSubmitted(true);
     } catch (err: unknown) {
-      console.error('Erro ao submeter:', err);
+      console.error('❌ [Portal] Erro capturado no envio:', err);
       const errorMessage = err instanceof Error ? err.message : 'Erro ao submeter os preços.';
       showToast(`❌ ${errorMessage}`);
       setSubmitting(false);
@@ -195,6 +225,30 @@ export default function SupplierQuotationResponsePage() {
   };
 
   if (!mounted || !themeMounted) return null;
+
+  if (successSubmitted) {
+    return (
+      <div className={`min-h-screen flex flex-col items-center justify-center transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+        <div className={`max-w-md w-full p-8 rounded-3xl shadow-2xl border text-center space-y-6 backdrop-blur-md ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200'}`}>
+          <div className="w-20 h-20 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center text-4xl mx-auto shadow-inner border border-emerald-500/25 animate-bounce">
+            ✓
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-black tracking-tight">Proposta Enviada com Sucesso!</h2>
+            <p className="text-xs opacity-60 leading-relaxed">
+              A sua cotação foi registada e enviada com segurança para o lojista. Obrigado pela parceria!
+            </p>
+          </div>
+          <button
+            onClick={() => router.push('/portal/painel')}
+            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold py-3.5 rounded-2xl text-xs transition shadow-lg shadow-indigo-600/30 cursor-pointer"
+          >
+            Voltar ao Painel Principal
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50/80 text-slate-900'}`}>

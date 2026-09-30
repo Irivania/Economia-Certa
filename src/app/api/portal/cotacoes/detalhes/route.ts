@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
 import { quotations, companies, quotationSuppliers, quotationItems, products } from '@/db/schema';
-import { eq, asc } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Token não fornecido.' }, { status: 400 });
     }
 
+    // 1. Localiza o registo do fornecedor pelo token
     const supplierRecords = await db
       .select()
       .from(quotationSuppliers)
@@ -37,13 +38,12 @@ export async function GET(request: NextRequest) {
     const quotData = (quotationRow.quotations as Record<string, unknown>) || quotationRow;
     const compData = (quotationRow.companies as Record<string, unknown>) || quotationRow;
 
-    // Busca os itens ordenados por ordem de inserção ou ID para manter a consistência
+    // 2. Busca os itens da cotação
     const rawItems = await db
       .select()
       .from(quotationItems)
       .leftJoin(products, eq(quotationItems.productId, products.id))
-      .where(eq(quotationItems.quotationId, targetQuotationId))
-      .orderBy(asc(quotationItems.id));
+      .where(eq(quotationItems.quotationId, targetQuotationId));
 
     const items = rawItems ?? [];
     const formattedItems: Record<string, unknown>[] = [];
@@ -69,17 +69,31 @@ export async function GET(request: NextRequest) {
         let unit = String(prod.unit || item.unit || 'UN').trim();
         if (unit.length > 4) unit = 'UN';
 
+        // Resgata o preço e estoque salvos para este item
+        const savedPrice = item.unitPrice ?? item.price ?? 0;
+        const isOutOfStock = item.outOfStock ?? false;
+
         formattedItems.push({
           id: (item.id as string) ?? productId,
+          productId,
           productName,
           barcode,
           description: (prod.brand as string) ? `Marca: ${prod.brand}` : '',
           imageUrl: (prod.imageUrl as string) || (prod.image as string) || null,
           quantity,
           unit,
+          price: Number(savedPrice) || 0,
+          outOfStock: Boolean(isOutOfStock),
         });
       }
     }
+
+    // Ordena alfabeticamente
+    formattedItems.sort((a, b) => {
+      const nameA = String(a.productName || '').toLowerCase();
+      const nameB = String(b.productName || '').toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
 
     return NextResponse.json({
       quotationId: (quotData.id as string) ?? targetQuotationId,

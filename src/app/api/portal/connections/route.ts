@@ -1,50 +1,69 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
-import { supplierConnections } from '@/db/schema';
+import { supplierConnections, suppliers } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 
-// GET: Listar conexões de um lojista ou de um representante
+// GET: Listar conexões por companyId, supplierId ou supplierEmail
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const companyId = searchParams.get('companyId');
     const supplierId = searchParams.get('supplierId');
+    const supplierEmail = searchParams.get('supplierEmail');
 
-    if (!companyId && !supplierId) {
-      return NextResponse.json({ error: 'companyId ou supplierId são obrigatórios.' }, { status: 400 });
-    }
+    console.log('🔍 [API CONNECTIONS GET] Parâmetros recebidos:', { companyId, supplierId, supplierEmail });
 
-    let results;
     if (companyId) {
-      results = await db
+      const results = await db
         .select()
         .from(supplierConnections)
         .where(eq(supplierConnections.companyId, companyId));
-    } else {
-      results = await db
-        .select()
-        .from(supplierConnections)
-        .where(eq(supplierConnections.supplierId, supplierId!));
+      
+      console.log('📦 [API CONNECTIONS GET] Conexões para a empresa:', results.length);
+      return NextResponse.json(results);
     }
 
-    return NextResponse.json(results);
+    let targetSupplierId = supplierId;
+    if (!targetSupplierId && supplierEmail) {
+      const foundSup = await db
+        .select()
+        .from(suppliers)
+        .where(eq(suppliers.email, supplierEmail));
+      
+      if (foundSup.length > 0) {
+        targetSupplierId = foundSup[0].id;
+      }
+    }
+
+    if (targetSupplierId) {
+      const results = await db
+        .select()
+        .from(supplierConnections)
+        .where(eq(supplierConnections.supplierId, targetSupplierId));
+      
+      console.log('📦 [API CONNECTIONS GET] Conexões para o fornecedor:', results.length);
+      return NextResponse.json(results);
+    }
+
+    return NextResponse.json({ error: 'companyId, supplierId ou supplierEmail são obrigatórios.' }, { status: 400 });
   } catch (error) {
     console.error('Erro ao buscar conexões:', error);
     return NextResponse.json({ error: 'Erro interno ao buscar conexões.' }, { status: 500 });
   }
 }
 
-// POST: Enviar um convite de parceria (iniciado pelo Lojista ou pelo Representante)
+// POST: Enviar convite de parceria
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { companyId, supplierId, initiatedBy } = body;
 
+    console.log('📤 [API CONNECTIONS POST] Pedido recebido:', { companyId, supplierId, initiatedBy });
+
     if (!companyId || !supplierId || !initiatedBy) {
       return NextResponse.json({ error: 'companyId, supplierId e initiatedBy são obrigatórios.' }, { status: 400 });
     }
 
-    // Verificar se já existe uma conexão ou convite entre os dois
     const existing = await db
       .select()
       .from(supplierConnections)
@@ -56,7 +75,7 @@ export async function POST(request: NextRequest) {
       );
 
     if (existing.length > 0) {
-      return NextResponse.json({ error: 'Já existe uma conexão ou convite registado entre este lojista e fornecedor.' }, { status: 400 });
+      return NextResponse.json({ success: true, connection: existing[0], message: 'Conexão já existente.' });
     }
 
     const [newConnection] = await db
@@ -65,10 +84,11 @@ export async function POST(request: NextRequest) {
         companyId,
         supplierId,
         initiatedBy, // 'COMPANY' ou 'SUPPLIER'
-        status: 'PENDING',
+        status: 'PENDENTE', // Padronizado em português conforme a base de dados
       })
       .returning();
 
+    console.log('✅ [API CONNECTIONS POST] Convite criado com sucesso:', newConnection);
     return NextResponse.json({ success: true, connection: newConnection });
   } catch (error) {
     console.error('Erro ao criar convite de conexão:', error);
@@ -76,11 +96,13 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT: Aceitar ou recusar um convite de parceria
+// PUT: Aceitar ou recusar convite
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { connectionId, status } = body; // status: 'ACCEPTED' ou 'REJECTED'
+    const { connectionId, status } = body;
+
+    console.log('🔄 [API CONNECTIONS PUT] Atualizando conexão:', { connectionId, status });
 
     if (!connectionId || !status) {
       return NextResponse.json({ error: 'connectionId e status são obrigatórios.' }, { status: 400 });
@@ -96,6 +118,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Conexão não encontrada.' }, { status: 404 });
     }
 
+    console.log('✅ [API CONNECTIONS PUT] Conexão atualizada com sucesso:', updated);
     return NextResponse.json({ success: true, connection: updated });
   } catch (error) {
     console.error('Erro ao atualizar estado da conexão:', error);

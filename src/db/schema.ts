@@ -63,6 +63,25 @@ export const suppliers = pgTable('suppliers', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+export const supplierBrands = pgTable('supplier_brands', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  supplierId: text('supplier_id').notNull(),
+  tradeName: text('trade_name').notNull(),
+  corporateName: text('corporate_name'),
+  cnpj: text('cnpj'),
+  email: text('email'),
+  phone: text('phone'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const supplierPasswordResets = pgTable('supplier_password_resets', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  supplierId: text('supplier_id').notNull(),
+  token: text('token').notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 export const quotations = pgTable('quotations', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   companyId: text('company_id').notNull(),
@@ -103,7 +122,7 @@ export const supplierConnections = pgTable('supplier_connections', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   companyId: text('company_id').notNull(),
   supplierId: text('supplier_id').notNull(),
-  initiatedBy: text('initiated_by').notNull(), // 'COMPANY' (Lojista) ou 'SUPPLIER' (Representante)
-  status: text('status').default('PENDING').notNull(), // 'PENDING', 'ACCEPTED', 'REJECTED'
+  initiatedBy: text('initiated_by').notNull(),
+  status: text('status').default('PENDING').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });

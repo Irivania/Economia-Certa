@@ -1,55 +1,64 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
-import { quotations, companies, quotationSuppliers } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { quotationSuppliers, quotations, companies, quotationItems } from '@/db/schema';
+import { eq } from 'drizzle-orm';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const supplierId = searchParams.get('supplierId');
 
-    // Usando supplierId opcionalmente para silenciar o aviso do linter
-    console.log('Buscando cotações para supplierId:', supplierId);
-
-    const results = await db
+    // Constrói a consulta base filtrando estritamente pelo supplierId logado se fornecido
+    const query = db
       .select({
         quotationSupplierId: quotationSuppliers.id,
-        quotationId: quotations.id,
+        quotationId: quotationSuppliers.quotationId,
+        status: quotationSuppliers.status,
+        totalOffered: quotationSuppliers.totalOffered,
+        token: quotationSuppliers.token,
         title: quotations.title,
         startDate: quotations.startDate,
         endDate: quotations.endDate,
         closingTime: quotations.closingTime,
-        status: quotationSuppliers.status,
-        token: quotationSuppliers.token,
         companyName: companies.name,
       })
       .from(quotationSuppliers)
-      .innerJoin(quotations, eq(quotationSuppliers.quotationId, quotations.id))
-      .leftJoin(companies, eq(quotations.companyId, companies.id))
-      .orderBy(desc(quotations.startDate));
+      .leftJoin(quotations, eq(quotationSuppliers.quotationId, quotations.id))
+      .leftJoin(companies, eq(quotations.companyId, companies.id));
 
-    // Remove duplicados baseando-se no quotationId para o painel ficar limpo
-    const uniqueMap = new Map<string, typeof results[0]>();
-    results.forEach((q) => {
-      if (!uniqueMap.has(q.quotationId)) {
-        uniqueMap.set(q.quotationId, q);
+    const records = supplierId
+      ? await query.where(eq(quotationSuppliers.supplierId, supplierId))
+      : await query;
+
+    const formattedRecords = [];
+    for (const record of records) {
+      let total = Number(record.totalOffered || 0);
+
+      if (total === 0 && record.quotationId) {
+        const items = await db
+          .select()
+          .from(quotationItems)
+          .where(eq(quotationItems.quotationId, record.quotationId));
+
+        for (const item of items) {
+          if (!item.outOfStock) {
+            const price = Number(item.price || 0);
+            const qty = Number(item.requestedQuantity || 1);
+            total += price * qty;
+          }
+        }
       }
-    });
 
-    const formatted = Array.from(uniqueMap.values()).map((q) => ({
-      quotationSupplierId: q.quotationSupplierId,
-      quotationId: q.quotationId,
-      title: q.title || 'Cotação de Reposição',
-      startDate: q.startDate,
-      endDate: q.endDate,
-      closingTime: q.closingTime,
-      status: q.status || 'PENDING',
-      totalOffered: 0,
-      token: q.token || q.quotationId,
-      companyName: q.companyName || 'Melo Perfumaria',
-    }));
+      formattedRecords.push({
+        ...record,
+        companyName: record.companyName || 'Melo Perfumaria',
+        totalOffered: total,
+      });
+    }
 
-    return NextResponse.json(formatted);
+    return NextResponse.json(formattedRecords);
   } catch (error) {
     console.error('Erro ao buscar cotações do portal:', error);
     return NextResponse.json({ error: 'Erro interno ao buscar cotações.' }, { status: 500 });
