@@ -18,8 +18,7 @@ export default function SuppliersPage() {
     connections, loading, error, searchTerm, setSearchTerm,
     fetchingCep, fetchingCnpj, editingId, name, setName, cnpj, handleCnpjChange,
     cep, handleCepChange, address, setAddress, contactPerson, setContactPerson,
-    phone, handlePhoneChange, email, setEmail, password, setPassword,
-    showPassword, setShowPassword, submitting, toastMessage,
+    phone, handlePhoneChange, email, setEmail, submitting, toastMessage,
     handleSubmit, handleEdit, handleDelete, resetForm, filteredSuppliers,
     handleConnectSupplier, handleUpdateConnection
   } = useSuppliers(companyId);
@@ -56,8 +55,7 @@ export default function SuppliersPage() {
           fetchingCep={fetchingCep} address={address} setAddress={setAddress}
           contactPerson={contactPerson} setContactPerson={setContactPerson}
           phone={phone} handlePhoneChange={handlePhoneChange} email={email} setEmail={setEmail}
-          password={password} setPassword={setPassword} showPassword={showPassword}
-          setShowPassword={setShowPassword} submitting={submitting} onSubmit={handleSubmit}
+          submitting={submitting} onSubmit={handleSubmit}
           onReset={resetForm} isDarkMode={isDarkMode} themeButtonStyles={themeButtonStyles}
         />
 
@@ -94,7 +92,8 @@ export default function SuppliersPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filteredSuppliers.map((sup) => {
                 const conn = connections.find(c => c.supplierId === sup.id);
-                const connectionStatus = conn?.status === 'ACCEPTED' ? 'ACCEPTED' : conn?.status === 'PENDING' ? 'PENDING' : 'NONE';
+                const rawStatus = conn?.status?.toUpperCase();
+                const connectionStatus = rawStatus === 'ACCEPTED' ? 'ACCEPTED' : (rawStatus === 'PENDING' || rawStatus === 'PENDENTE') ? 'PENDING' : 'NONE';
 
                 return (
                   <SupplierCard

@@ -27,7 +27,7 @@ export function useSuppliers(companyId: string) {
   const [fetchingCep, setFetchingCep] = useState(false);
   const [fetchingCnpj, setFetchingCnpj] = useState(false);
 
-  // Estados do formulário
+  // Estados do formulário (sem palavra-passe)
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [cnpj, setCnpj] = useState('');
@@ -36,8 +36,6 @@ export function useSuppliers(companyId: string) {
   const [contactPerson, setContactPerson] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -170,7 +168,7 @@ export function useSuppliers(companyId: string) {
   const resetForm = () => {
     setEditingId(null);
     setName(''); setCnpj(''); setCep(''); setAddress('');
-    setContactPerson(''); setPhone(''); setEmail(''); setPassword(''); setShowPassword(false);
+    setContactPerson(''); setPhone(''); setEmail('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -180,7 +178,8 @@ export function useSuppliers(companyId: string) {
     try {
       setSubmitting(true);
       const method = editingId ? 'PUT' : 'POST';
-      const bodyData = { id: editingId, companyId, name, cnpj, address, contactPerson, phone, email, password };
+      // Removida a propriedade password do body
+      const bodyData = { id: editingId, companyId, name, cnpj, address, contactPerson, phone, email };
       const res = await fetch('/api/suppliers', {
         method,
         headers: { 'Content-Type': 'application/json' },
@@ -205,8 +204,6 @@ export function useSuppliers(companyId: string) {
     setContactPerson(sup.contactPerson || '');
     setPhone(sup.phone || '');
     setEmail(sup.email || '');
-    setPassword('');
-    setShowPassword(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -231,8 +228,7 @@ export function useSuppliers(companyId: string) {
     suppliers, connections, loading, error, searchTerm, setSearchTerm,
     fetchingCep, fetchingCnpj, editingId, name, setName, cnpj, handleCnpjChange,
     cep, handleCepChange, address, setAddress, contactPerson, setContactPerson,
-    phone, handlePhoneChange, email, setEmail, password, setPassword,
-    showPassword, setShowPassword, submitting, toastMessage,
+    phone, handlePhoneChange, email, setEmail, submitting, toastMessage,
     handleSubmit, handleEdit, handleDelete, resetForm, filteredSuppliers,
     handleConnectSupplier, handleUpdateConnection
   };

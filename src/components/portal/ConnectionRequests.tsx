@@ -1,12 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 export interface Connection {
   id: string;
   companyId: string;
-  status: string;
-  initiatedBy: string;
+  supplierId: string;
+  status: 'PENDENTE' | 'PENDING' | 'ACCEPTED' | 'REJECTED' | string;
+  initiatedBy?: string;
+  companyName?: string;
+  companyCnpj?: string;
+  companyEmail?: string;
 }
 
 interface ConnectionRequestsProps {
@@ -19,172 +23,131 @@ interface ConnectionRequestsProps {
 
 export function ConnectionRequests({
   isDarkMode,
-  supplierId,
   connections,
   onUpdateConnection,
   onRefreshConnections,
 }: ConnectionRequestsProps) {
-  const [targetCompanyId, setTargetCompanyId] = useState('');
-  const [loadingInvite, setLoadingInvite] = useState(false);
-  const [inviteFeedback, setInviteFeedback] = useState<string | null>(null);
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
-  const handleSendInvitation = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!targetCompanyId.trim()) return;
+  // Filtro universal para aceitar tanto "PENDENTE" (PT) quanto "PENDING" (EN)
+  const pendingConnections = connections.filter((c) => {
+    const st = (c.status || '').trim().toUpperCase();
+    return st === 'PENDENTE' || st === 'PENDING';
+  });
+
+  const handleDeleteConnection = async (connectionId: string) => {
+    if (!confirm('Deseja realmente excluir esta solicitação/conexão pendente?')) {
+      return;
+    }
 
     try {
-      setLoadingInvite(true);
-      setInviteFeedback(null);
-
+      setProcessingId(connectionId);
       const res = await fetch('/api/portal/connections', {
-        method: 'POST',
+        method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          companyId: targetCompanyId.trim(),
-          supplierId,
-          initiatedBy: 'SUPPLIER',
-        }),
+        body: JSON.stringify({ connectionId }),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Erro ao enviar convite.');
+      if (!res.ok) throw new Error('Erro ao excluir conexão');
 
-      setInviteFeedback('✅ Convite enviado com sucesso para a loja!');
-      setTargetCompanyId('');
       onRefreshConnections();
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro ao processar convite.';
-      setInviteFeedback(`⚠️ ${message}`);
+    } catch (err) {
+      console.error('Erro ao excluir conexão:', err);
+      alert('Não foi possível excluir a conexão.');
     } finally {
-      setLoadingInvite(false);
-      setTimeout(() => setInviteFeedback(null), 4000);
+      setProcessingId(null);
     }
   };
 
-  const hasConnections = connections.length > 0;
+  if (pendingConnections.length === 0) {
+    return null;
+  }
 
   return (
     <div className={`p-6 sm:p-8 rounded-[2.5rem] shadow-2xl border backdrop-blur-2xl transition-all space-y-6 ${
       isDarkMode ? 'bg-slate-900/90 border-slate-800/80' : 'bg-white/95 border-slate-200/80 shadow-slate-200/50'
     }`}>
-      {/* Header da Secção */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-5 border-slate-500/10">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <span className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500 text-sm">🤝</span>
-            <h2 className="text-base font-black tracking-tight uppercase text-slate-900 dark:text-white">Conectividade & Parcerias B2B</h2>
-          </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">Envie convites para lojistas ou aceite solicitações de parceria pendentes.</p>
+      <div className="flex items-center justify-between border-b pb-4 border-slate-500/10">
+        <div className="flex items-center gap-2.5">
+          <span className="p-2 rounded-xl bg-amber-500/10 text-amber-500 text-sm">🔔</span>
+          <h2 className="text-base font-black tracking-tight uppercase text-slate-900 dark:text-white">
+            Solicitações de Conexão Pendentes
+          </h2>
         </div>
-        <span className="px-3.5 py-1.5 rounded-full text-[10px] font-mono font-black uppercase tracking-widest bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-          {connections.filter(c => c.status === 'PENDING').length} Pendentes
+        <span className="px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400">
+          {pendingConnections.length} {pendingConnections.length === 1 ? 'pendente' : 'pendentes'}
         </span>
       </div>
 
-      {/* Formulário para Enviar Novo Convite */}
-      <form onSubmit={handleSendInvitation} className={`p-5 rounded-3xl border space-y-3 ${
-        isDarkMode ? 'bg-slate-950/60 border-indigo-500/30' : 'bg-slate-50/80 border-indigo-200'
-      }`}>
-        <div className="flex justify-between items-center">
-          <label className="text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-            Convidar Nova Loja / Lojista
-          </label>
-          <span className="text-[10px] font-mono opacity-60">Informe o ID da Loja</span>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {pendingConnections.map((conn) => {
+          const storeName = conn.companyName || `Parceria com Loja (ID: #${conn.companyId.slice(0, 8)})`;
+          const isProcessing = processingId === conn.id;
+          const isInitiatedBySupplier = conn.initiatedBy?.toUpperCase() === 'SUPPLIER';
 
-        <div className="flex flex-col sm:flex-row gap-3">
-          <input
-            type="text"
-            required
-            placeholder="Cole aqui o UUID / ID da Empresa (Lojista)"
-            value={targetCompanyId}
-            onChange={(e) => setTargetCompanyId(e.target.value)}
-            className={`w-full px-4 py-3 rounded-2xl border text-xs font-mono outline-none transition-all ${
-              isDarkMode ? 'bg-slate-900 border-slate-700 text-white focus:border-indigo-500' : 'bg-white border-slate-200 text-slate-900 focus:border-indigo-600'
-            }`}
-          />
-          <button
-            type="submit"
-            disabled={loadingInvite}
-            className="px-6 py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-black uppercase tracking-widest transition shadow-lg shadow-indigo-600/30 cursor-pointer active:scale-95 whitespace-nowrap disabled:opacity-50"
-          >
-            {loadingInvite ? 'A enviar...' : 'Disparar Convite ➔'}
-          </button>
-        </div>
-
-        {inviteFeedback && (
-          <p className="text-xs font-bold pt-1 animate-in fade-in">{inviteFeedback}</p>
-        )}
-      </form>
-
-      {/* Lista de Conexões Existentes */}
-      {!hasConnections ? (
-        <div className={`p-6 rounded-3xl border border-dashed text-center space-y-1 ${
-          isDarkMode ? 'border-slate-800 bg-slate-950/30' : 'border-slate-200 bg-slate-50/50'
-        }`}>
-          <p className="text-xs font-bold text-slate-400">Sem parcerias ativas ou convites registados.</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {connections.map((conn) => {
-            const isPending = conn.status === 'PENDING';
-            const isAccepted = conn.status === 'ACCEPTED';
-
-            return (
-              <div 
-                key={conn.id} 
-                className={`p-5 rounded-3xl border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm ${
-                  isDarkMode ? 'border-slate-800 bg-slate-950/60 hover:bg-slate-950' : 'border-slate-200/80 bg-slate-50/80 hover:bg-white'
-                }`}
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${
-                      isAccepted ? 'bg-emerald-400' : isPending ? 'bg-amber-400 animate-pulse' : 'bg-rose-400'
-                    }`} />
-                    <span className="text-xs font-black tracking-tight text-slate-900 dark:text-white">
-                      Parceria com Loja (ID: #{conn.companyId.slice(0, 8)})
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-                    Iniciado por: <strong className="uppercase">{conn.initiatedBy}</strong> • Estado:{' '}
-                    <span className={`font-bold ${isAccepted ? 'text-emerald-500' : isPending ? 'text-amber-500' : 'text-rose-500'}`}>
-                      {conn.status}
-                    </span>
-                  </p>
+          return (
+            <div
+              key={conn.id}
+              className={`p-5 rounded-3xl border flex flex-col justify-between gap-4 transition-all shadow-md ${
+                isDarkMode ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'
+              }`}
+            >
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="inline-block px-2.5 py-0.5 rounded-md text-[9px] font-mono font-bold uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                    {isInitiatedBySupplier ? 'Enviado por si (Aguardando)' : 'Convite Recebido da Loja'}
+                  </span>
+                  
+                  {/* Botão de Excluir para limpar conexões pendentes/antigas */}
+                  <button
+                    type="button"
+                    disabled={isProcessing}
+                    onClick={() => handleDeleteConnection(conn.id)}
+                    className="px-3 py-1 text-[11px] font-bold rounded-xl bg-rose-500/10 text-rose-600 hover:bg-rose-500 hover:text-white transition cursor-pointer shadow-sm disabled:opacity-50"
+                    title="Excluir conexão pendente"
+                  >
+                    {isProcessing ? 'A excluir...' : '🗑️ Excluir'}
+                  </button>
                 </div>
 
-                {isPending && conn.initiatedBy === 'COMPANY' ? (
-                  <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
-                    <button
-                      type="button"
-                      onClick={() => onUpdateConnection(conn.id, 'ACCEPTED')}
-                      className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black uppercase tracking-wider transition shadow-lg shadow-emerald-600/20 cursor-pointer active:scale-95"
-                    >
-                      Aceitar ✓
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onUpdateConnection(conn.id, 'REJECTED')}
-                      className="px-4 py-2.5 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs font-black uppercase tracking-wider transition cursor-pointer active:scale-95"
-                    >
-                      Recusar
-                    </button>
-                  </div>
-                ) : (
-                  <span className={`px-4 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider border ${
-                    isAccepted 
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
-                      : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                  }`}>
-                    {isAccepted ? '✓ Parceria Ativa' : 'Aguardando Aprovação'}
-                  </span>
+                <h3 className="text-sm font-black text-slate-900 dark:text-white mt-1">{storeName}</h3>
+                <p className="text-[11px] font-mono opacity-70">Estado: {conn.status} {conn.initiatedBy ? `• Iniciado por: ${conn.initiatedBy}` : ''}</p>
+                {conn.companyCnpj && (
+                  <p className="text-xs font-mono text-slate-500">CNPJ: {conn.companyCnpj}</p>
+                )}
+                {conn.companyEmail && (
+                  <p className="text-xs text-slate-500">E-mail: {conn.companyEmail}</p>
                 )}
               </div>
-            );
-          })}
-        </div>
-      )}
+
+              {!isInitiatedBySupplier ? (
+                <div className="flex items-center gap-2 pt-3 border-t border-slate-500/10">
+                  <button
+                    type="button"
+                    disabled={isProcessing}
+                    onClick={() => onUpdateConnection(conn.id, 'ACCEPTED')}
+                    className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-wider transition shadow-md shadow-emerald-600/20 cursor-pointer active:scale-95 disabled:opacity-50 text-center"
+                  >
+                    Aceitar ✓
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isProcessing}
+                    onClick={() => onUpdateConnection(conn.id, 'REJECTED')}
+                    className="flex-1 py-2.5 rounded-xl bg-slate-500/10 hover:bg-slate-500/20 text-slate-700 dark:text-slate-300 text-xs font-black uppercase tracking-wider transition cursor-pointer active:scale-95 disabled:opacity-50 text-center"
+                  >
+                    Recusar ✕
+                  </button>
+                </div>
+              ) : (
+                <div className="pt-3 border-t border-slate-500/10 flex justify-between items-center text-[11px] text-amber-500 font-bold">
+                  <span>⏳ Aguardando aprovação da loja</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

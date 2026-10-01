@@ -20,10 +20,6 @@ interface SupplierFormProps {
   handlePhoneChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   email: string;
   setEmail: (v: string) => void;
-  password: string;
-  setPassword: (v: string) => void;
-  showPassword: boolean;
-  setShowPassword: (v: boolean) => void;
   submitting: boolean;
   onSubmit: (e: React.FormEvent) => void;
   onReset: () => void;
@@ -48,10 +44,6 @@ export function SupplierForm({
   handlePhoneChange,
   email,
   setEmail,
-  password,
-  setPassword,
-  showPassword,
-  setShowPassword,
   submitting,
   onSubmit,
   onReset,
@@ -167,24 +159,6 @@ export function SupplierForm({
             onChange={(e) => setEmail(e.target.value)}
             className={`w-full px-4 py-3 text-xs border rounded-2xl outline-none transition-all ${isDarkMode ? 'bg-slate-950 border-slate-800 text-white focus:border-indigo-500' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-600'}`}
           />
-        </div>
-
-        <div className="relative">
-          <label className="block text-[11px] font-bold uppercase tracking-wider mb-1.5 opacity-70">Palavra-passe Portal B2B</label>
-          <input
-            type={showPassword ? 'text' : 'password'}
-            placeholder={editingId ? 'Manter senha atual (opcional)' : 'Palavra-passe de acesso *'}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={`w-full px-4 py-3 pr-10 text-xs border rounded-2xl outline-none transition-all ${isDarkMode ? 'bg-slate-950 border-slate-800 text-white focus:border-indigo-500' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-600'}`}
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-9 text-slate-400 hover:text-slate-600 text-xs focus:outline-none"
-          >
-            {showPassword ? '👁️‍🗨️' : '👁️'}
-          </button>
         </div>
       </div>
       

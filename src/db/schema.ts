@@ -88,6 +88,7 @@ export const quotations = pgTable('quotations', {
   title: text('title').default('Cotação Geral').notNull(),
   paymentTerms: text('payment_terms'),
   supplierId: text('supplier_id'),
+  brandId: text('brand_id'), // <-- Adicionado para vincular diretamente à marca do portfólio
   storeName: text('store_name'),
   token: text('token'),
   observation: text('observation'),

@@ -2,9 +2,10 @@
 
 import { useEffect, useState, useCallback, useSyncExternalStore, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { useTheme } from '@/context/ThemeContext';
 import { SupplierHeader } from '@/components/portal/SupplierHeader';
+import { SupplierQuotationHeader } from '@/components/portal/SupplierQuotationHeader';
+import { SupplierQuotationTable } from '@/components/portal/SupplierQuotationTable';
 
 interface QuotationItem {
   id: string;
@@ -22,6 +23,10 @@ interface QuotationDetail {
   quotationId: string;
   title: string;
   companyName: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  closingTime?: string | null;
+  paymentTerms?: string | null;
   items: QuotationItem[];
 }
 
@@ -73,7 +78,6 @@ export default function SupplierQuotationResponsePage() {
         const data = (await res.json()) as QuotationDetail;
         setQuotation(data);
 
-        // Popula os preços e status de estoque salvos anteriormente para exibição correta
         if (data.items && data.items.length > 0) {
           const initialPrices: Record<string, string> = {};
           const initialOutOfStock: Record<string, boolean> = {};
@@ -168,28 +172,23 @@ export default function SupplierQuotationResponsePage() {
   const outOfStockCount = Object.values(outOfStock).filter(Boolean).length;
   const totalCompleted = filledCount + outOfStockCount;
   const totalItems = quotation?.items.length || 0;
-  const progressPercent = totalItems > 0 ? Math.round((totalCompleted / totalItems) * 100) : 0;
 
   const handleSubmitResponse = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('🚀 [Portal] Botão "Enviar Proposta" acionado.');
 
     if (quotation) {
       for (const item of quotation.items) {
         const hasPrice = prices[item.id] && prices[item.id] !== 'R$ 0,00';
         const isMissing = outOfStock[item.id];
         if (!hasPrice && !isMissing) {
-          console.warn(`⚠️ [Portal] Validação parou no produto: ${item.productName}`);
-          showToast(`⚠️️ O produto "${item.productName}" está sem preço e não foi marcado como indisponível.`);
+          showToast(`⚠ O produto "${item.productName}" está sem preço e não foi marcado como indisponível.`);
           inputRefs.current[item.id]?.focus();
           return;
         }
       }
     }
 
-    console.log('✅ [Portal] Todos os itens validados. A iniciar envio...');
     setSubmitting(true);
-    
     try {
       const cleanPrices: Record<string, number> = {};
       for (const [id, val] of Object.entries(prices)) {
@@ -200,8 +199,6 @@ export default function SupplierQuotationResponsePage() {
       }
 
       const payload = { token, prices: cleanPrices, outOfStock, observation };
-      console.log('📦 [Portal] Payload a ser enviado:', payload);
-
       const res = await fetch(`/api/portal/cotacoes/responder`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -209,15 +206,12 @@ export default function SupplierQuotationResponsePage() {
       });
 
       const data = await res.json();
-      console.log('📥 [Portal] Resposta da API de resposta:', data);
-
       if (!res.ok) {
         throw new Error(data.error || 'Erro ao enviar resposta');
       }
 
       setSuccessSubmitted(true);
     } catch (err: unknown) {
-      console.error('❌ [Portal] Erro capturado no envio:', err);
       const errorMessage = err instanceof Error ? err.message : 'Erro ao submeter os preços.';
       showToast(`❌ ${errorMessage}`);
       setSubmitting(false);
@@ -254,7 +248,9 @@ export default function SupplierQuotationResponsePage() {
     <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50/80 text-slate-900'}`}>
       <SupplierHeader
         title="Portal do Fornecedor"
-        subtitle={quotation ? `Empresa Lojista: ${quotation.companyName}` : 'A carregar detalhes...'}
+        representativeName="Fornecedor"
+        representativeEmail=""
+        activeBrand={quotation?.companyName || 'GERAL'}
         onLogout={() => router.push('/portal/login')}
       />
 
@@ -271,113 +267,31 @@ export default function SupplierQuotationResponsePage() {
         ) : (
           <form onSubmit={handleSubmitResponse} className="space-y-6">
             
-            <div className={`p-8 rounded-3xl shadow-xl border backdrop-blur-md flex flex-col md:flex-row justify-between items-start md:items-center gap-6 ${isDarkMode ? 'bg-slate-900/90 border-slate-800 shadow-black/40' : 'bg-white border-slate-200/80 shadow-slate-200/50'}`}>
-              <div className="space-y-1">
-                <span className="inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-500/10 text-indigo-500 mb-1">
-                  Cotação Ativa
-                </span>
-                <h1 className="text-xl font-black tracking-tight">{quotation.title}</h1>
-                <p className="text-xs opacity-60">
-                  Dica de produtividade: Digite o valor e prima <kbd className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 font-mono font-bold">Enter</kbd> para avançar automaticamente.
-                </p>
-              </div>
+            <SupplierQuotationHeader
+              quotation={{
+                title: quotation.title,
+                companyName: quotation.companyName,
+                startDate: quotation.startDate,
+                endDate: quotation.endDate,
+                closingTime: quotation.closingTime,
+                paymentTerms: quotation.paymentTerms,
+              }}
+              isDarkMode={isDarkMode}
+              totalCompleted={totalCompleted}
+              totalItems={totalItems}
+            />
 
-              <div className={`w-full md:w-72 p-4 rounded-2xl border ${isDarkMode ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-100'}`}>
-                <div className="flex justify-between text-xs font-bold mb-2">
-                  <span className="opacity-70">Progresso da Proposta</span>
-                  <span className="text-indigo-500 font-mono">{totalCompleted} / {totalItems}</span>
-                </div>
-                <div className={`w-full h-2 rounded-full overflow-hidden ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`}>
-                  <div 
-                    className="h-full bg-gradient-to-r from-indigo-500 to-emerald-400 transition-all duration-500 rounded-full"
-                    style={{ width: `${progressPercent}%` }}
-                  ></div>
-                </div>
-              </div>
-            </div>
-
-            <div className={`rounded-3xl border overflow-hidden shadow-2xl backdrop-blur-md ${isDarkMode ? 'bg-slate-900/90 border-slate-800 shadow-black/50' : 'bg-white border-slate-200/80 shadow-slate-200/60'}`}>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className={`border-b text-[11px] uppercase tracking-wider font-extrabold ${isDarkMode ? 'border-slate-800 text-slate-400 bg-slate-950/60' : 'border-slate-100 text-slate-500 bg-slate-50/80'}`}>
-                      <th className="py-4 px-6 w-20 text-center">Foto</th>
-                      <th className="py-4 px-6">Produto / Descrição</th>
-                      <th className="py-4 px-6 font-mono">Cód. Barras</th>
-                      <th className="py-4 px-6 text-center">Qtd. Solicitada</th>
-                      <th className="py-4 px-6 text-right">Preço Unitário (R$)</th>
-                      <th className="py-4 px-6 text-center">Indisponível / Sem Estoque</th>
-                    </tr>
-                  </thead>
-                  <tbody className={`divide-y ${isDarkMode ? 'divide-slate-800/50' : 'divide-slate-100'}`}>
-                    {quotation.items.map((item, index) => {
-                      const isUnavailable = outOfStock[item.id] || false;
-                      return (
-                        <tr key={item.id} className={`group transition-all ${isUnavailable ? (isDarkMode ? 'bg-red-950/20 opacity-60' : 'bg-red-50/50 opacity-70') : (isDarkMode ? 'hover:bg-slate-800/50' : 'hover:bg-slate-50/80')}`}>
-                          <td className="py-4 px-6 text-center">
-                            {item.imageUrl ? (
-                              <div className="w-12 h-12 relative rounded-2xl overflow-hidden border border-slate-500/20 mx-auto shadow-sm group-hover:scale-105 transition duration-300">
-                                <Image src={item.imageUrl} alt={item.productName} fill sizes="48px" className="object-cover" />
-                              </div>
-                            ) : (
-                              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xs font-bold mx-auto border ${isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-500'}`}>
-                                📦
-                              </div>
-                            )}
-                          </td>
-                          <td className="py-4 px-6">
-                            <p className={`font-bold text-sm leading-snug ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{item.productName}</p>
-                            {item.description && <p className="text-[11px] opacity-60 mt-0.5 font-medium">{item.description}</p>}
-                          </td>
-                          <td className="py-4 px-6 font-mono text-[11px] opacity-70">{item.barcode}</td>
-                          <td className="py-4 px-6 text-center font-mono font-bold text-indigo-500 text-sm">
-                            <span className={`px-3 py-1.5 rounded-xl border ${isDarkMode ? 'bg-indigo-950/30 border-indigo-800/50' : 'bg-indigo-50 border-indigo-100'}`}>
-                              {Number(item.quantity)} {item.unit}
-                            </span>
-                          </td>
-                          
-                          <td className="py-4 px-6 text-right">
-                            <input
-                              ref={(el) => { inputRefs.current[item.id] = el; }}
-                              type="text"
-                              disabled={isUnavailable || submitting}
-                              placeholder={isUnavailable ? 'Indisponível' : 'R$ 0,00'}
-                              value={prices[item.id] || ''}
-                              onChange={(e) => handlePriceChange(item.id, e.target.value)}
-                              onKeyDown={(e) => handleKeyDown(e, index)}
-                              className={`w-40 px-4 py-2.5 text-right font-mono text-sm font-bold border rounded-2xl outline-none transition-all shadow-sm ${
-                                isUnavailable ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-slate-900' : ''
-                              } ${
-                                prices[item.id] ? 'border-emerald-500 ring-2 ring-emerald-500/20' : ''
-                              } ${
-                                isDarkMode 
-                                  ? 'bg-slate-950 border-slate-800 text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20' 
-                                  : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20'
-                              }`}
-                            />
-                          </td>
-
-                          <td className="py-4 px-6 text-center">
-                            <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-                              <input
-                                type="checkbox"
-                                disabled={submitting}
-                                checked={isUnavailable}
-                                onChange={() => toggleOutOfStock(item.id)}
-                                className="w-4 h-4 rounded text-red-600 focus:ring-red-500 border-slate-300 cursor-pointer"
-                              />
-                              <span className={`text-[11px] font-bold ${isUnavailable ? 'text-red-500' : 'opacity-60'}`}>
-                                {isUnavailable ? 'Produto em Falta' : 'Indisponível'}
-                              </span>
-                            </label>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <SupplierQuotationTable
+              items={quotation.items}
+              isDarkMode={isDarkMode}
+              prices={prices}
+              outOfStock={outOfStock}
+              submitting={submitting}
+              inputRefs={inputRefs}
+              onPriceChange={handlePriceChange}
+              onKeyDown={handleKeyDown}
+              onToggleOutOfStock={toggleOutOfStock}
+            />
 
             <div className={`p-8 rounded-3xl shadow-xl border backdrop-blur-md space-y-3 ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200/80'}`}>
               <label className="block text-xs font-black uppercase tracking-wider opacity-80">

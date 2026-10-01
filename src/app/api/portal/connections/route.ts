@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
 import { supplierConnections, suppliers } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 
 // GET: Listar conexões por companyId, supplierId ou supplierEmail
 export async function GET(request: NextRequest) {
@@ -23,25 +23,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(results);
     }
 
-    let targetSupplierId = supplierId;
-    if (!targetSupplierId && supplierEmail) {
+    const matchedSupplierIds: string[] = [];
+    if (supplierId) {
+      matchedSupplierIds.push(supplierId);
+    }
+
+    if (supplierEmail) {
       const foundSup = await db
         .select()
         .from(suppliers)
         .where(eq(suppliers.email, supplierEmail));
       
-      if (foundSup.length > 0) {
-        targetSupplierId = foundSup[0].id;
+      for (const sup of foundSup) {
+        if (!matchedSupplierIds.includes(sup.id)) {
+          matchedSupplierIds.push(sup.id);
+        }
       }
     }
 
-    if (targetSupplierId) {
+    if (matchedSupplierIds.length > 0) {
       const results = await db
         .select()
         .from(supplierConnections)
-        .where(eq(supplierConnections.supplierId, targetSupplierId));
+        .where(inArray(supplierConnections.supplierId, matchedSupplierIds));
       
-      console.log('📦 [API CONNECTIONS GET] Conexões para o fornecedor:', results.length);
+      console.log('📦 [API CONNECTIONS GET] Conexões encontradas para o fornecedor:', results.length);
       return NextResponse.json(results);
     }
 
@@ -83,8 +89,8 @@ export async function POST(request: NextRequest) {
       .values({
         companyId,
         supplierId,
-        initiatedBy, // 'COMPANY' ou 'SUPPLIER'
-        status: 'PENDENTE', // Padronizado em português conforme a base de dados
+        initiatedBy,
+        status: 'PENDENTE',
       })
       .returning();
 
@@ -123,5 +129,34 @@ export async function PUT(request: NextRequest) {
   } catch (error) {
     console.error('Erro ao atualizar estado da conexão:', error);
     return NextResponse.json({ error: 'Erro interno ao atualizar conexão.' }, { status: 500 });
+  }
+}
+
+// DELETE: Excluir conexão pendente ou antiga
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { connectionId } = body;
+
+    console.log('🗑 [API CONNECTIONS DELETE] A excluir conexão:', connectionId);
+
+    if (!connectionId) {
+      return NextResponse.json({ error: 'connectionId é obrigatório.' }, { status: 400 });
+    }
+
+    const [deleted] = await db
+      .delete(supplierConnections)
+      .where(eq(supplierConnections.id, connectionId))
+      .returning();
+
+    if (!deleted) {
+      return NextResponse.json({ error: 'Conexão não encontrada para exclusão.' }, { status: 404 });
+    }
+
+    console.log('✅ [API CONNECTIONS DELETE] Conexão excluída com sucesso:', deleted);
+    return NextResponse.json({ success: true, message: 'Conexão excluída com sucesso.' });
+  } catch (error) {
+    console.error('Erro ao excluir conexão:', error);
+    return NextResponse.json({ error: 'Erro interno ao excluir conexão.' }, { status: 500 });
   }
 }

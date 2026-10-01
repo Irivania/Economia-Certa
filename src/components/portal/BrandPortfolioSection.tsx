@@ -9,6 +9,7 @@ interface BrandPortfolioSectionProps {
   activeCompany: RepresentedCompany;
   onSelectCompany: (comp: RepresentedCompany) => void;
   onAddCompany: (comp: Omit<RepresentedCompany, 'id'>) => void;
+  onUpdateCompany: (comp: RepresentedCompany) => void;
   onRemoveCompany: (id: string) => void;
 }
 
@@ -18,9 +19,11 @@ export function BrandPortfolioSection({
   activeCompany,
   onSelectCompany,
   onAddCompany,
+  onUpdateCompany,
   onRemoveCompany,
 }: BrandPortfolioSectionProps) {
   const [isAdding, setIsAdding] = useState(representedCompanies.length === 0);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [tradeName, setTradeName] = useState('');
   const [corporateName, setCorporateName] = useState('');
   const [cnpj, setCnpj] = useState('');
@@ -28,11 +31,9 @@ export function BrandPortfolioSection({
   const [phone, setPhone] = useState('');
   const [fetchingCnpj, setFetchingCnpj] = useState(false);
 
-  // Função para formatar e buscar dados automaticamente do CNPJ
   const handleCnpjChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value.replace(/\D/g, '').substring(0, 14);
     
-    // Formatação visual do CNPJ (00.000.000/0001-00)
     let formatted = rawValue;
     if (rawValue.length > 2 && rawValue.length <= 5) {
       formatted = `${rawValue.slice(0, 2)}.${rawValue.slice(2)}`;
@@ -45,14 +46,19 @@ export function BrandPortfolioSection({
     }
     setCnpj(formatted);
 
-    // Quando atingir 14 dígitos, busca automaticamente na BrasilAPI
     if (rawValue.length === 14) {
+      const controller = new AbortController();
       try {
         setFetchingCnpj(true);
-        const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${rawValue}`);
+        const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${rawValue}`, {
+          signal: controller.signal,
+        });
+
+        if (!res.ok) throw new Error('Falha na consulta da API');
+
         const data = await res.json();
 
-        if (res.ok && !data.message) {
+        if (data) {
           if (data.nome_fantasia) {
             setTradeName(data.nome_fantasia.toUpperCase());
           } else if (data.razao_social) {
@@ -71,26 +77,62 @@ export function BrandPortfolioSection({
             setPhone(data.ddd_telefone_1);
           }
         }
-      } catch (err) {
-        console.error('Erro ao consultar CNPJ:', err);
+      } catch (err: unknown) {
+        if (!(err instanceof DOMException && err.name === 'AbortError')) {
+          console.warn('Aviso: Não foi possível preencher automaticamente via CNPJ. Preencha manualmente se necessário.', err);
+        }
       } finally {
         setFetchingCnpj(false);
       }
     }
   };
 
+  const handleEditClick = (e: React.MouseEvent, comp: RepresentedCompany) => {
+    e.stopPropagation();
+    setEditingId(comp.id);
+    setTradeName(comp.tradeName || '');
+    setCorporateName(comp.corporateName || '');
+    setCnpj(comp.cnpj || '');
+    setEmail(comp.email || '');
+    setPhone(comp.phone || '');
+    setIsAdding(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!tradeName.trim()) return;
 
-    onAddCompany({
-      tradeName: tradeName.trim().toUpperCase(),
-      corporateName: corporateName.trim().toUpperCase() || tradeName.trim().toUpperCase(),
-      cnpj: cnpj.trim() || '00.000.000/0001-00',
-      email: email.trim() || '',
-      phone: phone.trim() || '',
-    });
+    if (editingId) {
+      onUpdateCompany({
+        id: editingId,
+        tradeName: tradeName.trim().toUpperCase(),
+        corporateName: corporateName.trim().toUpperCase() || tradeName.trim().toUpperCase(),
+        cnpj: cnpj.trim() || '00.000.000/0001-00',
+        email: email.trim() || '',
+        phone: phone.trim() || '',
+      });
+    } else {
+      onAddCompany({
+        tradeName: tradeName.trim().toUpperCase(),
+        corporateName: corporateName.trim().toUpperCase() || tradeName.trim().toUpperCase(),
+        cnpj: cnpj.trim() || '00.000.000/0001-00',
+        email: email.trim() || '',
+        phone: phone.trim() || '',
+      });
+    }
 
+    setEditingId(null);
+    setTradeName('');
+    setCorporateName('');
+    setCnpj('');
+    setEmail('');
+    setPhone('');
+    setIsAdding(false);
+  };
+
+  const handleCancelForm = () => {
+    setEditingId(null);
     setTradeName('');
     setCorporateName('');
     setCnpj('');
@@ -105,7 +147,7 @@ export function BrandPortfolioSection({
     <div className={`p-6 sm:p-8 rounded-[2.5rem] shadow-2xl border backdrop-blur-2xl transition-all space-y-6 ${
       isDarkMode ? 'bg-slate-900/90 border-slate-800/80' : 'bg-white/95 border-slate-200/80 shadow-slate-200/50'
     }`}>
-      {/* Header */}
+      {/* Cabeçalho */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-5 border-slate-500/10">
         <div>
           <div className="flex items-center gap-2.5">
@@ -115,47 +157,33 @@ export function BrandPortfolioSection({
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">Alterne o contexto comercial para gerir o catálogo e cotações de cada distribuidora.</p>
         </div>
 
-        {hasCompanies && (
+        {hasCompanies && !isAdding && (
           <button
             type="button"
-            onClick={() => setIsAdding(!isAdding)}
+            onClick={() => {
+              setEditingId(null);
+              setTradeName('');
+              setCorporateName('');
+              setCnpj('');
+              setEmail('');
+              setPhone('');
+              setIsAdding(true);
+            }}
             className="px-5 py-3 rounded-2xl text-xs font-black uppercase tracking-wider bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-xl shadow-indigo-600/25 transition cursor-pointer active:scale-95 flex items-center gap-2"
           >
-            <span>{isAdding ? '✕ Cancelar' : '+ Adicionar Distribuidora'}</span>
+            <span>+ Adicionar Distribuidora</span>
           </button>
         )}
       </div>
 
-      {/* Estado Inicial Vazio */}
-      {!hasCompanies && !isAdding ? (
-        <div className={`p-10 rounded-3xl border-2 border-dashed text-center space-y-4 ${
-          isDarkMode ? 'border-indigo-500/30 bg-indigo-950/20' : 'border-indigo-200 bg-indigo-50/50'
-        }`}>
-          <div className="w-12 h-12 mx-auto rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-xl shadow-lg shadow-indigo-600/30">
-            🚀
-          </div>
-          <div className="space-y-1">
-            <h3 className="text-base font-black text-slate-900 dark:text-white">Bem-vindo ao seu Portal B2B!</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-              Para começar a receber cotações de lojistas e gerir o seu escritório comercial, precisa de registar a sua primeira marca ou distribuidora.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setIsAdding(true)}
-            className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-black uppercase tracking-widest shadow-xl shadow-indigo-600/30 transition cursor-pointer active:scale-95 inline-flex items-center gap-2"
-          >
-            <span>+ Registar a Primeira Distribuidora Agora</span>
-          </button>
-        </div>
-      ) : isAdding ? (
-        /* Formulário de Adição com Consulta CNPJ */
+      {/* Formulário de Adição ou Edição */}
+      {isAdding ? (
         <form onSubmit={handleSubmit} className={`p-6 sm:p-7 rounded-3xl border space-y-4 animate-in fade-in zoom-in-95 duration-300 ${
           isDarkMode ? 'bg-slate-950 border-indigo-500/30 shadow-2xl' : 'bg-slate-50 border-indigo-200 shadow-xl'
         }`}>
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
-              <span>{hasCompanies ? 'Registar Nova Marca no Portfólio' : 'Passo 1: Registo da Distribuidora Principal'}</span>
+              <span>{editingId ? '✏️ Editar Dados da Distribuidora' : '✨ Registar Nova Marca no Portfólio'}</span>
               {fetchingCnpj && (
                 <span className="text-[10px] font-mono bg-indigo-500/10 text-indigo-400 px-2.5 py-0.5 rounded-full animate-pulse">
                   🔍 A consultar CNPJ na Receita Federal...
@@ -206,20 +234,18 @@ export function BrandPortfolioSection({
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
-            {hasCompanies && (
-              <button
-                type="button"
-                onClick={() => setIsAdding(false)}
-                className="px-5 py-3 rounded-2xl text-xs font-bold text-slate-500 hover:bg-slate-500/10 transition cursor-pointer"
-              >
-                Cancelar
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleCancelForm}
+              className="px-5 py-3 rounded-2xl text-xs font-bold text-slate-500 hover:bg-slate-500/10 transition cursor-pointer"
+            >
+              Cancelar
+            </button>
             <button
               type="submit"
               className="px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black uppercase tracking-widest transition shadow-lg shadow-emerald-600/30 cursor-pointer active:scale-95"
             >
-              Salvar e Ativar Marca &rarr;
+              {editingId ? 'Salvar Alterações ✓' : 'Salvar e Ativar Marca →'}
             </button>
           </div>
         </form>
@@ -246,7 +272,7 @@ export function BrandPortfolioSection({
                 }`}
               >
                 <div className="space-y-3">
-                  <div className="flex justify-between items-start">
+                  <div className="flex justify-between items-start gap-2">
                     <div className="space-y-1">
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-mono font-black uppercase tracking-widest ${
                         isActive 
@@ -259,19 +285,30 @@ export function BrandPortfolioSection({
                       <h3 className="text-base font-black tracking-tight text-slate-900 dark:text-white mt-1.5">{comp.tradeName}</h3>
                     </div>
 
-                    {representedCompanies.length > 1 && (
+                    {/* Botões de Ação */}
+                    <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        onClick={(e) => handleEditClick(e, comp)}
+                        className="px-3 py-1 text-[11px] font-bold rounded-xl bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500 hover:text-white transition cursor-pointer shadow-sm"
+                        title="Editar distribuidora"
+                      >
+                        Editar
+                      </button>
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onRemoveCompany(comp.id);
+                          if (confirm(`Deseja excluir a distribuidora ${comp.tradeName}?`)) {
+                            onRemoveCompany(comp.id);
+                          }
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-2 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition cursor-pointer"
-                        title="Remover distribuidora"
+                        className="px-3 py-1 text-[11px] font-bold rounded-xl bg-rose-500/10 text-rose-600 hover:bg-rose-500 hover:text-white transition cursor-pointer shadow-sm"
+                        title="Excluir distribuidora"
                       >
-                        🗑️
+                        Excluir
                       </button>
-                    )}
+                    </div>
                   </div>
 
                   <div className="space-y-1 text-xs text-slate-600 dark:text-slate-400 font-medium">

@@ -69,7 +69,6 @@ export async function GET(request: NextRequest) {
         let unit = String(prod.unit || item.unit || 'UN').trim();
         if (unit.length > 4) unit = 'UN';
 
-        // Resgata o preço e estoque salvos para este item
         const savedPrice = item.unitPrice ?? item.price ?? 0;
         const isOutOfStock = item.outOfStock ?? false;
 
@@ -99,6 +98,10 @@ export async function GET(request: NextRequest) {
       quotationId: (quotData.id as string) ?? targetQuotationId,
       title: (quotData.title as string) || (quotData.name as string) || 'Cotação de Reposição',
       companyName: (compData.name as string) || 'Melo Perfumaria',
+      startDate: quotData.startDate ?? null,
+      endDate: quotData.endDate ?? null,
+      closingTime: quotData.closingTime ?? null,
+      paymentTerms: quotData.paymentTerms ?? null,
       items: formattedItems,
     });
   } catch (error) {

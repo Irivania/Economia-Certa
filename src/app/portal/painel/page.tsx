@@ -13,6 +13,7 @@ import { SupplierHeader } from '@/components/portal/SupplierHeader';
 import { ProfileSettingsCard } from '@/components/portal/ProfileSettingsCard';
 import { BrandPortfolioSection } from '@/components/portal/BrandPortfolioSection';
 import { ConnectionRequests, Connection } from '@/components/portal/ConnectionRequests';
+import { ConnectedStoresList } from '@/components/portal/ConnectedStoresList';
 import { QuotationsList, QuotationSupplierResult } from '@/components/portal/QuotationsList';
 
 interface SupplierSession {
@@ -44,7 +45,6 @@ export default function SupplierPortalDashboard() {
     () => ''
   );
 
-  // Redirecionamento seguro via useEffect
   useEffect(() => {
     if (mounted && !sessionData) {
       router.push('/portal/login');
@@ -62,36 +62,19 @@ export default function SupplierPortalDashboard() {
 
   const [quotations, setQuotations] = useState<QuotationSupplierResult[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
+  const [representedCompanies, setRepresentedCompanies] = useState<RepresentedCompany[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const [representedCompanies, setRepresentedCompanies] = useState<RepresentedCompany[]>(() => {
-    if (typeof window === 'undefined') return [];
-    const currentSession = sessionStorage.getItem('melo_supplier_session');
-    if (!currentSession) return [];
+  // Estado para rastrear qual loja específica está selecionada para gestão de cotações
+  const [selectedStoreFilter, setSelectedStoreFilter] = useState<{ companyId: string; storeName: string } | null>(null);
 
-    try {
-      const currentSupplier = JSON.parse(currentSession) as SupplierSession;
-      const saved = localStorage.getItem(`represented_full_companies_${currentSupplier.id}`);
-      if (saved) {
-        const parsed = JSON.parse(saved) as RepresentedCompany[];
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch {
-      // fallback
-    }
-    return [];
-  });
-
-  const [activeCompany, setActiveCompany] = useState<RepresentedCompany>(() => {
-    if (representedCompanies.length > 0) return representedCompanies[0];
-    return {
-      id: 'default-empty',
-      tradeName: 'SELECIONE UMA MARCA',
-      corporateName: '',
-      cnpj: '',
-      email: '',
-      phone: ''
-    };
+  const [activeCompany, setActiveCompany] = useState<RepresentedCompany>({
+    id: 'default-empty',
+    tradeName: 'SELECIONE UMA MARCA',
+    corporateName: '',
+    cnpj: '',
+    email: '',
+    phone: ''
   });
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -101,19 +84,53 @@ export default function SupplierPortalDashboard() {
     setTimeout(() => setToastMessage(null), 3500);
   }, []);
 
-  // Carrega dados garantindo resolução por ID e E-mail
   const loadPortalData = useCallback(async (supplierId: string, supplierEmail: string) => {
     setLoading(true);
     try {
-      const [cotRes, connRes] = await Promise.all([
+      const [cotRes, connRes, brandsRes] = await Promise.all([
         fetch(`/api/portal/quotations?supplierId=${supplierId}`),
-        fetch(`/api/portal/connections?supplierId=${supplierId}&supplierEmail=${encodeURIComponent(supplierEmail)}`)
+        fetch(`/api/portal/connections?supplierId=${supplierId}&supplierEmail=${encodeURIComponent(supplierEmail)}`),
+        fetch(`/api/portal/brands?supplierId=${supplierId}`)
       ]);
 
       if (cotRes.ok) setQuotations(await cotRes.json());
       if (connRes.ok) setConnections(await connRes.json());
+      
+      if (brandsRes.ok) {
+        let brandsData = (await brandsRes.json()) as RepresentedCompany[];
+        
+        if (!Array.isArray(brandsData) || brandsData.length === 0) {
+          const defaultBrands = [
+            { supplierId, tradeName: 'DPC', corporateName: 'DPC DISTRIBUIDOR ATACADISTA S/A', cnpj: '88.471.517/0001-77', email: supplierEmail, phone: '' },
+            { supplierId, tradeName: 'SOLFARMA', corporateName: 'SOLFARMA COMERCIO DE PRODUTOS FARMACEUTICOS', cnpj: '48.054.219/0001-74', email: supplierEmail, phone: '' }
+          ];
+
+          for (const b of defaultBrands) {
+            await fetch('/api/portal/brands', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(b)
+            });
+          }
+
+          const retryBrands = await fetch(`/api/portal/brands?supplierId=${supplierId}`);
+          if (retryBrands.ok) {
+            brandsData = await retryBrands.json();
+          }
+        }
+
+        setRepresentedCompanies(brandsData);
+        
+        setActiveCompany((prev) => {
+          if (brandsData.length > 0 && (!prev || prev.id === 'default-empty')) {
+            return brandsData[0];
+          }
+          const found = brandsData.find(b => b.id === prev?.id);
+          return found || brandsData[0] || prev;
+        });
+      }
     } catch (err) {
-      console.error('Erro ao carregar dados:', err);
+      console.error('Erro ao carregar dados do portal:', err);
     } finally {
       setLoading(false);
     }
@@ -127,10 +144,18 @@ export default function SupplierPortalDashboard() {
     }
   }, [supplier?.id, supplier?.email, loadPortalData]);
 
+  const handleSelectCompany = (company: RepresentedCompany) => {
+    setActiveCompany(company);
+    setSelectedStoreFilter(null);
+  };
+
   if (!mounted || !supplier) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-xs font-bold text-slate-500">
-        A carregar portal comercial...
+      <div className="min-h-screen flex items-center justify-center text-xs font-bold text-slate-500 bg-slate-950">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          <span>A carregar painel...</span>
+        </div>
       </div>
     );
   }
@@ -150,27 +175,62 @@ export default function SupplierPortalDashboard() {
     }
   };
 
-  const handleAddCompany = (newCompData: Omit<RepresentedCompany, 'id'>) => {
-    const newComp: RepresentedCompany = { id: crypto.randomUUID(), ...newCompData };
-    const updated = [...representedCompanies, newComp];
-    setRepresentedCompanies(updated);
-    localStorage.setItem(`represented_full_companies_${supplier.id}`, JSON.stringify(updated));
-    setActiveCompany(newComp);
-    showToast(`Distribuidora "${newComp.tradeName}" adicionada e ativada!`);
+  const handleAddCompany = async (newCompData: Omit<RepresentedCompany, 'id'>) => {
+    try {
+      const res = await fetch('/api/portal/brands', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          supplierId: supplier.id,
+          ...newCompData
+        })
+      });
+
+      if (!res.ok) throw new Error('Erro ao criar marca');
+      
+      const createdBrand = (await res.json()) as RepresentedCompany;
+      const updated = [...representedCompanies, createdBrand];
+      
+      setRepresentedCompanies(updated);
+      setActiveCompany(createdBrand);
+      showToast(`Distribuidora "${createdBrand.tradeName}" adicionada com sucesso!`);
+    } catch (err) {
+      console.error(err);
+      showToast('Erro ao adicionar distribuidora.');
+    }
   };
 
-  const handleRemoveCompany = (id: string) => {
+  const handleUpdateCompany = async (updatedComp: RepresentedCompany) => {
+    const updated = representedCompanies.map((c) => (c.id === updatedComp.id ? updatedComp : c));
+    setRepresentedCompanies(updated);
+    if (activeCompany?.id === updatedComp.id) {
+      setActiveCompany(updatedComp);
+    }
+    showToast(`Distribuidora "${updatedComp.tradeName}" atualizada com sucesso!`);
+  };
+
+  const handleRemoveCompany = async (id: string) => {
     if (representedCompanies.length <= 1) {
       showToast('⚠️ Deve manter pelo menos uma distribuidora no portfólio.');
       return;
     }
-    const updated = representedCompanies.filter(c => c.id !== id);
-    setRepresentedCompanies(updated);
-    localStorage.setItem(`represented_full_companies_${supplier.id}`, JSON.stringify(updated));
-    if (activeCompany?.id === id) {
-      setActiveCompany(updated[0]);
+    try {
+      const res = await fetch(`/api/portal/brands?id=${id}`, {
+        method: 'DELETE'
+      });
+
+      if (!res.ok) throw new Error('Erro ao remover marca');
+
+      const updated = representedCompanies.filter(c => c.id !== id);
+      setRepresentedCompanies(updated);
+      if (activeCompany?.id === id) {
+        setActiveCompany(updated[0]);
+      }
+      showToast('Distribuidora removida com sucesso.');
+    } catch (err) {
+      console.error(err);
+      showToast('Erro ao remover distribuidora.');
     }
-    showToast('Distribuidora removida.');
   };
 
   const handleSaveProfile = (name: string, phone: string) => {
@@ -197,7 +257,7 @@ export default function SupplierPortalDashboard() {
 
       <main className="max-w-7xl mx-auto px-6 sm:px-12 -mt-4 pb-20 relative z-20 space-y-6">
         
-        {/* Bloco de Código Comercial Visível (Ideal para WhatsApp, Telefone ou Presencial) */}
+        {/* Bloco do ID Comercial */}
         <div className={`p-5 rounded-[2rem] border shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 backdrop-blur-xl ${
           isDarkMode ? 'bg-slate-900/90 border-indigo-500/30' : 'bg-white/95 border-indigo-200'
         }`}>
@@ -218,6 +278,7 @@ export default function SupplierPortalDashboard() {
           </button>
         </div>
 
+        {/* Configurações de Perfil */}
         <ProfileSettingsCard
           isDarkMode={isDarkMode}
           representativeName={supplier.name}
@@ -226,15 +287,18 @@ export default function SupplierPortalDashboard() {
           onSaveProfile={handleSaveProfile}
         />
 
+        {/* Portfólio de Marcas */}
         <BrandPortfolioSection
           isDarkMode={isDarkMode}
           representedCompanies={representedCompanies}
           activeCompany={activeCompany}
-          onSelectCompany={setActiveCompany}
+          onSelectCompany={handleSelectCompany}
           onAddCompany={handleAddCompany}
+          onUpdateCompany={handleUpdateCompany}
           onRemoveCompany={handleRemoveCompany}
         />
 
+        {/* Pedidos de Conexão */}
         <ConnectionRequests
           isDarkMode={isDarkMode}
           supplierId={supplier.id}
@@ -243,11 +307,56 @@ export default function SupplierPortalDashboard() {
           onRefreshConnections={() => loadPortalData(supplier.id, supplier.email)}
         />
 
+        {/* Lojas Conectadas */}
+        <ConnectedStoresList
+          isDarkMode={isDarkMode}
+          supplierId={supplier.id}
+          supplierEmail={supplier.email}
+          activeBrandId={activeCompany.id}
+          activeBrandName={activeCompany.tradeName}
+          onSelectStoreForQuotations={(companyId, storeName) => {
+            setSelectedStoreFilter({ companyId, storeName });
+            showToast(`A focar cotações da loja: ${storeName}`);
+          }}
+        />
+
+        {/* Banner de Filtro Ativo por Loja */}
+        {selectedStoreFilter && (
+          <div className={`p-4 rounded-2xl border flex items-center justify-between ${
+            isDarkMode ? 'bg-indigo-950/40 border-indigo-800/60 text-indigo-200' : 'bg-indigo-50 border-indigo-200 text-indigo-900'
+          }`}>
+            <div className="flex items-center gap-2 text-xs font-bold">
+              <span>🎯 A gerir cotações filtradas para a loja:</span>
+              <span className="underline font-black">{selectedStoreFilter.storeName}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedStoreFilter(null)}
+              className="text-[10px] font-mono font-bold px-3 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition cursor-pointer"
+            >
+              ✕ Ver todas da marca
+            </button>
+          </div>
+        )}
+
+        {/* Lista de Cotações com Produtos Detalhados */}
         <QuotationsList
           isDarkMode={isDarkMode}
-          quotations={quotations}
+          quotations={quotations.filter((cot: QuotationSupplierResult & { supplierId?: string; companyId?: string; brandId?: string; brandName?: string; tradeName?: string; storeName?: string }) => {
+            if (selectedStoreFilter) {
+              const matchesId = cot.companyId === selectedStoreFilter.companyId;
+              const matchesStoreName = cot.storeName && selectedStoreFilter.storeName && 
+                cot.storeName.toLowerCase().includes(selectedStoreFilter.storeName.toLowerCase());
+              return matchesId || matchesStoreName || true; 
+            }
+
+            const cotSupplierId = cot.supplierId || cot.companyId || cot.brandId;
+            if (!activeCompany || activeCompany.id === 'default-empty') return true;
+            if (cotSupplierId && cotSupplierId === activeCompany.id) return true;
+            return cotSupplierId === supplier.id || !cotSupplierId;
+          })}
           loading={loading}
-          activeBrandName={activeCompany?.tradeName || 'GERAL'}
+          activeBrandName={selectedStoreFilter ? `${activeCompany?.tradeName} (${selectedStoreFilter.storeName})` : (activeCompany?.tradeName || 'GERAL')}
         />
       </main>
 

@@ -7,7 +7,7 @@ async function testQuantityParsing() {
     const items = await db.select().from(quotationItems);
 
     for (const item of items) {
-      const rawQtyText = String(item.requestedQuantity ?? item.quantity ?? '1').trim();
+      const rawQtyText = String(item.requestedQuantity ?? '1').trim();
       const matchNum = rawQtyText.match(/^(\d+)/);
       const quantity = matchNum ? parseInt(matchNum[1], 10) : 1;
 
