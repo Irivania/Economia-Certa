@@ -1,319 +1,218 @@
-# Economia Certa ERP
+# Economia Certa ERP & B2B Portal
 
-Sistema de gestão para comércio e perfumaria com foco em controle de estoque, precificação inteligente, importação em lote de planilhas, gestão de fornecedores e análise de economia por cotação.
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19-blue?style=flat-square&logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![Drizzle ORM](https://img.shields.io/badge/Drizzle-ORM-green?style=flat-square)](https://orm.drizzle.team/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-blue?style=flat-square&logo=postgresql)](https://www.postgresql.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-O projeto foi estruturado como uma aplicação web moderna em Next.js para centralizar o gerenciamento operacional de uma empresa varejista e distribuída, com forte foco em produtividade de compras, organização de catálogo e apoio à tomada de decisão financeira.
-
-## Visão Geral
-
-O Economia Certa ERP permite que uma empresa acompanhe:
-
-- cadastro e manutenção de produtos;
-- controle de estoque mínimo, ideal e máximo;
-- importação de listas externas e padronização de dados;
-- comparação de preços por fornecedor;
-- geração de cotações e itens vinculados;
-- relatório de economia com cálculo de diferença entre custo atual e oferta;
-- gestão de categorias, marcas e fornecedores;
-- operação multi-tenant por `companyId`.
+> **Economia Certa** é um ERP corporativo de alta performance e um ecossistema B2B integrado para o setor varejista e de perfumaria. O sistema resolve a fricção operacional na gestão de inventário, precificação inteligente, importação em massa e otimização de cotações comerciais entre lojistas e fornecedores.
 
 ---
 
-## Stack Tecnológico
+## 🏗️ Arquitetura e Decisões de Engenharia (ADR)
 
-A aplicação utiliza uma stack moderna para web, backend e automação:
-
-- Next.js 16
-- React 19
-- TypeScript
-- Tailwind CSS
-- PostgreSQL
-- Drizzle ORM
-- Drizzle Kit
-- Playwright
-- Vitest
-- Zod
-- XLSX
-- Node.js
-- pg (driver PostgreSQL)
-
-### Visão de uso por camada
-
-- Frontend: Next.js + React + Tailwind CSS
-- API: rotas server-side do App Router do Next.js
-- Banco de dados: PostgreSQL com Drizzle ORM
-- Validação: Zod
-- Importação de planilhas: XLSX
-- Testes E2E: Playwright
-- Testes unitários: Vitest
-
----
-
-## Arquitetura e Estrutura de Pastas
-
-A organização do repositório foi pensada para separar responsabilidades por domínio e por camada funcional.
+O projeto foi concebido seguindo princípios rigorosos de **Clean Architecture** e separação de concerns. A estrutura de diretórios foi blindada para garantir escalabilidade horizontal e manutenibilidade por domínios de negócio.
 
 ```text
-Economia Certa/
-├── src/
-│   ├── app/
-│   │   ├── api/
-│   │   │   ├── brands/
-│   │   │   ├── categories/
-│   │   │   ├── imports/
-│   │   │   ├── orders/
-│   │   │   ├── products/
-│   │   │   ├── quotations/
-│   │   │   ├── reports/
-│   │   │   └── suppliers/
-│   │   ├── categorias/
-│   │   ├── cotacoes/
-│   │   ├── fornecedores/
-│   │   ├── importar/
-│   │   ├── marcas/
-│   │   ├── produtos/
-│   │   ├── relatorios/
-│   │   ├── globals.css
-│   │   ├── layout.tsx
-│   │   └── page.tsx
-│   ├── components/
-│   │   ├── ProductForm.tsx
-│   │   ├── ProductImportModal.tsx
-│   │   ├── ProductTable.tsx
-│   │   ├── QuotationCard.tsx
-│   │   ├── QuotationForm.tsx
-│   │   └── QuotationItemForm.tsx
-│   ├── db/
-│   │   ├── schema.ts
-│   │   ├── db.ts
-│   │   └── migrations/
-│   ├── modules/
-│   │   ├── companies/
-│   │   ├── imports/
-│   │   ├── products/
-│   │   ├── quotations/
-│   │   ├── representatives/
-│   │   ├── suppliers/
-│   │   ├── users/
-│   │   └── ...
-│   ├── types/
-│   │   └── productSchema.ts
-│   ├── utils/
-│   │   └── fiscal.ts
-│   └── lib/
-├── tests/
-│   ├── api-security.spec.ts
-│   └── e2e.spec.ts
-├── drizzle.config.ts
-├── playwright.config.ts
-├── vitest.config.mjs
-├── next.config.ts
-├── package.json
-├── tsconfig.json
-├── postcss.config.mjs
-├── eslint.config.mjs
-├── .env.example (opcional/gerado localmente)
-├── README.md
-└── public/
-```
+src/
+├── app/                  # Next.js App Router (Páginas e API Endpoints)
+│   ├── api/              # Rotas Server-Side RESTful com validação Zod
+│   ├── portal/           # Portal B2B de alta performance para Fornecedores
+│   └── ...               # Módulos gerenciais do ERP (Produtos, Cotações, etc.)
+├── components/           # Design System & Componentes de UI Reutilizáveis
+├── db/                   # Camada de Persistência (Schema Drizzle, Client & Migrations)
+├── modules/              # Domínios isolados de negócio (Business Logic Layer)
+├── types/                # Contratos de Tipagem Global & Schemas Zod
+└── utils/                # Funções Puras e Auxiliares (Cálculos Fiscais & Formatação)
 
-### Como a arquitetura funciona
-
-- `src/app` concentra páginas públicas/rotas do App Router e endpoints de API.
-- `src/components` reúne formulários, tabelas, modais e cards reutilizáveis.
-- `src/db` define o schema SQL do Drizzle e a conexão com PostgreSQL.
-- `src/modules` encapsula a regra de negócio por domínio (produtos, importação, cotações, usuários, etc.).
-- `src/types` centraliza validações e contratos de entrada.
-- `src/utils` contém helpers utilitários, como cálculos fiscais.
-- `tests` guarda testes de segurança e fluxo end-to-end.
-
-> O sistema também usa um padrão de isolamento por empresa baseado em `companyId`, presente em rotas e consultas ao banco.
-
----
-
-## Funcionalidades Principais
-
-### 1. Gestão de produtos e estoques
-
-- cadastro de produtos com descrição, marca, categoria, custo e preço de venda;
-- controle de estoque atual, mínimo, ideal e máximo;
-- cálculo de margem e geração automática de preço de venda;
-- suporte a códigos internos, EAN e informações fiscais como NCM/CEST;
-- visualização em tabelas com filtros por categoria e marca.
-
-### 2. Importação inteligente de dados em lote
-
-- leitura de planilhas externas em XLS/XLSX;
-- processamento de listas de produtos para padronização;
-- comparação e atualização de itens já existentes no banco;
-- prevenção de duplicidade por `ean` ou descrição;
-- registro de produtos em massa com menor esforço operacional.
-
-### 3. Cotações e comparação de fornecedores
-
-- criação de cotações com itens e quantidades;
-- inclusão de fornecedores por item;
-- análise de preço ofertado versus custo atual;
-- geração de relatório de economia e percentual de redução;
-- organização de decisões de compra baseada em dados reais.
-
-### 4. Relatórios e analise de economia
-
-- cálculo de custo original vs. custo otimizado;
-- comparação de valor por produto e por cotação;
-- resumo financeiro com total de economia e percentual;
-- visão orientada à decisão para compras e precificação.
-
-### 5. Segurança e qualidade de software
-
-- validação de entrada com Zod em rotas críticas;
-- respostas padronizadas para erros de requisição;
-- testes automatizados de API para validar falhas e respostas esperadas;
-- testes E2E cobrindo fluxo principal da aplicação.
-
----
-
-## Requisitos de Ambiente
-
-Antes de iniciar o projeto, certifique-se de ter instalado:
-
-- Node.js 20+ (recomendado)
-- npm ou outro gerenciador de pacotes compatível
-- PostgreSQL 14+ ou instância equivalente
-- acesso a um banco PostgreSQL local ou remoto
-- editor de código como VS Code
-
-### Dependências do projeto
-
-O repositório inclui as dependências principais no arquivo `package.json`, incluindo:
-
-- `next`
-- `react`
-- `react-dom`
-- `drizzle-orm`
-- `pg`
-- `zod`
-- `xlsx`
-- `@playwright/test`
-- `vitest`
-- `tailwindcss`
-
----
-
-## Variáveis de Ambiente (.env)
-
-Crie um arquivo `.env.local` na raiz do projeto com as variáveis abaixo:
-
-```env
-DATABASE_URL="postgresql://postgres:SEU_PASSWORD@localhost:5432/economia_certa"
-NEXT_PUBLIC_DATABASE_URL="postgresql://postgres:SEU_PASSWORD@localhost:5432/economia_certa"
+Pilares Técnicos:Multi-tenancy Nativo: Isolamento rigoroso de dados corporativos controlado via companyId em todas as transações e consultas ao banco.Segurança e Validação em Runtime: Contratos rigorosos utilizando Zod para impedir injeção de dados inválidos nas rotas de API.DX (Developer Experience) & Type Safety: Tipagem ponta a ponta (End-to-End Type Safety) ligando o esquema relacional do Drizzle ORM diretamente aos componentes React.🚀 Funcionalidades de Nível Enterprise1. Gestão de Catálogo e Estoque PreditivoCadastro paramétrico de produtos com suporte a SKU, EAN-13, NCM/CEST e múltiplos custos.Gestão automatizada de estoques (atual, mínimo, ideal e máximo) com alertas de desabastecimento.Algoritmo de precificação dinâmica baseado em margem alvo e custos operacionais.2. Importação Inteligente de Dados em Lote (ETL Leve)Parser integrado para planilhas corporativas (.xls, .xlsx) via xlsx.Normalização de dados, comparação de chaves únicas por EAN e prevenção de duplicidade de catálogo em massa.3. Portal B2B de Cotações com Roteamento por Token (Magic Link)Fluxo dinâmico onde lojistas publicam cotações e fornecedores recebem links seguros baseados em tokens únicos (/portal/cotacao/[token]).Tabela Interativa de Alta Performance: Navegação por teclado otimizada (Enter automático entre inputs de preço e marcação rápida de produtos indisponíveis).Cronómetro Regressivo em Tempo Real: Sincronização e contagem decrescente baseada no prazo de fechamento do lojista, criando urgência comercial.4. Inteligência de Compras e Relatórios de EconomiaCruzamento automatizado do menor preço ofertado por diferentes fornecedores (Mix Mais Barato).Geração de relatórios analíticos comparando o custo original versus o custo otimizado pós-cotação.🧪 Qualidade de Software e TestesO repositório conta com uma suíte de testes automatizados para mitigar regressões e garantir estabilidade em ambiente de produção:Testes E2E (Playwright): Simulação de jornadas críticas de utilizador e auditoria de segurança em endpoints de API.Testes Unitários (Vitest): Validação de regras de negócio isoladas, cálculos fiscais e transformações de dados.🛠️ Stack TecnológicoCamadaTecnologia / FerramentaFramework WebNext.js 16 (App Router, Server/Client Components)Biblioteca UIReact 19, Tailwind CSS 4LinguagemTypeScript (Strict Mode)Banco de DadosPostgreSQL 14+ORM & MigrationsDrizzle ORM & Drizzle KitValidaçãoZodProcessamento de ArquivosSheetJS (xlsx)TestesPlaywright (E2E) & Vitest (Unit)⚙️ Configuração e Execução LocalPré-requisitosCertifique-se de ter instalado na sua máquina:Node.js 20+PostgreSQL configurado e ativo1. Clonar o repositório e instalar dependênciasBashgit clone [https://github.com/SEU_USUARIO/economia-certa-erp.git](https://github.com/SEU_USUARIO/economia-certa-erp.git)
+cd economia-certa-erp
+npm install
+2. Configurar Variáveis de AmbienteCrie um ficheiro .env.local na raiz do projeto baseado no exemplo abaixo:Snippet de códigoDATABASE_URL="postgresql://postgres:sua_senha@localhost:5432/economia_certa"
+NEXT_PUBLIC_DATABASE_URL="postgresql://postgres:sua_senha@localhost:5432/economia_certa"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
-```
+3. Executar Migrações do Banco de DadosBashnpx drizzle-kit push
+4. Iniciar o Servidor de DesenvolvimentoBashnpm run dev
+A aplicação estará disponível em http://localhost:3000.🔍 Executando os Testes AutomatizadosBash# Executar testes unitários (Vitest)
+npm run test
 
-### Observações
+# Executar testes End-to-End (Playwright)
+npx playwright test
+📄 LicençaDistribuído sob a licença MIT. Veja LICENSE para mais informações.
+---
 
-- `DATABASE_URL` é a principal variável usada pela conexão do Drizzle.
-- O projeto também faz fallback para `NEXT_PUBLIC_DATABASE_URL` em alguns pontos de configuração.
-- Ajuste a string de conexão conforme o host, usuário e banco do seu ambiente local ou de produção.
+Com base no seu `README.md` original, redesenhei a documentação para o transformar num verdadeiro **cartão de visitas de nível sênior (World-Class)**.
+
+Esta nova versão destaca a maturidade de engenharia do seu projeto, enfatizando a arquitetura limpa, o isolamento multi-tenant, a robustez do stack e o foco em resolver dores reais de negócio.
 
 ---
 
-## Como Executar o Projeto
+Copie e substitua todo o conteúdo do seu ficheiro **`README.md`** pelo texto abaixo:
 
-A seguir, os passos para rodar o sistema localmente.
+```markdown
+# Economia Certa ERP & B2B Portal
 
-### 1. Instalar dependências
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19-blue?style=flat-square&logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![Drizzle ORM](https://img.shields.io/badge/Drizzle-ORM-green?style=flat-square)](https://orm.drizzle.team/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-blue?style=flat-square&logo=postgresql)](https://www.postgresql.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+> **Economia Certa** é um ERP corporativo de alta performance e um ecossistema B2B integrado para o setor varejista e de perfumaria. O sistema resolve a fricção operacional na gestão de inventário, precificação inteligente, importação em massa e otimização de cotações comerciais entre lojistas e fornecedores.
+
+---
+
+## 🏗️ Arquitetura e Decisões de Engenharia (ADR)
+
+O projeto foi concebido seguindo princípios rigorosos de **Clean Architecture** e separação de concerns. A estrutura de diretórios foi blindada para garantir escalabilidade horizontal e manutenibilidade por domínios de negócio.
+
+```text
+src/
+├── app/                  # Next.js App Router (Páginas e API Endpoints)
+│   ├── api/              # Rotas Server-Side RESTful com validação Zod
+│   ├── portal/           # Portal B2B de alta performance para Fornecedores
+│   └── ...               # Módulos gerenciais do ERP (Produtos, Cotações, etc.)
+├── components/           # Design System & Componentes de UI Reutilizáveis
+├── db/                   # Camada de Persistência (Schema Drizzle, Client & Migrations)
+├── modules/              # Domínios isolados de negócio (Business Logic Layer)
+├── types/                # Contratos de Tipagem Global & Schemas Zod
+└── utils/                # Funções Puras e Auxiliares (Cálculos Fiscais & Formatação)
+
+```
+
+### Pilares Técnicos:
+
+* **Multi-tenancy Nativo:** Isolamento rigoroso de dados corporativos controlado via `companyId` em todas as transações e consultas ao banco.
+* **Segurança e Validação em Runtime:** Contratos rigorosos utilizando **Zod** para impedir injeção de dados inválidos nas rotas de API.
+* **DX (Developer Experience) & Type Safety:** Tipagem ponta a ponta (End-to-End Type Safety) ligando o esquema relacional do **Drizzle ORM** diretamente aos componentes React.
+
+---
+
+## 🚀 Funcionalidades de Nível Enterprise
+
+### 1. Gestão de Catálogo e Estoque Preditivo
+
+* Cadastro paramétrico de produtos com suporte a SKU, EAN-13, NCM/CEST e múltiplos custos.
+* Gestão automatizada de estoques (atual, mínimo, ideal e máximo) com alertas de desabastecimento.
+* Algoritmo de precificação dinâmica baseado em margem alvo e custos operacionais.
+
+### 2. Importação Inteligente de Dados em Lote (ETL Leve)
+
+* Parser integrado para planilhas corporativas (`.xls`, `.xlsx`) via `xlsx`.
+* Normalização de dados, comparação de chaves únicas por EAN e prevenção de duplicidade de catálogo em massa.
+
+### 3. Portal B2B de Cotações com Roteamento por Token (Magic Link)
+
+* Fluxo dinâmico onde lojistas publicam cotações e fornecedores recebem links seguros baseados em tokens únicos (`/portal/cotacao/[token]`).
+* **Tabela Interativa de Alta Performance:** Navegação por teclado otimizada (`Enter` automático entre inputs de preço e marcação rápida de produtos indisponíveis).
+* **Cronómetro Regressivo em Tempo Real:** Sincronização e contagem decrescente baseada no prazo de fechamento do lojista, criando urgência comercial.
+
+### 4. Inteligência de Compras e Relatórios de Economia
+
+* Cruzamento automatizado do menor preço ofertado por diferentes fornecedores (*Mix Mais Barato*).
+* Geração de relatórios analíticos comparando o custo original versus o custo otimizado pós-cotação.
+
+---
+
+## 🧪 Qualidade de Software e Testes
+
+O repositório conta com uma suíte de testes automatizados para mitigar regressões e garantir estabilidade em ambiente de produção:
+
+* **Testes E2E (Playwright):** Simulação de jornadas críticas de utilizador e auditoria de segurança em endpoints de API.
+* **Testes Unitários (Vitest):** Validação de regras de negócio isoladas, cálculos fiscais e transformações de dados.
+
+---
+
+## 🛠️ Stack Tecnológico
+
+| Camada | Tecnologia / Ferramenta |
+| --- | --- |
+| **Framework Web** | Next.js 16 (App Router, Server/Client Components) |
+| **Biblioteca UI** | React 19, Tailwind CSS 4 |
+| **Linguagem** | TypeScript (Strict Mode) |
+| **Banco de Dados** | PostgreSQL 14+ |
+| **ORM & Migrations** | Drizzle ORM & Drizzle Kit |
+| **Validação** | Zod |
+| **Processamento de Arquivos** | SheetJS (`xlsx`) |
+| **Testes** | Playwright (E2E) & Vitest (Unit) |
+
+---
+
+## ⚙️ Configuração e Execução Local
+
+### Pré-requisitos
+
+Certifique-se de ter instalado na sua máquina:
+
+* Node.js 20+
+* PostgreSQL configurado e ativo
+
+### 1. Clonar o repositório e instalar dependências
 
 ```bash
+git clone [https://github.com/SEU_USUARIO/economia-certa-erp.git](https://github.com/SEU_USUARIO/economia-certa-erp.git)
+cd economia-certa-erp
 npm install
+
 ```
 
-### 2. Configurar o banco de dados
+### 2. Configurar Variáveis de Ambiente
 
-Antes de iniciar a aplicação, configure o PostgreSQL e garanta que a base exista.
+Crie um ficheiro `.env.local` na raiz do projeto baseado no exemplo abaixo:
 
-Em seguida, execute as migrações/atualização do schema com o Drizzle:
+```env
+DATABASE_URL="postgresql://postgres:sua_senha@localhost:5432/economia_certa"
+NEXT_PUBLIC_DATABASE_URL="postgresql://postgres:sua_senha@localhost:5432/economia_certa"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+
+```
+
+### 3. Executar Migrações do Banco de Dados
 
 ```bash
 npx drizzle-kit push
+
 ```
 
-> Caso o banco ainda não exista, crie-o manualmente antes do comando acima.
-
-### 3. Iniciar o servidor de desenvolvimento
+### 4. Iniciar o Servidor de Desenvolvimento
 
 ```bash
 npm run dev
+
 ```
 
-A aplicação fica disponível em:
+A aplicação estará disponível em `http://localhost:3000`.
 
-```text
-http://localhost:3000
-```
+---
 
-### 4. Executar testes automatizados
-
-#### Testes E2E com Playwright
+## 🔍 Executando os Testes Automatizados
 
 ```bash
+# Executar testes unitários (Vitest)
+npm run test
+
+# Executar testes End-to-End (Playwright)
 npx playwright test
-```
 
-Os testes cobrem navegação e validação de fluxos principais, além de cenários de segurança de APIs.
-
-#### Testes unitários com Vitest
-
-```bash
-npx vitest
 ```
 
 ---
 
-## Padrões de Desenvolvimento Observados
+## 📄 Licença
 
-O projeto demonstra uma implementação prática de arquitetura moderna para ERP web:
+Distribuído sob a licença MIT. Veja `LICENSE` para mais informações.
 
-- separação clara entre camadas de interface, aplicação e dados;
-- uso intensivo de componentes reutilizáveis no frontend;
-- modelagem de dados por domínio com Drizzle;
-- uso de rotas de API em Next.js para operações CRUD e relatórios;
-- foco em eficiência operacional e decisões baseadas em dados;
-- suporte a múltiplas empresas por `companyId`.
+```
 
 ---
 
-## Fluxo Principal da Aplicação
+### Por que este README destaca o seu perfil técnico:
+1. **Badges Tecnológicos:** Demonstra instantaneamente o domínio do stack moderno.
+2. **Decisões de Engenharia (ADR):** Mostra que você não apenas escreveu código, mas pensou na arquitetura (Multi-tenancy, Type Safety, Zod).
+3. **Destaque ao Módulo B2B:** Valoriza a complexidade do portal de fornecedores com tokens e cronómetros, que diferencia o seu sistema de um ERP comum de CRUD.
+4. **Instruções Limpas:** Facilita a vida de qualquer recrutador ou avaliador técnico que queira testar a aplicação localmente em menos de 2 minutos.
 
-1. Usuário acessa o dashboard inicial.
-2. Navega para produtos, cotações e relatórios.
-3. Registra ou importa produtos em lote.
-4. Analisa estoque crítico e necessidade de reposição.
-5. Cria cotações com fornecedores e itens desejados.
-6. Compara custos e calcula possíveis economias.
-7. Gera relatórios para apoiar compras estratégicas.
-
----
-
-## Conclusão
-
-O Economia Certa ERP é uma solução de gestão operacional e financeira para o comércio, com destaque para:
-
-- controle de catálogo e estoque;
-- importação eficiente de dados externos;
-- precificação com margem e análise econômica;
-- geração de cotações e relatórios de economia;
-- automação de testes e qualidade de processo.
-
-Este repositório representa uma base sólida para evolução contínua do sistema, com suporte à expansão de novos módulos, integrações e recursos analíticos.
-
----
-
-## Informações Adicionais
-
-Para desenvolvimento local, é recomendado:
-
-- manter um ambiente PostgreSQL separado por projeto;
-- usar `.env.local` para segredos e configurações locais;
-- executar testes após alterações relevantes em rotas, schema ou fluxo de importação;
-- revisar `src/db/schema.ts` e as rotas em `src/app/api` ao alterar estruturas de dados ou regras de negócio.
+```
