@@ -1,30 +1,41 @@
-import { NextResponse, NextRequest } from "next/server";
+"use server";
+
 import { db } from "@/db/db";
 import { quotationSuppliers, quotations, quotationItems } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { submitQuotationResponseSchema } from "@/modules/portal/portalValidation";
 import { recordAuditLog } from "@/modules/audit/auditService";
+import { revalidatePath } from "next/cache";
 
-export const dynamic = "force-dynamic";
+interface QuotationActionState {
+  success?: boolean;
+  error?: string;
+  message?: string;
+}
 
-export async function POST(request: NextRequest) {
+export async function submitQuotationServerAction(
+  prevState: QuotationActionState,
+  formDataObj: {
+    token: string;
+    prices: Record<string, number>;
+    outOfStock: Record<string, boolean>;
+    observation?: string;
+  },
+): Promise<QuotationActionState> {
   try {
-    const body = await request.json();
-
-    const validationResult = submitQuotationResponseSchema.safeParse(body);
+    // 1. Validação estrita com Zod
+    const validationResult =
+      submitQuotationResponseSchema.safeParse(formDataObj);
     if (!validationResult.success) {
       const errorMessage = validationResult.error.issues
         .map((i) => i.message)
         .join(" | ");
-      return NextResponse.json(
-        { success: false, error: `Dados inválidos: ${errorMessage}` },
-        { status: 400 },
-      );
+      return { success: false, error: `Dados inválidos: ${errorMessage}` };
     }
 
     const { token, prices, outOfStock, observation } = validationResult.data;
 
-    // 1. Busca fornecedor e cotação associada
+    // 2. Busca fornecedor e cotação associada
     const result = await db
       .select({
         supplierRecord: quotationSuppliers,
@@ -36,15 +47,15 @@ export async function POST(request: NextRequest) {
 
     const record = result?.[0];
     if (!record) {
-      return NextResponse.json(
-        { success: false, error: "Fornecedor ou cotação não encontrados." },
-        { status: 404 },
-      );
+      return {
+        success: false,
+        error: "Fornecedor ou cotação não encontrados.",
+      };
     }
 
     const { supplierRecord, quotation } = record;
 
-    // 2. Validação Temporal Rigorosa no Backend
+    // 3. Validação Temporal Rigorosa
     if (quotation.endDate || quotation.closingTime) {
       const datePart = quotation.endDate
         ? String(quotation.endDate).split("T")[0]
@@ -59,14 +70,10 @@ export async function POST(request: NextRequest) {
         const now = new Date().getTime();
 
         if (!isNaN(deadlineTime) && now > deadlineTime) {
-          return NextResponse.json(
-            {
-              success: false,
-              error:
-                "Prazo encerrado. Esta cotação já expirou e não aceita mais propostas.",
-            },
-            { status: 403 },
-          );
+          return {
+            success: false,
+            error: "Prazo encerrado. Esta cotação já expirou.",
+          };
         }
       }
     }
@@ -128,25 +135,27 @@ export async function POST(request: NextRequest) {
       .set(updateData)
       .where(eq(quotationSuppliers.token, token));
 
-    // 3. Registo de Auditoria: Grava o envio da proposta comercial com sucesso
+    // 4. Auditoria
     await recordAuditLog({
       companyId: quotation.companyId,
       quotationId,
       supplierId,
-      action: "QUOTATION_PROPOSAL_SUBMITTED",
-      details: `Proposta submetida com sucesso. Valor total ofertado: R$ ${calculatedTotal.toFixed(2)}`,
-      ipAddress: request.headers.get("x-forwarded-for") || "unknown",
+      action: "QUOTATION_PROPOSAL_SUBMITTED_ACTION",
+      details: `Proposta submetida via Server Action. Total: R$ ${calculatedTotal.toFixed(2)}`,
     });
 
-    return NextResponse.json({
+    // 5. Invalidação inteligente de cache do Next.js
+    revalidatePath(`/portal/cotacao/${token}`);
+
+    return {
       success: true,
-      message: "Proposta enviada com sucesso!",
-    });
+      message: "Proposta enviada com sucesso via Server Action!",
+    };
   } catch (error) {
-    console.error("❌ [API Responder] Erro crítico:", error);
-    return NextResponse.json(
-      { success: false, error: "Erro interno ao salvar resposta da cotação." },
-      { status: 500 },
-    );
+    console.error("❌ [Server Action] Erro crítico:", error);
+    return {
+      success: false,
+      error: "Erro interno ao processar a Server Action.",
+    };
   }
 }
