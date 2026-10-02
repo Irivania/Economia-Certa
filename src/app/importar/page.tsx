@@ -6,6 +6,7 @@ import { ProductImportModal, Product, ItemPendente } from '@/components/ProductI
 import { useTheme } from '@/context/ThemeContext';
 import { AppHeader } from '@/components/AppHeader';
 import { CommandMenu } from '@/components/CommandMenu';
+import { getCompanyId } from '@/lib/companySession';
 
 export default function ImportarPage() {
   const { isDarkMode } = useTheme();
@@ -13,8 +14,8 @@ export default function ImportarPage() {
   const [loading, setLoading] = useState(true);
   const [isCmdOpen, setIsCmdOpen] = useState(false);
 
-  const companyId = '915a8bc1-5db7-4605-93a9-b78090e75679';
-  const latestQuotationId = 'd7f46ae7-19c2-409d-8ab4-dfbb458c5248';
+  const companyId = getCompanyId();
+  const latestQuotationId = '';
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
@@ -87,7 +88,7 @@ export default function ImportarPage() {
                 Módulo de Sincronização
               </span>
               <h1 className="text-xl md:text-2xl font-black tracking-tight">🔄 Central de Importação Inteligente</h1>
-              <p className="text-xs opacity-60 mt-1 font-medium">Melo Perfumaria — Cruzamento e Cadastro Rápido de Produtos.</p>
+              <p className="text-xs opacity-60 mt-1 font-medium">Cruzamento e cadastro rápido de produtos da empresa.</p>
             </div>
 
             <Link href="/produtos" className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline transition flex items-center gap-1.5">

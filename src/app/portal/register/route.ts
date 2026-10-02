@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     const email = String(body.email || '').trim().toLowerCase();
     const password = String(body.password || '').trim();
     const phone = String(body.phone || '').trim();
-    const companyId = String(body.companyId || '915a8bc1-5db7-4605-93a9-b78090e75679').trim();
+    const companyId = String(body.companyId || 'portal-representante-independente').trim();
 
     if (!name || !email || !password) {
       return NextResponse.json(

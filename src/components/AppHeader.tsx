@@ -2,6 +2,8 @@
 
 import { useTheme, ThemeColor } from '@/context/ThemeContext';
 import Link from 'next/link';
+import { useSyncExternalStore } from 'react';
+import { getCompanySession } from '@/lib/companySession';
 
 interface AppHeaderProps {
   title: string;
@@ -56,6 +58,14 @@ const colorMap = {
 
 export function AppHeader({ title, subtitle, onOpenCmd }: AppHeaderProps) {
   const { themeColor, setThemeColor, isDarkMode, toggleDarkMode, mounted } = useTheme();
+  const companyName = useSyncExternalStore(
+    () => () => {},
+    () => {
+      const session = getCompanySession();
+      return session?.tradeName || session?.name || 'Empresa';
+    },
+    () => 'Empresa',
+  );
 
   // Garante consistência exata no SSR usando 'blue-light' como padrão antes de hidratar no cliente
   const activeThemeKey: ThemeColor = mounted && themeColor ? themeColor : 'blue-light';
@@ -70,7 +80,7 @@ export function AppHeader({ title, subtitle, onOpenCmd }: AppHeaderProps) {
           <div className="flex flex-wrap items-center gap-3">
             <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-semibold tracking-wider uppercase backdrop-blur-md ${themeStyles.badge}`}>
               <span className={`w-2 h-2 rounded-full ${themeStyles.dot} animate-pulse`} />
-              Ambiente Ativo • Melo Perfumaria
+              Ambiente Ativo • {companyName}
             </div>
 
             <div className="flex items-center gap-1.5 bg-black/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 text-xs">

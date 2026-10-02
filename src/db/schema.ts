@@ -13,8 +13,17 @@ export const companies = pgTable("companies", {
   id: text("id")
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
-  name: text("name").notNull(),
-  document: text("document"),
+  name: text("name").notNull(), // Razão Social
+  tradeName: text("trade_name"), // Nome Fantasia
+  document: text("document"), // CNPJ
+  email: text("email"),
+  phone: text("phone"),
+  cep: text("cep"),
+  address: text("address"), // Logradouro
+  number: text("number"),
+  neighborhood: text("neighborhood"),
+  city: text("city"),
+  state: text("state"),
   type: text("type"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -143,8 +152,9 @@ export const quotationSuppliers = pgTable("quotation_suppliers", {
   token: text("token")
     .notNull()
     .$defaultFn(() => crypto.randomUUID()),
-  status: text("status").default("PENDING").notNull(),
+  status: text("status").default("PENDING").notNull(), // 'PENDING' ou 'responded'
   totalOffered: numeric("total_offered", { precision: 10, scale: 2 }),
+  observation: text("observation"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -154,11 +164,70 @@ export const quotationItems = pgTable("quotation_items", {
     .$defaultFn(() => crypto.randomUUID()),
   quotationId: text("quotation_id").notNull(),
   productId: text("product_id").notNull(),
-  supplierId: text("supplier_id"),
   requestedQuantity: numeric("requested_quantity").notNull(),
+});
+
+// Tabela para isolar preços e respostas por fornecedor individualmente
+export const quotationSupplierItems = pgTable("quotation_supplier_items", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  quotationSupplierId: text("quotation_supplier_id").notNull(),
+  productId: text("product_id").notNull(),
   price: numeric("price", { precision: 10, scale: 2 }),
   outOfStock: boolean("out_of_stock").default(false),
 });
+
+export const purchaseOrders = pgTable("purchase_orders", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  quotationId: text("quotation_id").notNull(),
+  companyId: text("company_id").notNull(),
+  supplierId: text("supplier_id").notNull(),
+  paymentTerms: text("payment_terms"),
+  status: text("status").default("SENT").notNull(),
+  totalAmount: numeric("total_amount", { precision: 12, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  receivedAt: timestamp("received_at"),
+  closedAt: timestamp("closed_at"),
+}, (table) => ({
+  quotationSupplierUnique: uniqueIndex("purchase_orders_quotation_supplier_idx").on(
+    table.quotationId,
+    table.supplierId,
+  ),
+}));
+
+export const purchaseOrderItems = pgTable("purchase_order_items", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  orderId: text("order_id").notNull(),
+  productId: text("product_id").notNull(),
+  description: text("description").notNull(),
+  imageUrl: text("image_url"),
+  quantity: numeric("quantity").notNull(),
+  unitPrice: numeric("unit_price").notNull(),
+  subtotal: numeric("subtotal").notNull(),
+});
+
+export const quotationUnrequestedItems = pgTable("quotation_unrequested_items", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  quotationId: text("quotation_id").notNull(),
+  productId: text("product_id").notNull(),
+  description: text("description").notNull(),
+  imageUrl: text("image_url"),
+  quantity: numeric("quantity").notNull(),
+  reason: text("reason").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  quotationProductUnique: uniqueIndex("quotation_unrequested_product_idx").on(
+    table.quotationId,
+    table.productId,
+  ),
+}));
 
 export const supplierConnections = pgTable("supplier_connections", {
   id: text("id")
@@ -171,7 +240,6 @@ export const supplierConnections = pgTable("supplier_connections", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Nova tabela para auditoria e rastreabilidade B2B (Enterprise Audit Trail)
 export const auditLogs = pgTable("audit_logs", {
   id: text("id")
     .primaryKey()
@@ -179,7 +247,7 @@ export const auditLogs = pgTable("audit_logs", {
   companyId: text("company_id"),
   quotationId: text("quotation_id"),
   supplierId: text("supplier_id"),
-  action: text("action").notNull(), // Ex: 'PORTAL_QUOTATION_OPENED', 'QUOTATION_PROPOSAL_SUBMITTED'
+  action: text("action").notNull(),
   details: text("details"),
   ipAddress: text("ip_address"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

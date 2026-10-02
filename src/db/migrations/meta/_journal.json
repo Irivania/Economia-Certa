@@ -29,6 +29,20 @@
       "when": 1788777600000,
       "tag": "0003_add_quotation_dates",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788777601000,
+      "tag": "0004_unique_purchase_order_supplier",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788777602000,
+      "tag": "0005_quotation_unrequested_items",
+      "breakpoints": true
     }
   ]
 }

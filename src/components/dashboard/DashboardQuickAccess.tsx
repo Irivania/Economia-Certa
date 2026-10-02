@@ -24,7 +24,7 @@ export function DashboardQuickAccess({
       <div className="border-b border-slate-500/20 pb-4 flex justify-between items-center">
         <div>
           <h2 className="text-base font-black tracking-tight">Acessos Rápidos do Sistema</h2>
-          <p className="text-xs opacity-60 mt-0.5">Navegue rapidamente pelos principais módulos operacionais da Melo Perfumaria.</p>
+          <p className="text-xs opacity-60 mt-0.5">Navegue rapidamente pelos principais módulos operacionais da sua empresa.</p>
         </div>
         <span className="text-xs font-mono font-bold opacity-70 bg-slate-500/10 px-2.5 py-1 rounded-lg">v3.2 Pro</span>
       </div>
@@ -50,7 +50,7 @@ export function DashboardQuickAccess({
           </div>
         )}
 
-        <Link href={`/cotacoes/respostas/${latestQuotationId}`} className={cardClass}>
+        <Link href={latestQuotationId ? `/cotacoes/respostas/${latestQuotationId}` : '/cotacoes'} className={cardClass}>
           <div>
             <div className="w-10 h-10 rounded-xl bg-slate-500/10 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">📊</div>
             <h3 className="text-sm font-bold">Comparador de Preços</h3>
@@ -59,7 +59,7 @@ export function DashboardQuickAccess({
           <span className="text-[11px] font-bold mt-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">Acessar módulo &rarr;</span>
         </Link>
 
-        <Link href={`/cotacoes/pedidos/${latestQuotationId}`} className={cardClass}>
+        <Link href={latestQuotationId ? `/cotacoes/pedidos/${latestQuotationId}` : '/cotacoes'} className={cardClass}>
           <div>
             <div className="w-10 h-10 rounded-xl bg-slate-500/10 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">📦</div>
             <h3 className="text-sm font-bold">Pedidos para Distribuidores</h3>

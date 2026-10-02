@@ -19,6 +19,7 @@ import { ProductImportModal, ItemPendente, Product } from '@/components/ProductI
 import { useTheme } from '@/context/ThemeContext';
 import { AppHeader } from '@/components/AppHeader';
 import { CommandMenu } from '@/components/CommandMenu';
+import { getCompanyId } from '@/lib/companySession';
 
 interface Supplier {
   id: string;
@@ -38,7 +39,7 @@ interface QuotationItem {
   requestedQuantity: number;
 }
 
-const companyId = '915a8bc1-5db7-4605-93a9-b78090e75679';
+const companyId = getCompanyId();
 const emptySubscribe = () => () => {};
 
 function getTodayDateString() {

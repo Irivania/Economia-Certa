@@ -5,8 +5,17 @@ import { useSyncExternalStore } from 'react';
 interface OrderItem {
   productId: string;
   description: string;
+  imageUrl?: string | null;
   quantity: number;
   price: number;
+}
+interface StoredOrder {
+  orderId?: string;
+  items: OrderItem[];
+}
+
+interface UnrequestedItem extends OrderItem {
+  reason: string;
 }
 
 interface QuotationSupplier {
@@ -29,9 +38,20 @@ export function OrdersClientView({ quotationId, suppliers, quotationTitle }: { q
     () => '{}'
   );
 
-  const ordersMap: Record<string, OrderItem[]> = JSON.parse(savedOrdersJson);
+  const savedOrders = JSON.parse(savedOrdersJson) as {
+    paymentTerms?: string | null;
+    orders?: Record<string, OrderItem[] | StoredOrder>;
+    unrequestedItems?: UnrequestedItem[];
+  };
+  const rawOrdersMap = savedOrders.orders || {};
+  const ordersMap = Object.fromEntries(Object.entries(rawOrdersMap).map(([supplierId, value]) => {
+    const record = value as OrderItem[] | StoredOrder;
+    return [supplierId, Array.isArray(record) ? record : record.items];
+  }));
+  const paymentTerms = savedOrders.paymentTerms || '';
+  const unrequestedItems = savedOrders.unrequestedItems || [];
 
-  if (Object.keys(ordersMap).length === 0) {
+  if (Object.keys(ordersMap).length === 0 && unrequestedItems.length === 0) {
     return (
       <div className="rounded-2xl border border-slate-500/10 p-16 text-center text-xs opacity-50 font-medium bg-slate-50 dark:bg-slate-950/50 dark:border-slate-800">
         Nenhum pedido encontrado para esta cotação ou nenhum item foi selecionado.
@@ -64,6 +84,7 @@ export function OrdersClientView({ quotationId, suppliers, quotationTitle }: { q
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="border-b border-slate-500/10 uppercase tracking-wider text-[11px] font-extrabold text-slate-500 bg-slate-50/60 dark:border-slate-800 dark:text-slate-400 dark:bg-slate-900/30">
+                    <th className="px-4 py-3 font-extrabold">Imagem</th>
                     <th className="px-4 py-3 font-extrabold">Produto</th>
                     <th className="px-4 py-3 font-extrabold text-center">Quantidade</th>
                     <th className="px-4 py-3 font-extrabold text-right">Preço Unitário</th>
@@ -73,6 +94,16 @@ export function OrdersClientView({ quotationId, suppliers, quotationTitle }: { q
                 <tbody className="divide-y divide-slate-500/10">
                   {items.map((item, idx) => (
                     <tr key={idx} className="transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
+                      <td className="px-4 py-3">
+                        <div className="h-12 w-12 overflow-hidden rounded-xl border border-slate-500/20 bg-slate-500/5">
+                          {item.imageUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={item.imageUrl} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="flex h-full items-center justify-center text-sm opacity-50">📦</span>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-4 py-3 font-bold text-sm tracking-tight">{item.description}</td>
                       <td className="px-4 py-3 text-center font-mono font-black">{item.quantity}</td>
                       <td className="px-4 py-3 text-right font-mono opacity-80">{formatCurrency(item.price)}</td>
@@ -81,6 +112,11 @@ export function OrdersClientView({ quotationId, suppliers, quotationTitle }: { q
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            <div className="border-t border-slate-500/10 px-6 py-3 text-xs">
+              <span className="font-bold">Condição de pagamento:</span>{' '}
+              {paymentTerms || 'Não informada'}
             </div>
 
             <div className="border-t border-slate-500/10 px-6 py-4 flex flex-wrap justify-end gap-3 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-900/40">
@@ -117,6 +153,42 @@ export function OrdersClientView({ quotationId, suppliers, quotationTitle }: { q
           </div>
         );
       })}
+      {unrequestedItems.length > 0 && (
+        <div className="rounded-2xl border border-amber-500/30 overflow-hidden bg-amber-50 dark:bg-amber-950/20">
+          <div className="border-b border-amber-500/20 px-6 py-4">
+            <h2 className="text-xs font-black uppercase tracking-wider">🚫 Itens não pedidos</h2>
+          </div>
+          <div className="p-6 overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-amber-500/20 text-[11px] uppercase">
+                  <th className="px-4 py-3">Imagem</th>
+                  <th className="px-4 py-3">Produto</th>
+                  <th className="px-4 py-3">Quantidade</th>
+                  <th className="px-4 py-3">Motivo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {unrequestedItems.map((item) => (
+                  <tr key={item.productId} className="border-b border-amber-500/10">
+                    <td className="px-4 py-3">
+                      <div className="h-10 w-10 overflow-hidden rounded-lg border border-amber-500/20">
+                        {item.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={item.imageUrl} alt="" className="h-full w-full object-cover" />
+                        ) : <span className="flex h-full items-center justify-center">📦</span>}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 font-bold">{item.description}</td>
+                    <td className="px-4 py-3">{item.quantity}</td>
+                    <td className="px-4 py-3">{item.reason}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

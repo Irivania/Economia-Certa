@@ -15,6 +15,7 @@ import { BrandPortfolioSection } from '@/components/portal/BrandPortfolioSection
 import { ConnectionRequests, Connection } from '@/components/portal/ConnectionRequests';
 import { ConnectedStoresList } from '@/components/portal/ConnectedStoresList';
 import { QuotationsList, QuotationSupplierResult } from '@/components/portal/QuotationsList';
+import { PurchaseOrdersPanel, PortalPurchaseOrder } from '@/components/portal/PurchaseOrdersPanel';
 
 interface SupplierSession {
   id: string;
@@ -25,6 +26,7 @@ interface SupplierSession {
 
 export interface RepresentedCompany {
   id: string;
+  supplierId?: string;
   tradeName: string;
   corporateName: string;
   cnpj: string;
@@ -64,6 +66,7 @@ export default function SupplierPortalDashboard() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [representedCompanies, setRepresentedCompanies] = useState<RepresentedCompany[]>([]);
   const [loading, setLoading] = useState(false);
+  const [purchaseOrders, setPurchaseOrders] = useState<PortalPurchaseOrder[]>([]);
 
   // Estado para rastrear qual loja específica está selecionada para gestão de cotações
   const [selectedStoreFilter, setSelectedStoreFilter] = useState<{ companyId: string; storeName: string } | null>(null);
@@ -87,10 +90,11 @@ export default function SupplierPortalDashboard() {
   const loadPortalData = useCallback(async (supplierId: string, supplierEmail: string) => {
     setLoading(true);
     try {
-      const [cotRes, connRes, brandsRes] = await Promise.all([
+      const [cotRes, connRes, brandsRes, ordersRes] = await Promise.all([
         fetch(`/api/portal/quotations?supplierId=${supplierId}`),
         fetch(`/api/portal/connections?supplierId=${supplierId}&supplierEmail=${encodeURIComponent(supplierEmail)}`),
-        fetch(`/api/portal/brands?supplierId=${supplierId}`)
+        fetch(`/api/portal/brands?supplierId=${supplierId}`),
+        fetch(`/api/portal/orders?supplierId=${supplierId}`),
       ]);
 
       if (cotRes.ok) setQuotations(await cotRes.json());
@@ -112,7 +116,6 @@ export default function SupplierPortalDashboard() {
               body: JSON.stringify(b)
             });
           }
-
           const retryBrands = await fetch(`/api/portal/brands?supplierId=${supplierId}`);
           if (retryBrands.ok) {
             brandsData = await retryBrands.json();
@@ -120,6 +123,24 @@ export default function SupplierPortalDashboard() {
         }
 
         setRepresentedCompanies(brandsData);
+
+        const representedSupplierIds = Array.from(new Set([
+          supplierId,
+          ...brandsData
+            .map((brand) => brand.supplierId)
+            .filter((id): id is string => Boolean(id)),
+        ]));
+        const orderResponses = await Promise.all(
+          representedSupplierIds.map((representedSupplierId) =>
+            representedSupplierId === supplierId && ordersRes.ok
+              ? ordersRes.json() as Promise<PortalPurchaseOrder[]>
+              : fetch(`/api/portal/orders?supplierId=${representedSupplierId}`)
+                  .then((response) => response.ok ? response.json() as Promise<PortalPurchaseOrder[]> : []),
+          ),
+        );
+        const uniqueOrders = new Map<string, PortalPurchaseOrder>();
+        orderResponses.flat().forEach((order) => uniqueOrders.set(order.id, order));
+        setPurchaseOrders(Array.from(uniqueOrders.values()));
         
         setActiveCompany((prev) => {
           if (brandsData.length > 0 && (!prev || prev.id === 'default-empty')) {
@@ -245,6 +266,27 @@ export default function SupplierPortalDashboard() {
     router.push('/portal/login');
   };
 
+  const handleOrderStatusChange = async (
+    orderId: string,
+    quotationId: string,
+    status: 'DISPATCHED',
+  ) => {
+    const response = await fetch(`/api/quotations/${quotationId}/finalize`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId, status, actorRole: 'REPRESENTATIVE' }),
+    });
+    const result = await response.json() as { error?: string };
+    if (!response.ok) {
+      showToast(result.error || 'Não foi possível atualizar o pedido.');
+      return;
+    }
+    setPurchaseOrders((current) => current.map((order) => (
+      order.id === orderId ? { ...order, status } : order
+    )));
+    showToast('Pedido encaminhado para a empresa e registrado no histórico.');
+  };
+
   return (
     <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
       <SupplierHeader
@@ -342,21 +384,36 @@ export default function SupplierPortalDashboard() {
         {/* Lista de Cotações com Produtos Detalhados */}
         <QuotationsList
           isDarkMode={isDarkMode}
-          quotations={quotations.filter((cot: QuotationSupplierResult & { supplierId?: string; companyId?: string; brandId?: string; brandName?: string; tradeName?: string; storeName?: string }) => {
-            if (selectedStoreFilter) {
-              const matchesId = cot.companyId === selectedStoreFilter.companyId;
-              const matchesStoreName = cot.storeName && selectedStoreFilter.storeName && 
-                cot.storeName.toLowerCase().includes(selectedStoreFilter.storeName.toLowerCase());
-              return matchesId || matchesStoreName || true; 
-            }
-
-            const cotSupplierId = cot.supplierId || cot.companyId || cot.brandId;
+          quotations={quotations.filter((cot: QuotationSupplierResult & { supplierId?: string; supplierName?: string | null; companyId?: string; brandId?: string; brandName?: string; tradeName?: string; storeName?: string }) => {
             if (!activeCompany || activeCompany.id === 'default-empty') return true;
-            if (cotSupplierId && cotSupplierId === activeCompany.id) return true;
-            return cotSupplierId === supplier.id || !cotSupplierId;
+
+            const supplierName = String(cot.supplierName || '').toUpperCase();
+            const matchesCompany =
+              cot.supplierId === activeCompany.supplierId ||
+              (Boolean(supplierName) &&
+                (supplierName.includes(activeCompany.tradeName.toUpperCase()) ||
+                  supplierName.includes(activeCompany.corporateName.toUpperCase())));
+
+            if (!matchesCompany) return false;
+            if (!selectedStoreFilter) return true;
+
+            const matchesId = cot.companyId === selectedStoreFilter.companyId;
+            const matchesStoreName = cot.storeName && selectedStoreFilter.storeName &&
+              cot.storeName.toLowerCase().includes(selectedStoreFilter.storeName.toLowerCase());
+            return matchesId || Boolean(matchesStoreName);
           })}
           loading={loading}
           activeBrandName={selectedStoreFilter ? `${activeCompany?.tradeName} (${selectedStoreFilter.storeName})` : (activeCompany?.tradeName || 'GERAL')}
+        />
+
+        <PurchaseOrdersPanel
+          isDarkMode={isDarkMode}
+          onOrderStatusChange={handleOrderStatusChange}
+          orders={purchaseOrders.filter((order) => (
+            activeCompany?.supplierId
+              ? order.supplierId === activeCompany.supplierId
+              : false
+          ))}
         />
       </main>
 

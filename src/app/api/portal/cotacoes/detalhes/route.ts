@@ -5,7 +5,9 @@ import {
   companies,
   quotationSuppliers,
   quotationItems,
+  quotationSupplierItems,
   products,
+  suppliers,
 } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { recordAuditLog } from "@/modules/audit/auditService";
@@ -24,16 +26,26 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 1. Localiza o registo do fornecedor pelo token
+    // 1. Localiza estritamente o registo do fornecedor pelo token único desta cotação específica
     const supplierRecords = await db
       .select()
       .from(quotationSuppliers)
+      .leftJoin(suppliers, eq(quotationSuppliers.supplierId, suppliers.id))
       .where(eq(quotationSuppliers.token, token));
 
-    const supplierRecord = supplierRecords?.[0];
-    const targetQuotationId = supplierRecord
-      ? supplierRecord.quotationId
-      : token;
+    const supplierRow = supplierRecords?.[0];
+    const supplierRecord = supplierRow?.quotation_suppliers;
+    if (!supplierRecord) {
+      return NextResponse.json(
+        { error: "Link de acesso ou fornecedor inválido para este token." },
+        { status: 404 },
+      );
+    }
+
+    const targetQuotationId = supplierRecord.quotationId;
+    const quotationSupplierId = supplierRecord.id;
+    // O bloqueio (isLocked) baseia-se exclusivamente no status deste quotationSupplier específico!
+    const isLocked = supplierRecord.status === "responded";
 
     const quotationRows = await db
       .select()
@@ -42,7 +54,8 @@ export async function GET(request: NextRequest) {
       .where(eq(quotations.id, targetQuotationId));
 
     const quotationRow = quotationRows?.[0] as
-      Record<string, unknown> | undefined;
+      | Record<string, unknown>
+      | undefined;
 
     if (!quotationRow) {
       return NextResponse.json(
@@ -84,16 +97,30 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 3. Registo de Auditoria: Grava a abertura da cotação pelo fornecedor
+    // 3. Registo de Auditoria
     await recordAuditLog({
-      quotationId: (quotData.id as string) ?? targetQuotationId,
-      supplierId: supplierRecord?.supplierId,
+      companyId: quotData.companyId as string,
+      quotationId: targetQuotationId,
+      supplierId: supplierRecord.supplierId,
       action: "PORTAL_QUOTATION_OPENED",
-      details: `Fornecedor acedeu aos detalhes da cotação via token único.`,
+      details: `Fornecedor acedeu aos detalhes da cotação via token único. Status individual: ${supplierRecord.status}`,
       ipAddress: request.headers.get("x-forwarded-for") || "unknown",
     });
 
-    // 4. Busca os itens da cotação
+    // 4. Busca os preços salvos anteriormente ESPECÍFICOS deste quotationSupplierId
+    const savedSupplierItems = await db
+      .select()
+      .from(quotationSupplierItems)
+      .where(eq(quotationSupplierItems.quotationSupplierId, quotationSupplierId));
+
+    const priceMap = new Map(
+      savedSupplierItems.map((si) => [
+        si.productId,
+        { price: si.price, outOfStock: si.outOfStock },
+      ])
+    );
+
+    // 5. Busca os itens globais da cotação com join nos produtos
     const rawItems = await db
       .select()
       .from(quotationItems)
@@ -136,8 +163,10 @@ export async function GET(request: NextRequest) {
         let unit = String(prod.unit || item.unit || "UN").trim();
         if (unit.length > 4) unit = "UN";
 
-        const savedPrice = item.unitPrice ?? item.price ?? 0;
-        const isOutOfStock = item.outOfStock ?? false;
+        // Obtém o preço específico salvo por este fornecedor específico
+        const savedInfo = priceMap.get(productId);
+        const savedPrice = savedInfo?.price ?? 0;
+        const isOutOfStock = savedInfo?.outOfStock ?? false;
 
         formattedItems.push({
           id: (item.id as string) ?? productId,
@@ -162,12 +191,16 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({
-      quotationId: (quotData.id as string) ?? targetQuotationId,
+      quotationId: targetQuotationId,
       title:
         (quotData.title as string) ||
         (quotData.name as string) ||
         "Cotação de Reposição",
       companyName: (compData.name as string) || "Melo Perfumaria",
+      supplierName: supplierRow.suppliers?.name || "Empresa representada",
+      status: supplierRecord.status,
+      isLocked, // Isolado por fornecedor: True apenas se este fornecedor específico já respondeu
+      observation: supplierRecord.observation || "",
       startDate: quotData.startDate ?? null,
       endDate: quotData.endDate ?? null,
       closingTime: quotData.closingTime ?? null,

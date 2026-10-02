@@ -49,7 +49,7 @@ export function ProductTable({
   setSelectedBrand,
   onEdit,
   onDelete,
-  companyId = '915a8bc1-5db7-4605-93a9-b78090e75679',
+  companyId = '',
   onRefresh,
 }: ProductTableProps) {
   const { isDarkMode } = useTheme();
@@ -180,7 +180,7 @@ export function ProductTable({
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-5 border-slate-500/10">
         <div>
           <h2 className="text-base font-black tracking-tight">Catálogo de Produtos Cadastrados</h2>
-          <p className="text-xs opacity-60 mt-0.5">Gestão de preços, estoque rápido e auditoria • Melo Perfumaria.</p>
+          <p className="text-xs opacity-60 mt-0.5">Gestão de preços, estoque rápido e auditoria da empresa.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">

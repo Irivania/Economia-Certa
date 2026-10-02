@@ -9,8 +9,17 @@ interface Connection {
   status: string;
   initiatedBy?: string;
   companyName?: string;
+  companyTradeName?: string | null;
   companyCnpj?: string;
   companyEmail?: string;
+  companyPhone?: string | null;
+  companyCep?: string | null;
+  companyAddress?: string | null;
+  companyNumber?: string | null;
+  companyNeighborhood?: string | null;
+  companyCity?: string | null;
+  companyState?: string | null;
+  companyType?: string | null;
   brandName?: string;
   tradeName?: string;
 }
@@ -122,9 +131,17 @@ export function ConnectedStoresList({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {connections.map((store) => {
-          const storeName = store.companyName || `Loja Parceira (ID: #${store.companyId.slice(0, 8)})`;
+          const storeName = store.companyTradeName || store.companyName || `Loja Parceira (ID: #${store.companyId.slice(0, 8)})`;
+          const corporateName = store.companyName && store.companyName !== storeName ? store.companyName : null;
           const storeCnpj = store.companyCnpj || 'CNPJ não informado';
           const storeEmail = store.companyEmail || 'E-mail não informado';
+          const storeAddress = [
+            store.companyAddress,
+            store.companyNumber && `nº ${store.companyNumber}`,
+            store.companyNeighborhood,
+            store.companyCity,
+            store.companyState,
+          ].filter(Boolean).join(', ');
 
           return (
             <div
@@ -141,8 +158,12 @@ export function ConnectedStoresList({
                   <span className="text-[10px] font-mono opacity-50">ID: #{store.companyId.slice(0, 8)}</span>
                 </div>
                 <h3 className="text-sm font-black text-slate-900 dark:text-white mt-1">{storeName}</h3>
+                {corporateName && <p className="text-xs text-slate-500">Razão social: {corporateName}</p>}
                 <p className="text-xs font-mono text-slate-500">CNPJ: {storeCnpj}</p>
                 <p className="text-xs text-slate-500">E-mail: {storeEmail}</p>
+                {store.companyPhone && <p className="text-xs text-slate-500">Telefone: {store.companyPhone}</p>}
+                {storeAddress && <p className="text-xs text-slate-500">Endereço: {storeAddress}</p>}
+                {store.companyCep && <p className="text-xs text-slate-500">CEP: {store.companyCep}</p>}
               </div>
 
               <div className="pt-3 border-t border-slate-500/10 flex items-center justify-between text-[11px]">

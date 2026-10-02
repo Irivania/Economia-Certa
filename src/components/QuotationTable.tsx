@@ -19,23 +19,30 @@ interface QuotationSupplier {
   supplierId: string;
   name?: string | null;
   status?: string | null;
+  observation?: string | null;
 }
 
 interface QuotationTableProps {
   productsList: QuotationItem[];
   suppliers: QuotationSupplier[];
+  paymentTerms?: string | null;
   selectedChoices: Record<string, string>;
   onSelectChoice: (productId: string, supplierId: string) => void;
   onSelectAllForSupplier: (supplierId: string) => void;
+  ignoredProducts: Set<string>;
+  onToggleIgnoredProduct: (productId: string) => void;
   formatCurrency: (value: number | null | undefined) => string;
 }
 
 export default function QuotationTable({
   productsList,
   suppliers,
+  paymentTerms,
   selectedChoices,
   onSelectChoice,
   onSelectAllForSupplier,
+  ignoredProducts,
+  onToggleIgnoredProduct,
   formatCurrency,
 }: QuotationTableProps) {
   const { isDarkMode } = useTheme();
@@ -226,8 +233,18 @@ export default function QuotationTable({
                       <div className="font-black text-sm tracking-tight">{sup.name || 'Fornecedor'}</div>
                       <div className="mt-2 space-y-1">
                         <span className="inline-block px-2.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
-                          💳 30/60 Dias Billet
+                          💳 {paymentTerms || 'Condição não informada'}
                         </span>
+                        {sup.observation && (
+                          <p className={`mx-auto max-w-[230px] rounded-lg px-2.5 py-1.5 text-left text-[10px] leading-relaxed ${
+                            isDarkMode
+                              ? 'bg-slate-800/70 text-slate-300'
+                              : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            <strong className="font-black">Observação:</strong>{' '}
+                            {sup.observation}
+                          </p>
+                        )}
                         <div>
                           {hasFreeShipping ? (
                             <span className="inline-block px-2 py-0.5 rounded text-[8px] font-extrabold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
@@ -275,7 +292,7 @@ export default function QuotationTable({
                   });
 
                   return (
-                    <tr key={prod.productId} className={`transition-colors ${isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50/80'}`}>
+                    <tr key={prod.productId} className={`transition-colors ${ignoredProducts.has(prod.productId) ? 'opacity-60' : ''} ${isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50/80'}`}>
                       <td className="p-5">
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 rounded-2xl border border-slate-500/20 bg-slate-500/5 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
@@ -293,6 +310,17 @@ export default function QuotationTable({
                               <span>•</span>
                               <strong className="text-indigo-600 dark:text-indigo-400">Qtd: {prod.requestedQuantity}</strong>
                             </div>
+                            <button
+                              type="button"
+                              onClick={() => onToggleIgnoredProduct(prod.productId)}
+                              className={`mt-2 rounded-lg px-2.5 py-1 text-[10px] font-bold transition ${
+                                ignoredProducts.has(prod.productId)
+                                  ? 'bg-amber-500 text-white'
+                                  : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                              }`}
+                            >
+                              {ignoredProducts.has(prod.productId) ? '↩ Incluir na compra' : '🚫 Não comprar este produto'}
+                            </button>
                           </div>
                         </div>
                       </td>

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useTheme } from '@/context/ThemeContext';
 import { AppHeader } from '@/components/AppHeader';
 import { CommandMenu } from '@/components/CommandMenu';
+import { getCompanyId } from '@/lib/companySession';
 
 interface SupplierTracking {
   id: string;
@@ -23,7 +24,7 @@ interface Quotation {
   suppliers?: SupplierTracking[];
 }
 
-const companyId = '915a8bc1-5db7-4605-93a9-b78090e75679';
+const companyId = getCompanyId();
 
 function formatDate(value?: string | null) {
   if (!value) return '-';
@@ -34,13 +35,23 @@ function formatDate(value?: string | null) {
   return `${day}/${month}/${year}`;
 }
 
+function formatQuotationStatus(status?: string | null) {
+  const labels: Record<string, string> = {
+    OPEN: 'Aberta',
+    ORDERED: 'Pedidos enviados',
+    PARTIALLY_CLOSED: 'Parcialmente encerrada',
+    CLOSED: 'Encerrada',
+  };
+  return labels[status || ''] || status || 'Ativa';
+}
+
 export default function Page() {
   const { isDarkMode } = useTheme();
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCmdOpen, setIsCmdOpen] = useState(false);
 
-  const latestQuotationId = quotations[0]?.id || 'd7f46ae7-19c2-409d-8ab4-dfbb458c5248';
+  const latestQuotationId = quotations[0]?.id || '';
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
@@ -197,7 +208,7 @@ export default function Page() {
                         </td>
                         <td className="p-4 text-center">
                           <span className="inline-flex rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                            {quotation.status === 'OPEN' ? 'Aberta' : quotation.status || 'Ativa'}
+                            {formatQuotationStatus(quotation.status)}
                           </span>
                         </td>
                         <td className="p-4 text-center">

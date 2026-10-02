@@ -1,282 +1,518 @@
-# Economia Certa ERP & B2B Portal
+# Economia Certa ERP
 
-[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)](https://nextjs.org/)
-[![React](https://img.shields.io/badge/React-19-blue?style=flat-square&logo=react)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Drizzle ORM](https://img.shields.io/badge/Drizzle-ORM-green?style=flat-square)](https://orm.drizzle.team/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-blue?style=flat-square&logo=postgresql)](https://www.postgresql.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Next.js](https://img.shields.io/badge/Next.js-16.3.3-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19.2.8-149ECA?style=for-the-badge&logo=react&logoColor=white)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.x-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Drizzle ORM](https://img.shields.io/badge/Drizzle_ORM-0.45.2-C5F74F?style=for-the-badge)](https://orm.drizzle.team/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14%2B-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![License](https://img.shields.io/badge/license-MIT-F7DF1E?style=for-the-badge)](LICENSE)
 
-> **Economia Certa** é um ERP corporativo de alta performance e um ecossistema B2B integrado para o setor varejista e de perfumaria. O sistema resolve a fricção operacional na gestão de inventário, precificação inteligente, importação em massa e otimização de cotações comerciais entre lojistas e fornecedores.
+> **Economia Certa ERP** é um painel gerencial inteligente para controlo de compras em tempo real, gestão de catálogo, acompanhamento de stock, cotações automatizadas com distribuidores e optimização de preços para operações de retalho.
+
+O sistema liga lojistas, representantes e empresas fornecedoras num fluxo B2B rastreável: o lojista cria uma cotação, os fornecedores respondem de forma isolada, o sistema compara propostas, consolida os pedidos por fornecedor e acompanha o ciclo até ao recebimento e encerramento.
 
 ---
 
-## 🏗️ Arquitetura e Decisões de Engenharia (ADR)
+## Índice
 
-O projeto foi concebido seguindo princípios rigorosos de **Clean Architecture** e separação de concerns. A estrutura de diretórios foi blindada para garantir escalabilidade horizontal e manutenibilidade por domínios de negócio.
+- [Visão geral](#visão-geral)
+- [Principais capacidades](#principais-capacidades)
+- [Arquitetura da solução](#arquitetura-da-solução)
+- [Modelo multi-tenant](#modelo-multi-tenant)
+- [Arquitetura da base de dados](#arquitetura-da-base-de-dados)
+- [Fluxo de cotações e pedidos](#fluxo-de-cotações-e-pedidos)
+- [Estrutura do repositório](#estrutura-do-repositório)
+- [Pré-requisitos](#pré-requisitos)
+- [Instalação e configuração](#instalação-e-configuração)
+- [Execução](#execução)
+- [Testes e qualidade](#testes-e-qualidade)
+- [Migrações da base de dados](#migrações-da-base-de-dados)
+- [Integrações externas](#integrações-externas)
+- [Variáveis de ambiente](#variáveis-de-ambiente)
+- [Estado do projecto](#estado-do-projecto)
+- [Licença](#licença)
+
+---
+
+## Visão geral
+
+### Problema de negócio
+
+Operações de compra no retalho normalmente dependem de mensagens dispersas, planilhas e comparações manuais. O Economia Certa centraliza esse processo numa única experiência:
+
+1. O lojista mantém produtos, preços, stock e dados cadastrais.
+2. Uma cotação é enviada a um ou mais fornecedores.
+3. Cada fornecedor responde apenas pela empresa que representa.
+4. O lojista compara preços, disponibilidade, condições e observações.
+5. Os itens escolhidos são agrupados em pedidos independentes por fornecedor.
+6. Representante e lojista acompanham o despacho, recebimento e encerramento.
+7. O histórico e os eventos da negociação permanecem documentados.
+
+### Objectivos técnicos
+
+- Isolar dados por empresa e por fornecedor.
+- Evitar mistura de propostas entre marcas representadas pelo mesmo representante.
+- Preservar um snapshot comercial do pedido no momento da decisão.
+- Garantir transições de estado previsíveis e auditáveis.
+- Reduzir trabalho manual no processo de compra.
+- Manter tipagem forte entre frontend, API e persistência.
+
+---
+
+## Principais capacidades
+
+### Dashboard executivo
+
+Apresenta uma visão operacional da empresa, incluindo:
+
+- Produtos cadastrados.
+- Cotações abertas e activas.
+- Cotações finalizadas.
+- Alertas de reposição urgente baseados no stock mínimo.
+- Acessos rápidos para comparador de preços, pedidos e gestão do catálogo.
+
+As métricas de cotações activas excluem negociações encerradas ou parcialmente encerradas, evitando que uma cotação já concluída permaneça apresentada como aberta.
+
+### Catálogo, stock e preços
+
+- Cadastro de produtos por empresa.
+- Identificação por EAN, marca, NCM e CEST.
+- Imagem, unidade e quantidade por caixa.
+- Custos, preço de venda e último preço de compra.
+- Stock actual, mínimo, ideal e máximo.
+- Importação de produtos por planilhas `.xls` e `.xlsx`.
+- Alertas para reposição de itens abaixo do mínimo.
+
+### Portal do fornecedor
+
+O portal permite que representantes trabalhem com várias empresas fornecedoras. Cada empresa representada possui identidade comercial e dados próprios, mesmo quando partilha o mesmo representante.
+
+Exemplo: DPC e Solfarma podem ser geridas pelo mesmo representante sem que:
+
+- as respostas de uma empresa apareçam na outra;
+- os preços sejam misturados;
+- os pedidos sejam encaminhados para o fornecedor errado;
+- os estados de uma negociação alterem a outra.
+
+As respostas são isoladas por vínculo específico entre cotação e fornecedor (`quotation_supplier_id`) e os pedidos são separados por `supplier_id`.
+
+### Gestão cadastral da empresa
+
+A área de configurações permite manter:
+
+- Razão social.
+- Nome fantasia.
+- CNPJ.
+- E-mail e telefone.
+- CEP.
+- Logradouro, número e bairro.
+- Cidade e estado.
+- Tipo de estabelecimento.
+
+O preenchimento pode ser acelerado por integrações de CNPJ e CEP, reduzindo erros de digitação e mantendo os dados corporativos disponíveis no relacionamento com representantes.
+
+### Cotações e comparativo de preços
+
+- Criação de cotações com prazo e condição de pagamento.
+- Distribuição para vários fornecedores.
+- Links individuais com tokens por fornecedor.
+- Respostas de preço por produto.
+- Marcação de produtos indisponíveis.
+- Observações do representante.
+- Comparação por fornecedor e por item.
+- Opção de não comprar um produto.
+- Persistência dos itens não pedidos, incluindo produtos sem oferta.
+- Geração de pedidos consolidados por fornecedor.
+- Copiar pedido ou preparar envio por WhatsApp.
+
+### Ciclo de vida dos pedidos
+
+O fluxo operacional suporta os seguintes estados:
 
 ```text
-src/
-├── app/                  # Next.js App Router (Páginas e API Endpoints)
-│   ├── api/              # Rotas Server-Side RESTful com validação Zod
-│   ├── portal/           # Portal B2B de alta performance para Fornecedores
-│   └── ...               # Módulos gerenciais do ERP (Produtos, Cotações, etc.)
-├── components/           # Design System & Componentes de UI Reutilizáveis
-├── db/                   # Camada de Persistência (Schema Drizzle, Client & Migrations)
-├── modules/              # Domínios isolados de negócio (Business Logic Layer)
-├── types/                # Contratos de Tipagem Global & Schemas Zod
-└── utils/                # Funções Puras e Auxiliares (Cálculos Fiscais & Formatação)
-
-Pilares Técnicos:
-Multi-tenancy Nativo: Isolamento rigoroso de dados corporativos controlado via companyId em todas as transações e consultas ao banco.
-
-Segurança e Validação em Runtime: Contratos rigorosos utilizando Zod para impedir injeção de dados inválidos nas rotas de API.
-
-DX (Developer Experience) & Type Safety: Tipagem ponta a ponta (End-to-End Type Safety) ligando o esquema relacional do Drizzle ORM diretamente aos componentes React.
-
-🚀 Funcionalidades de Nível Enterprise
-1. Gestão de Catálogo e Estoque Preditivo
-Cadastro paramétrico de produtos com suporte a SKU, EAN-13, NCM/CEST e múltiplos custos.
-
-Gestão automatizada de estoques (atual, mínimo, ideal e máximo) com alertas de desabastecimento.
-
-Algoritmo de precificação dinâmica baseado em margem alvo e custos operacionais.
-
-2. Importação Inteligente de Dados em Lote (ETL Leve)
-Parser integrado para planilhas corporativas (.xls, .xlsx) via xlsx.
-
-Normalização de dados, comparação de chaves únicas por EAN e prevenção de duplicidade de catálogo em massa.
-
-3. Portal B2B de Cotações com Roteamento por Token (Magic Link)
-Fluxo dinâmico onde lojistas publicam cotações e fornecedores recebem links seguros baseados em tokens únicos (/portal/cotacao/[token]).
-
-Tabela Interativa de Alta Performance: Navegação por teclado otimizada (Enter automático entre inputs de preço e marcação rápida de produtos indisponíveis).
-
-Cronómetro Regressivo em Tempo Real: Sincronização e contagem decrescente baseada no prazo de fechamento do lojista, criando urgência comercial.
-
-4. Inteligência de Compras e Relatórios de Economia
-Cruzamento automatizado do menor preço ofertado por diferentes fornecedores (Mix Mais Barato).
-
-Geração de relatórios analíticos comparando o custo original versus o custo otimizado pós-cotação.
-
-🧪 Qualidade de Software e Testes
-O repositório conta com uma suíte de testes automatizados para mitigar regressões e garantir estabilidade em ambiente de produção:
-
-Testes E2E (Playwright): Simulação de jornadas críticas de utilizador e auditoria de segurança em endpoints de API.
-
-Testes Unitários (Vitest): Validação de regras de negócio isoladas, cálculos fiscais e transformações de dados.
-
-🛠️ Stack TecnológicoCamadaTecnologia / FerramentaFramework WebNext.js 16 (App Router, Server/Client Components)Biblioteca UIReact 19, Tailwind CSS 4LinguagemTypeScript (Strict Mode)Banco de DadosPostgreSQL 14+ORM & MigrationsDrizzle ORM & Drizzle KitValidaçãoZodProcessamento de ArquivosSheetJS (xlsx)TestesPlaywright (E2E) & Vitest (Unit)
-
-⚙️ Configuração e Execução Local
-Pré-requisitos
-Certifique-se de ter instalado na sua máquina:
-
-Node.js 20+
-
-PostgreSQL configurado e ativo
-
-1. Clonar o repositório e instalar dependências
-
-git clone [https://github.com/SEU_USUARIO/economia-certa-erp.git](https://github.com/SEU_USUARIO/economia-certa-erp.git)
-cd economia-certa-erp
-npm install
-
-2. Configurar Variáveis de Ambiente
-Crie um ficheiro .env.local na raiz do projeto baseado no exemplo abaixo:
-
-DATABASE_URL="postgresql://postgres:sua_senha@localhost:5432/economia_certa"
-NEXT_PUBLIC_DATABASE_URL="postgresql://postgres:sua_senha@localhost:5432/economia_certa"
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
-
-3. Executar Migrações do Banco de Dados
-
-npx drizzle-kit push
-
-4. Iniciar o Servidor de Desenvolvimento
-
-npm run dev
-
-A aplicação estará disponível em http://localhost:3000.
-
-🔍 Executando os Testes Automatizados
-
-# Executar testes unitários (Vitest)
-npm run test
-
-# Executar testes End-to-End (Playwright)
-npx playwright test
-📄 LicençaDistribuído sob a licença MIT. Veja LICENSE para mais informações.
----
-
-Com base no seu `README.md` original, redesenhei a documentação para o transformar num verdadeiro **cartão de visitas de nível sênior (World-Class)**.
-
-Esta nova versão destaca a maturidade de engenharia do seu projeto, enfatizando a arquitetura limpa, o isolamento multi-tenant, a robustez do stack e o foco em resolver dores reais de negócio.
-
----
-
-Copie e substitua todo o conteúdo do seu ficheiro **`README.md`** pelo texto abaixo:
-
-```markdown
-# Economia Certa ERP & B2B Portal
-
-[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)](https://nextjs.org/)
-[![React](https://img.shields.io/badge/React-19-blue?style=flat-square&logo=react)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Drizzle ORM](https://img.shields.io/badge/Drizzle-ORM-green?style=flat-square)](https://orm.drizzle.team/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-blue?style=flat-square&logo=postgresql)](https://www.postgresql.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-> **Economia Certa** é um ERP corporativo de alta performance e um ecossistema B2B integrado para o setor varejista e de perfumaria. O sistema resolve a fricção operacional na gestão de inventário, precificação inteligente, importação em massa e otimização de cotações comerciais entre lojistas e fornecedores.
-
----
-
-## 🏗️ Arquitetura e Decisões de Engenharia (ADR)
-
-O projeto foi concebido seguindo princípios rigorosos de **Clean Architecture** e separação de concerns. A estrutura de diretórios foi blindada para garantir escalabilidade horizontal e manutenibilidade por domínios de negócio.
-
-```text
-src/
-├── app/                  # Next.js App Router (Páginas e API Endpoints)
-│   ├── api/              # Rotas Server-Side RESTful com validação Zod
-│   ├── portal/           # Portal B2B de alta performance para Fornecedores
-│   └── ...               # Módulos gerenciais do ERP (Produtos, Cotações, etc.)
-├── components/           # Design System & Componentes de UI Reutilizáveis
-├── db/                   # Camada de Persistência (Schema Drizzle, Client & Migrations)
-├── modules/              # Domínios isolados de negócio (Business Logic Layer)
-├── types/                # Contratos de Tipagem Global & Schemas Zod
-└── utils/                # Funções Puras e Auxiliares (Cálculos Fiscais & Formatação)
-
+SENT ───────────────► DISPATCHED ───────────────► RECEIVED ───────────────► CLOSED
+  └────────────────────────────────────────────► RECEIVED
 ```
 
-### Pilares Técnicos:
+- `SENT`: pedido criado e enviado pelo lojista.
+- `DISPATCHED`: representante encaminhou o pedido para a empresa.
+- `RECEIVED`: lojista confirmou o recebimento da mercadoria.
+- `CLOSED`: conferência concluída e negociação baixada.
 
-* **Multi-tenancy Nativo:** Isolamento rigoroso de dados corporativos controlado via `companyId` em todas as transações e consultas ao banco.
-* **Segurança e Validação em Runtime:** Contratos rigorosos utilizando **Zod** para impedir injeção de dados inválidos nas rotas de API.
-* **DX (Developer Experience) & Type Safety:** Tipagem ponta a ponta (End-to-End Type Safety) ligando o esquema relacional do **Drizzle ORM** diretamente aos componentes React.
-
----
-
-## 🚀 Funcionalidades de Nível Enterprise
-
-### 1. Gestão de Catálogo e Estoque Preditivo
-
-* Cadastro paramétrico de produtos com suporte a SKU, EAN-13, NCM/CEST e múltiplos custos.
-* Gestão automatizada de estoques (atual, mínimo, ideal e máximo) com alertas de desabastecimento.
-* Algoritmo de precificação dinâmica baseado em margem alvo e custos operacionais.
-
-### 2. Importação Inteligente de Dados em Lote (ETL Leve)
-
-* Parser integrado para planilhas corporativas (`.xls`, `.xlsx`) via `xlsx`.
-* Normalização de dados, comparação de chaves únicas por EAN e prevenção de duplicidade de catálogo em massa.
-
-### 3. Portal B2B de Cotações com Roteamento por Token (Magic Link)
-
-* Fluxo dinâmico onde lojistas publicam cotações e fornecedores recebem links seguros baseados em tokens únicos (`/portal/cotacao/[token]`).
-* **Tabela Interativa de Alta Performance:** Navegação por teclado otimizada (`Enter` automático entre inputs de preço e marcação rápida de produtos indisponíveis).
-* **Cronómetro Regressivo em Tempo Real:** Sincronização e contagem decrescente baseada no prazo de fechamento do lojista, criando urgência comercial.
-
-### 4. Inteligência de Compras e Relatórios de Economia
-
-* Cruzamento automatizado do menor preço ofertado por diferentes fornecedores (*Mix Mais Barato*).
-* Geração de relatórios analíticos comparando o custo original versus o custo otimizado pós-cotação.
+Quando uma cotação possui múltiplos fornecedores, o status geral pode ser `PARTIALLY_CLOSED` até que todos os pedidos associados sejam encerrados.
 
 ---
 
-## 🧪 Qualidade de Software e Testes
+## Arquitetura da solução
 
-O repositório conta com uma suíte de testes automatizados para mitigar regressões e garantir estabilidade em ambiente de produção:
+O projecto utiliza o **Next.js App Router** como camada web e BFF, combinando páginas React, componentes client-side e Route Handlers para APIs server-side.
 
-* **Testes E2E (Playwright):** Simulação de jornadas críticas de utilizador e auditoria de segurança em endpoints de API.
-* **Testes Unitários (Vitest):** Validação de regras de negócio isoladas, cálculos fiscais e transformações de dados.
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                    Next.js App Router                       │
+│  Dashboard • Catálogo • Cotações • Pedidos • Portal B2B     │
+├─────────────────────────────────────────────────────────────┤
+│                   Route Handlers / API                      │
+│  Validação • Regras de negócio • Transacções • Auditoria    │
+├─────────────────────────────────────────────────────────────┤
+│                 Drizzle ORM + PostgreSQL                    │
+│  Multi-tenant • Snapshots • Índices • Migrações             │
+├─────────────────────────────────────────────────────────────┤
+│             Integrações públicas brasileiras                 │
+│                    BrasilAPI • ViaCEP                       │
+└─────────────────────────────────────────────────────────────┘
+```
 
----
+### Camadas principais
 
-## 🛠️ Stack Tecnológico
-
-| Camada | Tecnologia / Ferramenta |
+| Camada | Responsabilidade |
 | --- | --- |
-| **Framework Web** | Next.js 16 (App Router, Server/Client Components) |
-| **Biblioteca UI** | React 19, Tailwind CSS 4 |
-| **Linguagem** | TypeScript (Strict Mode) |
-| **Banco de Dados** | PostgreSQL 14+ |
-| **ORM & Migrations** | Drizzle ORM & Drizzle Kit |
-| **Validação** | Zod |
-| **Processamento de Arquivos** | SheetJS (`xlsx`) |
-| **Testes** | Playwright (E2E) & Vitest (Unit) |
+| `src/app` | Páginas do App Router e endpoints HTTP da aplicação |
+| `src/components` | Componentes de interface reutilizáveis e fluxos de UI |
+| `src/db` | Schema Drizzle, cliente de base de dados e migrações |
+| `src/modules` | Serviços e regras de negócio organizadas por domínio |
+| `src/types` | Tipos e contratos partilhados |
+| `src/utils` | Formatação, cálculos e utilitários puros |
+
+### Princípios de engenharia
+
+- **Isolamento por escopo:** consultas e operações comerciais devem respeitar `companyId`, `supplierId` e `quotationSupplierId`.
+- **Transacções:** criação de pedidos, itens não pedidos, alterações de estado e auditoria devem ser consistentes.
+- **Idempotência:** índices únicos evitam pedidos duplicados para a mesma cotação e fornecedor.
+- **Snapshots comerciais:** os dados relevantes do pedido são copiados no momento da finalização para preservar o histórico.
+- **Tipagem ponta a ponta:** TypeScript e Drizzle reduzem divergências entre modelo e código.
+- **Validação explícita:** entradas inválidas devem gerar respostas HTTP claras, sem fallbacks silenciosos.
 
 ---
 
-## ⚙️ Configuração e Execução Local
+## Modelo multi-tenant
 
-### Pré-requisitos
+O isolamento é aplicado em dois níveis:
 
-Certifique-se de ter instalado na sua máquina:
+### Empresa lojista
 
-* Node.js 20+
-* PostgreSQL configurado e ativo
+Produtos, categorias, cotações e pedidos pertencem à empresa através de `companyId`. Uma empresa não deve consultar ou alterar os dados de outra.
 
-### 1. Clonar o repositório e instalar dependências
+### Empresa fornecedora representada
+
+Um representante pode trabalhar com várias empresas. O vínculo é mantido por `supplierBrands` e as conexões com lojistas por `supplierConnections`.
+
+Para uma cotação com DPC e Solfarma, a separação correcta é:
+
+```text
+quotation
+├── quotation_suppliers (DPC)
+│   └── quotation_supplier_items (preços da DPC)
+└── quotation_suppliers (Solfarma)
+    └── quotation_supplier_items (preços da Solfarma)
+```
+
+O `supplierId` do representante, sozinho, não é suficiente para identificar a empresa fornecedora. O sistema deve sempre utilizar o fornecedor específico associado à resposta ou ao pedido.
+
+---
+
+## Arquitectura da base de dados
+
+A persistência utiliza PostgreSQL com Drizzle ORM. O schema principal está em [`src/db/schema.ts`](src/db/schema.ts).
+
+### Tabelas centrais
+
+| Tabela | Finalidade | Chaves/escopo relevantes |
+| --- | --- | --- |
+| `companies` | Dados cadastrais das empresas lojistas | `id`; razão social, CNPJ e morada |
+| `users` | Utilizadores associados a uma empresa | `company_id` |
+| `products` | Catálogo, stock e preços | `company_id`; EAN único por empresa |
+| `categories` | Categorias do catálogo | `company_id` |
+| `suppliers` | Representantes/fornecedores com acesso ao portal | `id`; credenciais e contacto |
+| `supplier_brands` | Empresas/marcas representadas por um fornecedor | `supplier_id` |
+| `supplier_connections` | Relação entre lojistas e fornecedores | `company_id` + `supplier_id` |
+| `quotations` | Cabeçalho da cotação | `company_id`; prazo e condição |
+| `quotation_items` | Produtos solicitados na cotação | `quotation_id` + `product_id` |
+| `quotation_suppliers` | Participação individual de cada fornecedor | `quotation_id` + `supplier_id`; token |
+| `quotation_supplier_items` | Respostas de preço por fornecedor | `quotation_supplier_id` + `product_id` |
+| `purchase_orders` | Pedido final por fornecedor | `quotation_id` + `supplier_id` |
+| `purchase_order_items` | Snapshot dos itens comprados | descrição, imagem, quantidade e preço |
+| `quotation_unrequested_items` | Itens não comprados na negociação | `quotation_id` + `product_id` |
+| `audit_logs` | Eventos importantes do processo | empresa, cotação, fornecedor e acção |
+
+### Integridade comercial
+
+O schema contém índices únicos para evitar:
+
+- EAN duplicado dentro da mesma empresa.
+- Mais de um pedido para a mesma combinação de cotação e fornecedor.
+- Mais de um registo de item não pedido para a mesma cotação e produto.
+
+As migrações existentes encontram-se em [`src/db/migrations`](src/db/migrations).
+
+---
+
+## Fluxo de cotações e pedidos
+
+```text
+Lojista
+  │
+  ├─ 1. Selecciona produtos e condição de pagamento
+  ├─ 2. Cria cotação para fornecedores
+  │
+  ▼
+Fornecedores
+  │
+  ├─ 3. Acedem ao token individual
+  ├─ 4. Respondem preços, indisponibilidades e observações
+  │
+  ▼
+Comparador
+  │
+  ├─ 5. Lojista escolhe fornecedor por produto
+  ├─ 6. Marca itens não pedidos
+  ├─ 7. Finaliza pedidos separados por fornecedor
+  │
+  ▼
+Operação
+  │
+  ├─ 8. Representante recebe o pedido
+  ├─ 9. Representante encaminha para a empresa
+  ├─ 10. Lojista confirma recebimento
+  └─ 11. Lojista encerra a cotação
+```
+
+Cada etapa relevante deve ser reflectida no estado persistido e no histórico de auditoria.
+
+---
+
+## Estrutura do repositório
+
+```text
+.
+├── public/                         # Recursos estáticos
+├── src/
+│   ├── app/
+│   │   ├── api/                    # Route Handlers da API
+│   │   ├── cotacoes/               # Fluxos de cotação e pedidos
+│   │   ├── configuracoes/          # Configurações da empresa
+│   │   ├── portal/                 # Portal do representante
+│   │   └── page.tsx                # Dashboard principal
+│   ├── components/                 # Componentes React reutilizáveis
+│   ├── db/
+│   │   ├── migrations/             # Migrações SQL/Drizzle
+│   │   ├── db.ts                   # Cliente Drizzle
+│   │   └── schema.ts               # Modelo relacional
+│   ├── modules/                    # Serviços de domínio
+│   ├── types/                      # Contratos TypeScript
+│   └── utils/                      # Funções utilitárias
+├── drizzle.config.ts               # Configuração do Drizzle Kit
+├── next.config.ts                  # Configuração do Next.js
+├── package.json                    # Scripts e dependências
+└── .env.example                    # Modelo de variáveis locais
+```
+
+---
+
+## Pré-requisitos
+
+Antes de iniciar, instale:
+
+- **Node.js 20 ou superior** — versão recomendada para o stack actual.
+- **npm 10+** ou **pnpm 9+**.
+- **PostgreSQL 14 ou superior**, local ou gerido por um serviço compatível.
+- Git.
+
+Confirme as versões:
 
 ```bash
-git clone [https://github.com/SEU_USUARIO/economia-certa-erp.git](https://github.com/SEU_USUARIO/economia-certa-erp.git)
-cd economia-certa-erp
+node --version
+npm --version
+psql --version
+```
+
+---
+
+## Instalação e configuração
+
+### 1. Clonar o repositório
+
+```bash
+git clone https://github.com/Irivania/Economia-Certa.git
+cd Economia-Certa
+```
+
+### 2. Instalar dependências
+
+Com npm:
+
+```bash
 npm install
-
 ```
 
-### 2. Configurar Variáveis de Ambiente
+Com pnpm:
 
-Crie um ficheiro `.env.local` na raiz do projeto baseado no exemplo abaixo:
-
-```env
-DATABASE_URL="postgresql://postgres:sua_senha@localhost:5432/economia_certa"
-NEXT_PUBLIC_DATABASE_URL="postgresql://postgres:sua_senha@localhost:5432/economia_certa"
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
-
+```bash
+pnpm install
 ```
 
-### 3. Executar Migrações do Banco de Dados
+### 3. Configurar o ambiente
+
+Copie o ficheiro de exemplo:
+
+```bash
+copy .env.example .env.local
+```
+
+No macOS/Linux:
+
+```bash
+cp .env.example .env.local
+```
+
+Preencha pelo menos `DATABASE_URL` com a string de conexão PostgreSQL. O `drizzle.config.ts` carrega `.env.local` e `.env`.
+
+### 4. Aplicar o schema/migrações
+
+Para sincronizar o schema durante o desenvolvimento:
 
 ```bash
 npx drizzle-kit push
-
 ```
 
-### 4. Iniciar o Servidor de Desenvolvimento
+Para executar as migrações versionadas já geradas:
+
+```bash
+npx drizzle-kit migrate
+```
+
+Em produção, prefira migrações versionadas e valide previamente a existência de dados duplicados antes de aplicar índices únicos.
+
+---
+
+## Execução
+
+### Desenvolvimento
 
 ```bash
 npm run dev
-
 ```
 
-A aplicação estará disponível em `http://localhost:3000`.
+A aplicação ficará disponível em:
 
----
+<http://localhost:3000>
 
-## 🔍 Executando os Testes Automatizados
+### Produção
 
 ```bash
-# Executar testes unitários (Vitest)
+npm run build
+npm run start
+```
+
+---
+
+## Testes e qualidade
+
+Scripts disponíveis:
+
+```bash
+# Verificação de lint
+npm run lint
+
+# Testes unitários
 npm run test
 
-# Executar testes End-to-End (Playwright)
+# Testes End-to-End, quando configurados
 npx playwright test
+```
 
+Antes de abrir um pull request, recomenda-se executar:
+
+```bash
+npm run lint
+npm run test
+npm run build
+```
+
+Alterações no fluxo de cotações devem ser validadas, no mínimo, para:
+
+- duas empresas representadas pelo mesmo representante;
+- respostas isoladas por fornecedor;
+- pedidos separados por fornecedor;
+- itens não pedidos persistidos;
+- transições inválidas de estado;
+- encerramento parcial e total da cotação;
+- duplicidade de pedidos;
+- autorização por empresa e fornecedor.
+
+---
+
+## Integrações externas
+
+### BrasilAPI
+
+Utilizada para auxiliar o preenchimento de dados corporativos a partir do CNPJ, como razão social, nome fantasia, contactos e endereço.
+
+### ViaCEP
+
+Utilizada para completar o endereço a partir do CEP.
+
+As chamadas passam por rotas internas da aplicação para que os componentes do frontend não dependam directamente da implementação externa.
+
+---
+
+## Variáveis de ambiente
+
+| Variável | Obrigatória | Descrição | Exemplo |
+| --- | --- | --- | --- |
+| `DATABASE_URL` | Sim | String de conexão com PostgreSQL | `postgresql://utilizador:senha@localhost:5432/economia_certa` |
+| `NEXT_PUBLIC_DATABASE_URL` | Conforme ambiente legado | Variável mantida para compatibilidade com configurações existentes | `postgresql://...` |
+| `NEXT_PUBLIC_APP_URL` | Recomendada | URL pública/base da aplicação | `http://localhost:3000` |
+
+> Nunca versione `.env`, `.env.local` ou credenciais reais. Utilize o `.env.example` apenas como contrato de configuração, sem segredos.
+
+---
+
+## Observações de segurança e operação
+
+- Não exponha credenciais de PostgreSQL no frontend ou em logs.
+- Tokens de cotação devem ser tratados como credenciais de acesso ao fluxo do fornecedor.
+- Operações de alteração de estado devem ser validadas no backend, não apenas na interface.
+- Toda consulta comercial deve respeitar o escopo de empresa e fornecedor.
+- Em ambientes produtivos, utilize HTTPS, backups, rotação de segredos e monitorização.
+- Antes de aplicar migrações destrutivas ou índices únicos, faça backup e inspeccione dados existentes.
+
+---
+
+## Estado do projecto
+
+O projecto encontra-se em evolução activa, com o fluxo principal de cotações, respostas, pedidos, encaminhamento, recebimento, encerramento e histórico já estruturado.
+
+Áreas recomendadas para evolução contínua:
+
+- Sessões server-side com cookies `HttpOnly` e autorização centralizada.
+- Testes de integração para isolamento entre empresas representadas.
+- Observabilidade com logs estruturados, métricas e tracing.
+- Pipeline CI/CD com lint, testes, build e migrações verificadas.
+- Documentação OpenAPI dos endpoints públicos e internos.
+
+---
+
+## Contribuição
+
+1. Crie uma branch a partir da principal.
+2. Faça uma alteração pequena e focada.
+3. Adicione ou actualize testes relacionados.
+4. Execute lint, testes e build.
+5. Abra um pull request descrevendo impacto, migrações e riscos operacionais.
+
+Commits devem ser claros, atómicos e orientados ao domínio, por exemplo:
+
+```text
+feat(cotacoes): separar pedidos por fornecedor representado
+fix(portal): exibir dados cadastrais completos da loja
+test(finalize): validar transições de estado do pedido
 ```
 
 ---
 
-## 📄 Licença
+## Licença
 
-Distribuído sob a licença MIT. Veja `LICENSE` para mais informações.
+Este projecto é distribuído sob a licença MIT. Consulte o ficheiro [`LICENSE`](LICENSE) para os termos completos.
 
-```
-
----
-
-### Por que este README destaca o seu perfil técnico:
-1. **Badges Tecnológicos:** Demonstra instantaneamente o domínio do stack moderno.
-2. **Decisões de Engenharia (ADR):** Mostra que você não apenas escreveu código, mas pensou na arquitetura (Multi-tenancy, Type Safety, Zod).
-3. **Destaque ao Módulo B2B:** Valoriza a complexidade do portal de fornecedores com tokens e cronómetros, que diferencia o seu sistema de um ERP comum de CRUD.
-4. **Instruções Limpas:** Facilita a vida de qualquer recrutador ou avaliador técnico que queira testar a aplicação localmente em menos de 2 minutos.

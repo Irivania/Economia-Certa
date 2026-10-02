@@ -22,6 +22,7 @@ interface QuotationItemsTableProps {
   setSearchTerm: (term: string) => void;
   onUpdateQuantity: (id: string, qty: number) => void;
   onRemoveItem: (id: string) => void;
+  isLocked?: boolean; // <-- Adicionado para controlar o bloqueio de edição pós-envio
 }
 
 export default function QuotationItemsTable({
@@ -30,6 +31,7 @@ export default function QuotationItemsTable({
   setSearchTerm,
   onUpdateQuantity,
   onRemoveItem,
+  isLocked = false,
 }: QuotationItemsTableProps) {
   const { isDarkMode } = useTheme();
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -46,6 +48,7 @@ export default function QuotationItemsTable({
     e: React.KeyboardEvent<HTMLInputElement>,
     currentIndex: number,
   ) => {
+    if (isLocked) return;
     if (e.key === "Enter") {
       e.preventDefault();
       const nextItem = filteredItems[currentIndex + 1];
@@ -65,6 +68,12 @@ export default function QuotationItemsTable({
           : "bg-slate-50/60 border-slate-200/80 text-slate-900"
       }`}
     >
+      {isLocked && (
+        <div className="p-3 mb-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold text-center">
+          🔒 Esta proposta já foi enviada e encontra-se bloqueada para edições.
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <h2 className="text-sm font-black uppercase tracking-wider">
           Itens da Cotação ({items.length})
@@ -100,20 +109,19 @@ export default function QuotationItemsTable({
               <th className="p-4 font-extrabold text-center">Estoque Atual</th>
               <th className="p-4 font-extrabold text-center">Estoque Ideal</th>
               <th className="p-4 font-extrabold text-center">
-                Qtd. Solicitada
+                Qtd. Solicitada / Preço
               </th>
-              <th className="p-4 font-extrabold text-right">Ações</th>
+              {!isLocked && <th className="p-4 font-extrabold text-right">Ações</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-500/10">
             {filteredItems.length === 0 ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={isLocked ? 5 : 6}
                   className="p-16 text-center text-xs opacity-50 font-medium"
                 >
-                  Nenhum item adicionado. Clique em &quot;+ Adicionar do
-                  Catálogo&quot; ou importe um arquivo acima.
+                  Nenhum item encontrado.
                 </td>
               </tr>
             ) : (
@@ -161,6 +169,7 @@ export default function QuotationItemsTable({
                         }}
                         type="number"
                         min="0"
+                        disabled={isLocked} // <-- Bloqueia o input se já foi respondido!
                         aria-label={`Quantidade solicitada para o produto ${item.description}`}
                         aria-invalid={isInvalid}
                         value={
@@ -168,28 +177,33 @@ export default function QuotationItemsTable({
                         }
                         placeholder=""
                         onChange={(e) => {
+                          if (isLocked) return;
                           const rawVal = e.target.value;
                           const val = rawVal === "" ? 0 : parseInt(rawVal) || 0;
                           onUpdateQuantity(itemId, val);
                         }}
                         onKeyDown={(e) => handleKeyDown(e, index)}
                         className={`w-20 text-center rounded-xl border py-2 text-xs font-black font-mono outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
-                          isDarkMode
+                          isLocked
+                            ? "opacity-60 cursor-not-allowed bg-slate-500/10 border-slate-500/20 text-slate-400"
+                            : isDarkMode
                             ? "bg-slate-900 border-slate-700 text-emerald-400 focus:border-emerald-500"
                             : "bg-white border-slate-300 text-emerald-700 focus:border-emerald-600"
                         }`}
                       />
                     </td>
-                    <td className="p-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => onRemoveItem(itemId)}
-                        aria-label={`Remover o produto ${item.description} da cotação`}
-                        className="text-rose-500 hover:text-rose-600 font-extrabold text-xs transition cursor-pointer"
-                      >
-                        Remover
-                      </button>
-                    </td>
+                    {!isLocked && (
+                      <td className="p-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => onRemoveItem(itemId)}
+                          aria-label={`Remover o produto ${item.description} da cotação`}
+                          className="text-rose-500 hover:text-rose-600 font-extrabold text-xs transition cursor-pointer"
+                        >
+                          Remover
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 );
               })

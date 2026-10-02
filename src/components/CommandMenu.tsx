@@ -29,8 +29,8 @@ export function CommandMenu({ isOpen, onClose, isDarkMode, latestQuotationId }: 
   const commandsList: CommandItem[] = [
     { id: '1', label: 'Nova Cotação Inteligente', category: 'Cotações', shortcut: 'N', href: '/cotacoes/nova', icon: '⚡' },
     { id: '2', label: 'Gerenciar Cotações', category: 'Cotações', shortcut: 'G', href: '/cotacoes', icon: '📊' },
-    { id: '3', label: 'Comparador de Preços', category: 'Cotações', shortcut: 'C', href: `/cotacoes/respostas/${latestQuotationId}`, icon: '📈' },
-    { id: '4', label: 'Pedidos para Distribuidores', category: 'Compradores', shortcut: 'P', href: `/cotacoes/pedidos/${latestQuotationId}`, icon: '📦' },
+    { id: '3', label: 'Comparador de Preços', category: 'Cotações', shortcut: 'C', href: latestQuotationId ? `/cotacoes/respostas/${latestQuotationId}` : '/cotacoes', icon: '📈' },
+    { id: '4', label: 'Pedidos para Distribuidores', category: 'Compradores', shortcut: 'P', href: latestQuotationId ? `/cotacoes/pedidos/${latestQuotationId}` : '/cotacoes', icon: '📦' },
     { id: '5', label: 'Catálogo de Produtos', category: 'Estoque', shortcut: 'E', href: '/produtos', icon: '🏷️' },
     { id: '6', label: 'Central de Importação', category: 'Estoque', shortcut: 'I', href: '/importar', icon: '📥' },
     { id: '7', label: 'Gestão de Fornecedores', category: 'Parceiros', shortcut: 'F', href: '/fornecedores', icon: '🤝' },

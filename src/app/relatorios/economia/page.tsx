@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { getCompanyId } from '@/lib/companySession';
 
 interface SavingItem {
   productId: string;
@@ -22,7 +23,7 @@ interface Summary {
 }
 
 export default function SavingsReportPage() {
-  const [companyId] = useState('915a8bc1-5db7-4605-93a9-b78090e75679');
+  const [companyId] = useState(() => getCompanyId());
   const [quotationId, setQuotationId] = useState('');
   const [summary, setSummary] = useState<Summary | null>(null);
   const [details, setDetails] = useState<SavingItem[]>([]);

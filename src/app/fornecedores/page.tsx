@@ -7,11 +7,12 @@ import { CommandMenu } from '@/components/CommandMenu';
 import { SupplierForm } from '@/components/suppliers/SupplierForm';
 import { SupplierCard } from '@/components/suppliers/SupplierCard';
 import { useSuppliers } from '@/hooks/useSuppliers';
+import { getCompanyId } from '@/lib/companySession';
 
 export default function SuppliersPage() {
   const { isDarkMode, mounted, themeColor } = useTheme();
-  const companyId = '915a8bc1-5db7-4605-93a9-b78090e75679';
-  const latestQuotationId = 'd7f46ae7-19c2-409d-8ab4-dfbb458c5248';
+  const companyId = getCompanyId();
+  const latestQuotationId = '';
   const [isCmdOpen, setIsCmdOpen] = useState(false);
 
   const {
@@ -38,7 +39,7 @@ export default function SuppliersPage() {
     <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
       <AppHeader
         title="Gestão de Fornecedores"
-        subtitle="Melo Perfumaria — Diretório avançado de parceiros B2B."
+        subtitle="Diretório avançado de parceiros B2B da empresa."
         onOpenCmd={() => setIsCmdOpen(true)}
       />
 

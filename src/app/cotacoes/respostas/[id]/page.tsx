@@ -27,11 +27,13 @@ interface QuotationSupplier {
   supplierId: string;
   name?: string | null;
   status?: string | null;
+  observation?: string | null;
 }
 
 interface Quotation {
   id: string;
   title: string;
+  paymentTerms?: string | null;
   startDate?: string | Date | null;
   endDate?: string | Date | null;
   suppliers?: QuotationSupplier[];
@@ -64,6 +66,7 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedChoices, setSelectedChoices] = useState<Record<string, string>>({});
+  const [ignoredProducts, setIgnoredProducts] = useState<Set<string>>(new Set());
   const [isCmdOpen, setIsCmdOpen] = useState(false);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -202,6 +205,7 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
   const handleSmartQuote = () => {
     const newChoices: Record<string, string> = {};
     productsList.forEach((prod) => {
+      if (ignoredProducts.has(prod.productId)) return;
       let bestSup = '';
       let lowest = Infinity;
       suppliers.forEach((sup) => {
@@ -219,6 +223,7 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
   };
 
   const handleSelectChoice = (productId: string, supplierId: string) => {
+    if (ignoredProducts.has(productId)) return;
     const updated = { ...selectedChoices };
     if (!supplierId || updated[productId] === supplierId) {
       delete updated[productId];
@@ -228,9 +233,27 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
     setSelectedChoices(updated);
   };
 
+  const handleToggleIgnoredProduct = (productId: string) => {
+    setIgnoredProducts((current) => {
+      const next = new Set(current);
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
+        setSelectedChoices((choices) => {
+          const updated = { ...choices };
+          delete updated[productId];
+          return updated;
+        });
+      }
+      return next;
+    });
+  };
+
   const handleSelectAllForSupplier = (supplierId: string) => {
     const newChoices = { ...selectedChoices };
     productsList.forEach((prod) => {
+      if (ignoredProducts.has(prod.productId)) return;
       const resp = prod.responses[supplierId];
       if (resp && !resp.outOfStock && resp.price > 0) {
         newChoices[prod.productId] = supplierId;
@@ -242,9 +265,16 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
   const handleFinalizeQuotation = async () => {
     try {
       setSaving(true);
-      const ordersMap: Record<string, Array<{ productId: string; description: string; quantity: number; price: number }>> = {};
+      const ordersMap: Record<string, Array<{
+        productId: string;
+        description: string;
+        imageUrl?: string | null;
+        quantity: number;
+        price: number;
+      }>> = {};
 
       Object.entries(selectedChoices).forEach(([productId, supplierId]) => {
+        if (ignoredProducts.has(productId)) return;
         const product = productsList.find(p => p.productId === productId);
         if (product && product.responses[supplierId]) {
           if (!ordersMap[supplierId]) {
@@ -253,25 +283,70 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
           ordersMap[supplierId].push({
             productId,
             description: product.description,
+            imageUrl: product.imageUrl,
             quantity: product.requestedQuantity,
             price: product.responses[supplierId].price,
           });
         }
       });
 
-      if (Object.keys(ordersMap).length === 0) {
-        alert('Nenhum item foi selecionado para compra. Verifique as escolhas.');
+      const unrequestedItems = productsList
+        .filter((product) => ignoredProducts.has(product.productId) || !selectedChoices[product.productId])
+        .map((product) => ({
+          productId: product.productId,
+          description: product.description,
+          imageUrl: product.imageUrl,
+          quantity: product.requestedQuantity,
+          reason: ignoredProducts.has(product.productId)
+            ? 'Não desejado pelo lojista'
+            : 'Sem fornecedor disponível ou não selecionado',
+        }));
+
+      if (Object.keys(ordersMap).length === 0 && unrequestedItems.length === 0) {
+        alert('Selecione um fornecedor ou marque os produtos que não serão comprados.');
         setSaving(false);
         return;
       }
 
-      localStorage.setItem(`quotation_orders_${quotationId}`, JSON.stringify(ordersMap));
+      const orderSnapshot = {
+        paymentTerms: quotation.paymentTerms || '',
+        orders: ordersMap,
+        unrequestedItems,
+      };
+      localStorage.setItem(`quotation_orders_${quotationId}`, JSON.stringify(orderSnapshot));
 
-      await fetch(`/api/quotations/${quotationId}/finalize`, {
+      const finalizeResponse = await fetch(`/api/quotations/${quotationId}/finalize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ choices: selectedChoices, orders: ordersMap }),
-      }).catch(() => {});
+        body: JSON.stringify({
+          choices: selectedChoices,
+          orders: ordersMap,
+          unrequestedItems,
+          paymentTerms: quotation.paymentTerms || '',
+        }),
+      });
+
+      if (!finalizeResponse.ok) {
+        const failure = await finalizeResponse.json().catch(() => ({}));
+        throw new Error(failure.error || 'Não foi possível registrar os pedidos.');
+      }
+
+      const finalized = await finalizeResponse.json() as {
+        orders: Array<{ id: string; supplierId: string }>;
+      };
+      const ordersWithIds = finalized.orders.reduce<Record<string, unknown>>((result, order) => {
+        result[order.supplierId] = {
+          orderId: order.id,
+          status: 'SENT',
+          items: ordersMap[order.supplierId],
+        };
+        return result;
+      }, {});
+      localStorage.setItem(`quotation_orders_${quotationId}`, JSON.stringify({
+        paymentTerms: quotation.paymentTerms || '',
+        orders: ordersWithIds,
+        unrequestedItems,
+      }));
 
       alert('Cotação finalizada com sucesso! Os pedidos de compra foram gerados.');
       router.push(`/cotacoes/pedidos/${quotationId}`);
@@ -289,7 +364,7 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
       const resp = prod.responses[sup.supplierId];
       return !resp || resp.outOfStock || resp.price === 0;
     });
-    return !hasChoice || allOutOfStock;
+    return !ignoredProducts.has(prod.productId) && (!hasChoice || allOutOfStock);
   });
 
   return (
@@ -349,7 +424,10 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
         <QuotationTable
           productsList={productsList}
           suppliers={suppliers}
+          paymentTerms={quotation.paymentTerms}
           selectedChoices={selectedChoices}
+          ignoredProducts={ignoredProducts}
+          onToggleIgnoredProduct={handleToggleIgnoredProduct}
           onSelectChoice={handleSelectChoice}
           onSelectAllForSupplier={handleSelectAllForSupplier}
           formatCurrency={formatCurrency}
@@ -365,7 +443,7 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
               Produtos sem fornecedor selecionado ou não atendidos ({pendingProducts.length})
             </h3>
             <p className="text-xs opacity-70">
-              Certifique-se de alocar todos os itens necessários antes de despachar os pedidos de compra para os distribuidores da Melo Perfumaria.
+              Certifique-se de alocar todos os itens necessários antes de despachar os pedidos de compra para os distribuidores.
             </p>
           </div>
         )}

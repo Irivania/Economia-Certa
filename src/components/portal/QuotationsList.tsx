@@ -17,6 +17,8 @@ export interface QuotationItemResult {
 export interface QuotationSupplierResult {
   quotationSupplierId: string;
   quotationId: string;
+  supplierId?: string;
+  supplierName?: string | null;
   status: string;
   totalOffered?: number | string | null;
   token: string;

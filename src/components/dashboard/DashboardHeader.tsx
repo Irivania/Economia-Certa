@@ -17,6 +17,8 @@ export function DashboardHeader({
   onLogout,
   isDarkMode,
 }: DashboardHeaderProps) {
+  const canManageCompany = ['admin', 'gerente'].includes(userRole);
+
   return (
     <div className={`border-b ${isDarkMode ? 'bg-slate-900/50 border-slate-800' : 'bg-white/80 border-slate-200'} backdrop-blur-md sticky top-0 z-30 px-6 sm:px-12 py-3 flex flex-col sm:flex-row justify-between items-center gap-4`}>
       <div className="flex items-center gap-3">
@@ -25,7 +27,7 @@ export function DashboardHeader({
         </div>
         <div>
           <p className="text-xs font-bold leading-none">{userName}</p>
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
             <span className="text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500 font-bold border border-indigo-500/20">
               Cargo: {userRole}
             </span>
@@ -38,9 +40,17 @@ export function DashboardHeader({
             {userRole === 'admin' && (
               <Link
                 href="/usuarios"
-                className="text-[11px] text-purple-600 hover:underline font-bold ml-2"
+                className="text-[11px] text-purple-600 hover:underline font-bold ml-1"
               >
                 ⚙️ Gestão de Utilizadores
+              </Link>
+            )}
+            {canManageCompany && (
+              <Link
+                href="/configuracoes/empresa"
+                className="text-[11px] text-emerald-600 hover:underline font-bold ml-1"
+              >
+                🏢 Dados da Empresa
               </Link>
             )}
           </div>

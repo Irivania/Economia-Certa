@@ -11,6 +11,7 @@ import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { DashboardMetrics } from '@/components/dashboard/DashboardMetrics';
 import { DashboardQuickAccess } from '@/components/dashboard/DashboardQuickAccess';
 import { RoleSelectionModal } from '@/components/dashboard/RoleSelectionModal';
+import { getCompanyId } from '@/lib/companySession';
 
 const subscribeToHydration = () => () => {};
 
@@ -37,6 +38,8 @@ export default function DashboardPage() {
 
   const [productCount, setProductCount] = useState(0);
   const [quotationCount, setQuotationCount] = useState(0);
+  const [completedQuotationCount, setCompletedQuotationCount] = useState(0);
+  const [latestQuotationId, setLatestQuotationId] = useState('');
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -79,8 +82,7 @@ export default function DashboardPage() {
     () => false,
   );
 
-  const companyId = '915a8bc1-5db7-4605-93a9-b78090e75679';
-  const latestQuotationId = 'd7f46ae7-19c2-409d-8ab4-dfbb458c5248';
+  const [companyId] = useState(() => getCompanyId());
 
   const handleLogout = () => {
     sessionStorage.removeItem('melo_company_session');
@@ -145,8 +147,19 @@ export default function DashboardPage() {
         }
 
         if (qRes.ok) {
-          const quotations = await qRes.json();
-          setQuotationCount(Array.isArray(quotations) ? quotations.length : 0);
+          const quotations = await qRes.json() as Array<{ id?: string; status?: string | null }>;
+          if (Array.isArray(quotations)) {
+            const activeQuotations = quotations.filter((quotation) =>
+              ['OPEN', 'PENDING'].includes(String(quotation.status || '').toUpperCase()),
+            );
+            const completedQuotations = quotations.filter((quotation) =>
+              ['COMPLETED', 'RESPONDED', 'CLOSED', 'ORDERED', 'PARTIALLY_CLOSED'].includes(String(quotation.status || '').toUpperCase()),
+            );
+
+            setQuotationCount(activeQuotations.length);
+            setCompletedQuotationCount(completedQuotations.length);
+            setLatestQuotationId(quotations[0]?.id || '');
+          }
         }
       } catch (err) {
         console.error('Erro ao carregar métricas do dashboard:', err);
@@ -193,13 +206,13 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => addToast('Ação Simulada', 'Link de cotação copiado para o WhatsApp com sucesso!', 'success')}
-              className="px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 text-xs font-bold transition-colors border border-emerald-500/25"
+              className="px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 text-xs font-bold transition-colors border border-emerald-500/25 cursor-pointer"
             >
               Testar Toast WhatsApp 📲
             </button>
             <button 
               onClick={() => setIsCmdOpen(true)}
-              className="text-xs font-bold text-indigo-500 hover:underline px-2"
+              className="text-xs font-bold text-indigo-500 hover:underline px-2 cursor-pointer"
             >
               Abrir Menu &rarr;
             </button>
@@ -231,8 +244,8 @@ export default function DashboardPage() {
         <DashboardMetrics
           productCount={productCount}
           quotationCount={quotationCount}
+          completedQuotationCount={completedQuotationCount}
           loading={loading}
-          canImportData={canImportData}
           isDarkMode={isDarkMode}
         />
 

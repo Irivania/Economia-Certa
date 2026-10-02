@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNotNull } from 'drizzle-orm';
 import crypto from 'crypto';
 import { db } from '@/db/db';
-import { quotationItems, quotations, products, quotationSuppliers, suppliers } from '@/db/schema';
+import {
+  quotationItems,
+  quotations,
+  products,
+  quotationSuppliers,
+  quotationSupplierItems,
+  suppliers,
+} from '@/db/schema';
 import { uppercaseText } from '@/lib/text';
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -52,21 +59,25 @@ export async function GET(request: NextRequest, context: RouteContext) {
         name: suppliers.name,
         status: quotationSuppliers.status,
         totalOffered: quotationSuppliers.totalOffered,
+        observation: quotationSuppliers.observation,
         token: quotationSuppliers.token,
       })
       .from(quotationSuppliers)
       .leftJoin(suppliers, eq(quotationSuppliers.supplierId, suppliers.id))
-      .where(eq(quotationSuppliers.quotationId, id));
+      .where(
+        and(
+          eq(quotationSuppliers.quotationId, id),
+          isNotNull(suppliers.id),
+          isNotNull(suppliers.name),
+        ),
+      );
 
     // Busca todos os itens gravados na cotação
     const rawItems = await db
       .select({
         id: quotationItems.id,
         productId: quotationItems.productId,
-        supplierId: quotationItems.supplierId,
         requestedQuantity: quotationItems.requestedQuantity,
-        price: quotationItems.price,
-        outOfStock: quotationItems.outOfStock,
         productDescription: products.description,
         productBrand: products.brand,
         productEan: products.ean,
@@ -76,7 +87,57 @@ export async function GET(request: NextRequest, context: RouteContext) {
       .leftJoin(products, eq(quotationItems.productId, products.id))
       .where(eq(quotationItems.quotationId, id));
 
-    let items = rawItems;
+    const responseRows = await db
+      .select({
+        quotationSupplierId: quotationSupplierItems.quotationSupplierId,
+        supplierId: quotationSuppliers.supplierId,
+        productId: quotationSupplierItems.productId,
+        price: quotationSupplierItems.price,
+        outOfStock: quotationSupplierItems.outOfStock,
+      })
+      .from(quotationSupplierItems)
+      .innerJoin(
+        quotationSuppliers,
+        eq(quotationSupplierItems.quotationSupplierId, quotationSuppliers.id),
+      )
+      .where(eq(quotationSuppliers.quotationId, id));
+
+    const responsesBySupplierAndProduct = new Map(
+      responseRows.map((response) => [
+        `${response.supplierId}:${response.productId}`,
+        response,
+      ]),
+    );
+
+    let items = rawItems.flatMap((item) => {
+      const supplierResponses = suppliersList
+        .map((supplier) =>
+          responsesBySupplierAndProduct.get(
+            `${supplier.supplierId}:${item.productId}`,
+          ),
+        )
+        .filter((response): response is (typeof responseRows)[number] =>
+          Boolean(response),
+        );
+
+      if (supplierResponses.length === 0) {
+        return [
+          {
+            ...item,
+            supplierId: null as string | null,
+            price: '0',
+            outOfStock: false,
+          },
+        ];
+      }
+
+      return supplierResponses.map((response) => ({
+        ...item,
+        supplierId: response.supplierId,
+        price: response.price,
+        outOfStock: response.outOfStock,
+      }));
+    });
 
     // Se não houver itens gravados, resgatamos os produtos que pertencem ao histórico ou catálogo base preservando as quantidades corretas
     if (items.length === 0) {
@@ -107,7 +168,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({
       ...quotation,
-      paymentTerms: extractPaymentTerms(quotation.title),
+      paymentTerms:
+        quotation.paymentTerms || extractPaymentTerms(quotation.title) || '',
       suppliers: suppliersList,
       items: formattedItems,
     });
@@ -159,9 +221,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
           id: crypto.randomUUID(),
           quotationId: id,
           productId: String(item.id || item.productId || ''),
-          supplierId,
           requestedQuantity: String(item.requestedQuantity || 1),
-          price: String(item.costPrice || item.unitPrice || item.price || 0),
         });
       }
     }

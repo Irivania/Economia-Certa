@@ -1,6 +1,11 @@
 import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/db/db";
-import { quotationSuppliers, quotations, quotationItems } from "@/db/schema";
+import {
+  quotationSuppliers,
+  quotations,
+  quotationItems,
+  quotationSupplierItems,
+} from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { submitQuotationResponseSchema } from "@/modules/portal/portalValidation";
 import { recordAuditLog } from "@/modules/audit/auditService";
@@ -44,7 +49,19 @@ export async function POST(request: NextRequest) {
 
     const { supplierRecord, quotation } = record;
 
-    // 2. Validação Temporal Rigorosa no Backend
+    // 2. Bloqueio de Imutabilidade: Impede re-envio ou alteração se já foi respondido
+    if (supplierRecord.status === "responded") {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Esta proposta já foi enviada anteriormente e encontra-se bloqueada para edições.",
+        },
+        { status: 403 },
+      );
+    }
+
+    // 3. Validação Temporal Rigorosa no Backend
     if (quotation.endDate || quotation.closingTime) {
       const datePart = quotation.endDate
         ? String(quotation.endDate).split("T")[0]
@@ -72,6 +89,7 @@ export async function POST(request: NextRequest) {
     }
 
     const quotationId = quotation.id;
+    const quotationSupplierId = supplierRecord.id;
     const supplierId = supplierRecord.supplierId;
 
     const items = await db
@@ -81,6 +99,7 @@ export async function POST(request: NextRequest) {
 
     let calculatedTotal = 0;
 
+    // 4. Salva ou atualiza os preços isoladamente por fornecedor (Verificação segura)
     for (const item of items) {
       const itemId = item.id;
       const productId = item.productId;
@@ -99,21 +118,46 @@ export async function POST(request: NextRequest) {
         calculatedTotal += finalPrice * requestedQty;
       }
 
-      await db
-        .update(quotationItems)
-        .set({
-          price: String(finalPrice),
-          supplierId: supplierId,
-          outOfStock: isUnavailable,
-        } as Record<string, unknown>)
+      // Verifica se já existe um registo prévio para este item deste fornecedor
+      const existingRows = await db
+        .select()
+        .from(quotationSupplierItems)
         .where(
           and(
-            eq(quotationItems.quotationId, quotationId),
-            eq(quotationItems.productId, productId),
-          ),
+            eq(quotationSupplierItems.quotationSupplierId, quotationSupplierId),
+            eq(quotationSupplierItems.productId, productId)
+          )
         );
+
+      if (existingRows.length > 0) {
+        // Atualiza o registo existente
+        await db
+          .update(quotationSupplierItems)
+          .set({
+            price: String(finalPrice),
+            outOfStock: isUnavailable,
+          })
+          .where(
+            and(
+              eq(quotationSupplierItems.quotationSupplierId, quotationSupplierId),
+              eq(quotationSupplierItems.productId, productId)
+            )
+          );
+      } else {
+        // Insere um novo registo
+        await db
+          .insert(quotationSupplierItems)
+          .values({
+            id: crypto.randomUUID(),
+            quotationSupplierId,
+            productId,
+            price: String(finalPrice),
+            outOfStock: isUnavailable,
+          });
+      }
     }
 
+    // 5. Atualiza o status do fornecedor para 'responded' e guarda observação/total
     const updateData: Record<string, unknown> = {
       status: "responded",
       totalOffered: calculatedTotal,
@@ -128,19 +172,19 @@ export async function POST(request: NextRequest) {
       .set(updateData)
       .where(eq(quotationSuppliers.token, token));
 
-    // 3. Registo de Auditoria: Grava o envio da proposta comercial com sucesso
+    // 6. Registo de Auditoria
     await recordAuditLog({
       companyId: quotation.companyId,
       quotationId,
       supplierId,
       action: "QUOTATION_PROPOSAL_SUBMITTED",
-      details: `Proposta submetida com sucesso. Valor total ofertado: R$ ${calculatedTotal.toFixed(2)}`,
+      details: `Proposta submetida com sucesso por este fornecedor. Valor total ofertado: R$ ${calculatedTotal.toFixed(2)}`,
       ipAddress: request.headers.get("x-forwarded-for") || "unknown",
     });
 
     return NextResponse.json({
       success: true,
-      message: "Proposta enviada com sucesso!",
+      message: "Proposta enviada com sucesso e bloqueada para edições!",
     });
   } catch (error) {
     console.error("❌ [API Responder] Erro crítico:", error);

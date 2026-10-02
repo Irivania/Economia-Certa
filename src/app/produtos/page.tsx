@@ -8,6 +8,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { CommandMenu } from '@/components/CommandMenu';
 import { ProductForm } from '@/components/ProductForm';
 import { ProductTable } from '@/components/ProductTable';
+import { getCompanyId } from '@/lib/companySession';
 
 interface Product {
   id: string;
@@ -75,8 +76,8 @@ export default function ProductsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const companyId = '915a8bc1-5db7-4605-93a9-b78090e75679';
-  const latestQuotationId = 'd7f46ae7-19c2-409d-8ab4-dfbb458c5248';
+  const companyId = getCompanyId();
+  const latestQuotationId = '';
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -259,7 +260,7 @@ export default function ProductsPage() {
       {/* Cabeçalho Global Unificado */}
       <AppHeader
         title="Catálogo & Gestão de Produtos"
-        subtitle="Melo Perfumaria — Controle de itens, custos, estoque e tributos."
+        subtitle="Controle de itens, custos, estoque e tributos da empresa."
         onOpenCmd={() => setIsCmdOpen(true)}
       />
 

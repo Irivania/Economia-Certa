@@ -101,7 +101,7 @@ export default function UsersManagementPage() {
       
       <AppHeader
         title="Gestão de Utilizadores & Permissões"
-        subtitle="Controle centralizado de acessos corporativos da Melo Perfumaria."
+        subtitle="Controle centralizado de acessos corporativos da empresa."
         onOpenCmd={() => {}}
       />
 

@@ -110,7 +110,7 @@ export default function QuotationTrackingPage({ params }: { params: Promise<{ id
       
       <AppHeader
         title="Acompanhamento de Cotação"
-        subtitle="Melo Perfumaria — Monitorização em tempo real de distribuidores."
+        subtitle="Monitorização em tempo real de distribuidores."
         onOpenCmd={() => setIsCmdOpen(true)}
       />
 

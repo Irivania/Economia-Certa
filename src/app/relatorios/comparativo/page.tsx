@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useTheme } from '@/context/ThemeContext';
 import { AppHeader } from '@/components/AppHeader';
+import { getCompanyId } from '@/lib/companySession';
 import { CommandMenu } from '@/components/CommandMenu';
 
 interface QuotationItem {
@@ -32,7 +33,7 @@ interface Quotation {
   items?: QuotationItem[];
 }
 
-const companyId = '915a8bc1-5db7-4605-93a9-b78090e75679';
+const companyId = getCompanyId();
 
 function formatCurrency(value: number | null | undefined) {
   if (value === null || value === undefined || Number.isNaN(value)) return '-';

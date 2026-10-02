@@ -5,22 +5,23 @@ import Link from 'next/link';
 interface DashboardMetricsProps {
   productCount: number;
   quotationCount: number;
+  completedQuotationCount?: number;
   loading: boolean;
-  canImportData: boolean;
   isDarkMode: boolean;
 }
 
 export function DashboardMetrics({
   productCount,
   quotationCount,
+  completedQuotationCount = 0,
   loading,
-  canImportData,
   isDarkMode,
 }: DashboardMetricsProps) {
   const cardBg = isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/80 text-slate-900';
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Card 1: Produtos */}
       <div className={`${cardBg} rounded-2xl p-6 shadow-xl border flex flex-col justify-between transition-all group`}>
         <div>
           <div className="flex justify-between items-center">
@@ -37,6 +38,7 @@ export function DashboardMetrics({
         </div>
       </div>
 
+      {/* Card 2: Cotações Abertas */}
       <div className={`${cardBg} rounded-2xl p-6 shadow-xl border flex flex-col justify-between transition-all group`}>
         <div>
           <div className="flex justify-between items-center">
@@ -53,25 +55,22 @@ export function DashboardMetrics({
         </div>
       </div>
 
+      {/* Card 3: Cotações Finalizadas / Prontas para Envio */}
       <div className={`${cardBg} rounded-2xl p-6 shadow-xl border flex flex-col justify-between transition-all group`}>
         <div>
           <div className="flex justify-between items-center">
-            <span className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">Módulo de Importação</span>
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/20">
-              100% Sincronizado
+            <span className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">Cotações Finalizadas</span>
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-500 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
+              Prontas para Pedido
             </span>
           </div>
-          <div className="text-2xl font-black mt-3">Planilhas & Dados</div>
+          <div className="text-4xl font-black mt-3">{loading ? '...' : completedQuotationCount}</div>
         </div>
         <div className="mt-6 pt-4 border-t border-slate-500/20 flex items-center justify-between">
-          <span className="text-[11px] text-blue-500 font-semibold bg-blue-500/10 px-2.5 py-1 rounded-md">
-            {canImportData ? 'Pronto para uso' : 'Acesso Restrito'}
+          <span className="text-[11px] text-indigo-500 font-semibold bg-indigo-500/10 px-2.5 py-1 rounded-md">
+            Respostas Recebidas
           </span>
-          {canImportData ? (
-            <Link href="/importar" className="text-xs font-bold hover:underline">Acessar &rarr;</Link>
-          ) : (
-            <span className="text-xs opacity-40">Bloqueado</span>
-          )}
+          <Link href="/cotacoes" className="text-xs font-bold hover:underline">Comparar preços &rarr;</Link>
         </div>
       </div>
     </div>

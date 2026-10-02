@@ -23,6 +23,10 @@ interface QuotationDetail {
   quotationId: string;
   title: string;
   companyName: string;
+  supplierName?: string | null;
+  status?: string;
+  isLocked?: boolean; // <-- Flag de bloqueio individual por fornecedor
+  observation?: string | null;
   startDate?: string | null;
   endDate?: string | null;
   closingTime?: string | null;
@@ -78,6 +82,10 @@ export default function SupplierQuotationResponsePage() {
         const data = (await res.json()) as QuotationDetail;
         setQuotation(data);
 
+        if (data.observation) {
+          setObservation(data.observation);
+        }
+
         if (data.items && data.items.length > 0) {
           const initialPrices: Record<string, string> = {};
           const initialOutOfStock: Record<string, boolean> = {};
@@ -98,10 +106,12 @@ export default function SupplierQuotationResponsePage() {
           setPrices(initialPrices);
           setOutOfStock(initialOutOfStock);
 
-          setTimeout(() => {
-            const firstId = data.items[0].id;
-            inputRefs.current[firstId]?.focus();
-          }, 300);
+          if (!data.isLocked) {
+            setTimeout(() => {
+              const firstId = data.items[0].id;
+              inputRefs.current[firstId]?.focus();
+            }, 300);
+          }
         }
       } else {
         showToast('Erro ao carregar itens da cotação.');
@@ -127,6 +137,7 @@ export default function SupplierQuotationResponsePage() {
   }, [sessionData, token, router, loadQuotationDetails]);
 
   const handlePriceChange = (itemId: string, value: string) => {
+    if (quotation?.isLocked) return;
     const formatted = formatCurrency(value);
     setPrices((prev) => ({ ...prev, [itemId]: formatted }));
     
@@ -136,6 +147,7 @@ export default function SupplierQuotationResponsePage() {
   };
 
   const toggleOutOfStock = (itemId: string) => {
+    if (quotation?.isLocked) return;
     setOutOfStock((prev) => {
       const nextState = !prev[itemId];
       if (nextState) {
@@ -150,6 +162,7 @@ export default function SupplierQuotationResponsePage() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, currentIndex: number) => {
+    if (quotation?.isLocked) return;
     if (e.key === 'Enter') {
       e.preventDefault();
 
@@ -175,6 +188,7 @@ export default function SupplierQuotationResponsePage() {
 
   const handleSubmitResponse = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (quotation?.isLocked) return;
 
     if (quotation) {
       for (const item of quotation.items) {
@@ -250,7 +264,7 @@ export default function SupplierQuotationResponsePage() {
         title="Portal do Fornecedor"
         representativeName="Fornecedor"
         representativeEmail=""
-        activeBrand={quotation?.companyName || 'GERAL'}
+        activeBrand={quotation?.supplierName || 'GERAL'}
         onLogout={() => router.push('/portal/login')}
       />
 
@@ -267,6 +281,13 @@ export default function SupplierQuotationResponsePage() {
         ) : (
           <form onSubmit={handleSubmitResponse} className="space-y-6">
             
+            {quotation.isLocked && (
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold text-center flex items-center justify-center gap-2 shadow-sm">
+                <span>🔒</span>
+                <span>Esta proposta já foi enviada por este fornecedor e encontra-se bloqueada para edições.</span>
+              </div>
+            )}
+
             <SupplierQuotationHeader
               quotation={{
                 title: quotation.title,
@@ -281,17 +302,20 @@ export default function SupplierQuotationResponsePage() {
               totalItems={totalItems}
             />
 
-            <SupplierQuotationTable
-              items={quotation.items}
-              isDarkMode={isDarkMode}
-              prices={prices}
-              outOfStock={outOfStock}
-              submitting={submitting}
-              inputRefs={inputRefs}
-              onPriceChange={handlePriceChange}
-              onKeyDown={handleKeyDown}
-              onToggleOutOfStock={toggleOutOfStock}
-            />
+            {/* Envolvemos a tabela ou repassamos o estado de bloqueio para que desative os inputs */}
+            <div className={quotation.isLocked ? 'pointer-events-none opacity-85 select-none' : ''}>
+              <SupplierQuotationTable
+                items={quotation.items}
+                isDarkMode={isDarkMode}
+                prices={prices}
+                outOfStock={outOfStock}
+                submitting={submitting || Boolean(quotation.isLocked)}
+                inputRefs={inputRefs}
+                onPriceChange={handlePriceChange}
+                onKeyDown={handleKeyDown}
+                onToggleOutOfStock={toggleOutOfStock}
+              />
+            </div>
 
             <div className={`p-8 rounded-3xl shadow-xl border backdrop-blur-md space-y-3 ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200/80'}`}>
               <label className="block text-xs font-black uppercase tracking-wider opacity-80">
@@ -299,14 +323,14 @@ export default function SupplierQuotationResponsePage() {
               </label>
               <textarea
                 rows={3}
-                disabled={submitting}
+                disabled={submitting || Boolean(quotation.isLocked)}
                 placeholder="Ex: Condições de pagamento, prazo de entrega estimado, marcas alternativas disponíveis..."
                 value={observation}
                 onChange={(e) => setObservation(e.target.value)}
                 className={`w-full p-4 text-xs rounded-2xl border outline-none transition-all resize-none shadow-sm ${
                   isDarkMode 
-                    ? 'bg-slate-950 border-slate-800 text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20' 
-                    : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20'
+                    ? 'bg-slate-950 border-slate-800 text-white focus:border-indigo-500' 
+                    : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-600'
                 }`}
               />
             </div>
@@ -319,14 +343,17 @@ export default function SupplierQuotationResponsePage() {
               >
                 ← Voltar ao Painel
               </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-extrabold px-9 py-3.5 rounded-2xl text-xs transition-all cursor-pointer shadow-xl shadow-indigo-600/30 flex items-center gap-2 disabled:opacity-50"
-              >
-                <span>{submitting ? 'A enviar proposta...' : 'Enviar Proposta Completa'}</span>
-                <span className="text-sm">→</span>
-              </button>
+
+              {!quotation.isLocked && (
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-extrabold px-9 py-3.5 rounded-2xl text-xs transition-all cursor-pointer shadow-xl shadow-indigo-600/30 flex items-center gap-2 disabled:opacity-50"
+                >
+                  <span>{submitting ? 'A enviar proposta...' : 'Enviar Proposta Completa'}</span>
+                  <span className="text-sm">→</span>
+                </button>
+              )}
             </div>
           </form>
         )}

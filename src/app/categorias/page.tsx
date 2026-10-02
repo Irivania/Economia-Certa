@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { uppercaseText } from '@/lib/text';
+import { getCompanyId } from '@/lib/companySession';
 
 interface Category {
   id: string;
@@ -19,8 +20,7 @@ export default function CategoriesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // UUID real da Melo Perfumaria
-  const companyId = '915a8bc1-5db7-4605-93a9-b78090e75679';
+  const companyId = getCompanyId();
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -102,7 +102,7 @@ export default function CategoriesPage() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900">🏷️ Gestão de Categorias</h1>
-            <p className="text-slate-600 text-xs sm:text-sm">Melo Perfumaria - Padronização de departamentos e setores.</p>
+            <p className="text-slate-600 text-xs sm:text-sm">Padronização de departamentos e setores da empresa.</p>
           </div>
           <div className="flex gap-3">
             <Link href="/" className="text-slate-600 hover:text-slate-900 text-xs sm:text-sm font-semibold">

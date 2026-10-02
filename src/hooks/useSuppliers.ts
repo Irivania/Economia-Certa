@@ -113,14 +113,17 @@ export function useSuppliers(companyId: string) {
     if (rawValue.length === 8) {
       try {
         setFetchingCep(true);
-        const res = await fetch(`https://viacep.com.br/ws/${rawValue}/json/`);
+        const res = await fetch(`/api/proxy/cnpj?cep=${rawValue}`);
         const data = await res.json();
-        if (!data.erro) {
-          setAddress(uppercaseText(`${data.logradouro}, Bairro: ${data.bairro}, ${data.localidade} - ${data.uf}`));
+        if (res.ok && !data.erro) {
+          setAddress(uppercaseText(`${data.street || data.logradouro || ''}, Bairro: ${data.neighborhood || data.bairro || ''}, ${data.city || data.localidade || ''} - ${data.state || data.uf || ''}`));
           showToast('Endereço localizado via CEP!');
         } else {
-          alert('CEP não encontrado.');
+          showToast('CEP não encontrado. Preencha o endereço manualmente.');
         }
+      } catch (error) {
+        console.error('Erro ao consultar CEP:', error);
+        showToast('Não foi possível consultar o CEP. Preencha o endereço manualmente.');
       } finally {
         setFetchingCep(false);
       }
@@ -139,7 +142,7 @@ export function useSuppliers(companyId: string) {
     if (value.length === 14) {
       try {
         setFetchingCnpj(true);
-        const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${value}`);
+        const res = await fetch(`/api/proxy/cnpj?cnpj=${value}`);
         const data = await res.json();
         if (res.ok && !data.message) {
           if (data.nome_fantasia || data.razao_social) setName(uppercaseText(data.nome_fantasia || data.razao_social));
@@ -148,7 +151,12 @@ export function useSuppliers(companyId: string) {
           if (data.ddd_telefone_1) setPhone(data.ddd_telefone_1);
           if (data.email) setEmail(data.email.toLowerCase());
           showToast('Dados carregados via CNPJ!');
+        } else {
+          showToast('CNPJ não encontrado. Preencha os dados manualmente.');
         }
+      } catch (error) {
+        console.error('Erro ao consultar CNPJ:', error);
+        showToast('Não foi possível consultar o CNPJ. Preencha os dados manualmente.');
       } finally {
         setFetchingCnpj(false);
       }

@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
-import { supplierConnections, suppliers } from '@/db/schema';
-import { eq, and, inArray } from 'drizzle-orm';
+import { companies, supplierConnections, suppliers } from '@/db/schema';
+import { eq, and, inArray, SQL } from 'drizzle-orm';
 
 // GET: Listar conexões por companyId, supplierId ou supplierEmail
 export async function GET(request: NextRequest) {
@@ -13,11 +13,33 @@ export async function GET(request: NextRequest) {
 
     console.log('🔍 [API CONNECTIONS GET] Parâmetros recebidos:', { companyId, supplierId, supplierEmail });
 
+    const selectConnections = (whereClause: SQL<unknown>) => db
+      .select({
+        id: supplierConnections.id,
+        companyId: supplierConnections.companyId,
+        supplierId: supplierConnections.supplierId,
+        initiatedBy: supplierConnections.initiatedBy,
+        status: supplierConnections.status,
+        createdAt: supplierConnections.createdAt,
+        companyName: companies.name,
+        companyTradeName: companies.tradeName,
+        companyCnpj: companies.document,
+        companyEmail: companies.email,
+        companyPhone: companies.phone,
+        companyCep: companies.cep,
+        companyAddress: companies.address,
+        companyNumber: companies.number,
+        companyNeighborhood: companies.neighborhood,
+        companyCity: companies.city,
+        companyState: companies.state,
+        companyType: companies.type,
+      })
+      .from(supplierConnections)
+      .leftJoin(companies, eq(companies.id, supplierConnections.companyId))
+      .where(whereClause);
+
     if (companyId) {
-      const results = await db
-        .select()
-        .from(supplierConnections)
-        .where(eq(supplierConnections.companyId, companyId));
+      const results = await selectConnections(eq(supplierConnections.companyId, companyId));
       
       console.log('📦 [API CONNECTIONS GET] Conexões para a empresa:', results.length);
       return NextResponse.json(results);
@@ -42,10 +64,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (matchedSupplierIds.length > 0) {
-      const results = await db
-        .select()
-        .from(supplierConnections)
-        .where(inArray(supplierConnections.supplierId, matchedSupplierIds));
+      const results = await selectConnections(inArray(supplierConnections.supplierId, matchedSupplierIds));
       
       console.log('📦 [API CONNECTIONS GET] Conexões encontradas para o fornecedor:', results.length);
       return NextResponse.json(results);
