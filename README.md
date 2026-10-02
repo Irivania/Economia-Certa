@@ -106,9 +106,8 @@ npm run test
 
 # Executar testes End-to-End (Playwright)
 npx playwright test
-
-📄 Licença
-Distribuído sob a licença MIT. Veja LICENSE para mais informações.
+📄 LicençaDistribuído sob a licença MIT. Veja LICENSE para mais informações.
+---
 
 Com base no seu `README.md` original, redesenhei a documentação para o transformar num verdadeiro **cartão de visitas de nível sênior (World-Class)**.
 
@@ -281,5 +280,3 @@ Distribuído sob a licença MIT. Veja `LICENSE` para mais informações.
 2. **Decisões de Engenharia (ADR):** Mostra que você não apenas escreveu código, mas pensou na arquitetura (Multi-tenancy, Type Safety, Zod).
 3. **Destaque ao Módulo B2B:** Valoriza a complexidade do portal de fornecedores com tokens e cronómetros, que diferencia o seu sistema de um ERP comum de CRUD.
 4. **Instruções Limpas:** Facilita a vida de qualquer recrutador ou avaliador técnico que queira testar a aplicação localmente em menos de 2 minutos.
-
-```
