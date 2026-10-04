@@ -1,5 +1,5 @@
 import { db } from './db/db';
-import { quotationItems, products } from './db/schema';
+import { quotationItems } from './db/schema';
 
 async function testQuery() {
   try {

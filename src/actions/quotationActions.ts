@@ -122,7 +122,7 @@ export async function submitQuotationServerAction(
     }
 
     const updateData: Record<string, unknown> = {
-      status: "responded",
+      status: "RESPONDIDO",
       totalOffered: calculatedTotal,
     };
 

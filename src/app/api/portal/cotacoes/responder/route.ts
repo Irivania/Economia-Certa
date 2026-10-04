@@ -9,6 +9,7 @@ import {
 import { eq, and } from "drizzle-orm";
 import { submitQuotationResponseSchema } from "@/modules/portal/portalValidation";
 import { recordAuditLog } from "@/modules/audit/auditService";
+import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +51,10 @@ export async function POST(request: NextRequest) {
     const { supplierRecord, quotation } = record;
 
     // 2. Bloqueio de Imutabilidade: Impede re-envio ou alteração se já foi respondido
-    if (supplierRecord.status === "responded") {
+    if (
+      supplierRecord.status === "RESPONDIDO" ||
+      supplierRecord.status === "responded"
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -157,9 +161,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 5. Atualiza o status do fornecedor para 'responded' e guarda observação/total
+    // 5. Atualiza o status do fornecedor e guarda observação/total
     const updateData: Record<string, unknown> = {
-      status: "responded",
+      status: "RESPONDIDO",
       totalOffered: calculatedTotal,
     };
 

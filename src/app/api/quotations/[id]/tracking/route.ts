@@ -57,7 +57,9 @@ export async function GET(
       id: sup.supplierId,
       name: sup.name,
       phone: sup.phone,
-      status: sup.status === 'RESPONDIDO' ? 'RESPONDIDO' : 'PENDENTE',
+      status: ['RESPONDIDO', 'responded'].includes(sup.status)
+        ? 'RESPONDIDO'
+        : 'PENDENTE',
       answeredAt: null,
       totalOffered: sup.totalOffered ? Number(sup.totalOffered) : 0,
       token: sup.token,

@@ -45,7 +45,9 @@ export async function GET(request: NextRequest) {
     const targetQuotationId = supplierRecord.quotationId;
     const quotationSupplierId = supplierRecord.id;
     // O bloqueio (isLocked) baseia-se exclusivamente no status deste quotationSupplier específico!
-    const isLocked = supplierRecord.status === "responded";
+    const isLocked =
+      supplierRecord.status === "RESPONDIDO" ||
+      supplierRecord.status === "responded";
 
     const quotationRows = await db
       .select()
