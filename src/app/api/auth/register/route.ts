@@ -49,7 +49,25 @@ export async function POST(request: NextRequest) {
       return { company, user };
     });
 
-    return NextResponse.json({ success: true, company: result.company, user: result.user }, { status: 201 });
+    const session = {
+      ...result.user,
+      name: result.company.name,
+      tradeName: result.company.tradeName || '',
+    };
+    const response = NextResponse.json(
+      { success: true, company: result.company, user: result.user },
+      { status: 201 },
+    );
+
+    response.cookies.set('melo_company_session', JSON.stringify(session), {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    return response;
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Preencha os dados obrigatórios correctamente.' }, { status: 400 });

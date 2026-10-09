@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
         endDate: quotations.endDate,
         closingTime: quotations.closingTime,
         companyId: quotations.companyId,
-        brandId: quotations.brandId,
+        brandId: quotationSuppliers.brandId,
         storeName: quotations.storeName,
         supplierName: suppliers.name,
         companyName: companies.name,

@@ -24,6 +24,7 @@ interface UnrequestedItem extends OrderItem {
 }
 
 interface QuotationSupplier {
+  quotationSupplierId?: string;
   supplierId: string;
   name?: string | null;
   observation?: string | null;
@@ -82,23 +83,23 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
   const [sendingOrders, setSendingOrders] = useState<Record<string, boolean>>({});
   const [sentOrderIds, setSentOrderIds] = useState<Record<string, string | null>>(orderIds);
 
-  const sendOrderToRepresentative = async (supplierId: string) => {
-    const items = ordersMap[supplierId];
-    if (!items?.length || sentOrderIds[supplierId] || sendingOrders[supplierId]) return;
+  const sendOrderToRepresentative = async (orderKey: string) => {
+    const items = ordersMap[orderKey];
+    if (!items?.length || sentOrderIds[orderKey] || sendingOrders[orderKey]) return;
 
-    setSendingOrders((current) => ({ ...current, [supplierId]: true }));
+    setSendingOrders((current) => ({ ...current, [orderKey]: true }));
     try {
       const response = await fetch(`/api/quotations/${quotationId}/finalize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          orders: { [supplierId]: items },
+          orders: { [orderKey]: items },
           paymentTerms,
           unrequestedItems,
         }),
       });
       const result = await response.json() as {
-        orders?: Array<{ id: string; supplierId: string }>;
+        orders?: Array<{ id: string; supplierId: string; quotationSupplierId?: string | null }>;
         error?: string;
       };
 
@@ -106,15 +107,17 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
         throw new Error(result.error || 'Não foi possível enviar o pedido.');
       }
 
-      const order = result.orders?.find((item) => item.supplierId === supplierId);
+      const order = result.orders?.find((item) =>
+        (item.quotationSupplierId || item.supplierId) === orderKey,
+      );
       if (!order) {
         throw new Error('A API não retornou o pedido enviado.');
       }
 
-      setSentOrderIds((current) => ({ ...current, [supplierId]: order.id }));
+      setSentOrderIds((current) => ({ ...current, [orderKey]: order.id }));
       const updatedOrders = Object.fromEntries(Object.entries(rawOrdersMap).map(([id, value]) => [
         id,
-        id === supplierId
+        id === orderKey
           ? { orderId: order.id, status: 'SENT', items: ordersMap[id] }
           : value,
       ]));
@@ -123,17 +126,17 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
         orders: updatedOrders,
         unrequestedItems,
       }));
-      alert(`Pedido da ${supplierId} enviado ao representante.`);
+      alert(`Pedido enviado ao representante.`);
     } catch (error) {
       console.error('Erro ao enviar pedido ao representante:', error);
       alert(error instanceof Error ? error.message : 'Não foi possível enviar o pedido.');
     } finally {
-      setSendingOrders((current) => ({ ...current, [supplierId]: false }));
+      setSendingOrders((current) => ({ ...current, [orderKey]: false }));
     }
   };
 
-  const updateOrderStatus = async (supplierId: string, status: 'RECEIVED' | 'CLOSED') => {
-    const orderId = sentOrderIds[supplierId];
+  const updateOrderStatus = async (orderKey: string, status: 'RECEIVED' | 'CLOSED') => {
+    const orderId = sentOrderIds[orderKey];
     if (!orderId) return;
     const response = await fetch(`/api/quotations/${quotationId}/finalize`, {
       method: 'PUT',
@@ -144,7 +147,7 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
       alert('Não foi possível dar baixa no recebimento.');
       return;
     }
-    setOrderStatuses((current) => ({ ...current, [supplierId]: status }));
+    setOrderStatuses((current) => ({ ...current, [orderKey]: status }));
   };
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -174,10 +177,14 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
             if (ordersResponse.ok) {
               const persistedOrders = await ordersResponse.json() as Array<{
                 supplierId: string;
+                quotationSupplierId?: string | null;
                 status: 'SENT' | 'DISPATCHED' | 'RECEIVED' | 'CLOSED';
               }>;
               setOrderStatuses(Object.fromEntries(
-                persistedOrders.map((order) => [order.supplierId, order.status]),
+                persistedOrders.map((order) => [
+                  order.quotationSupplierId || order.supplierId,
+                  order.status,
+                ]),
               ));
             }
             const unrequestedResponse = await fetch(`/api/quotations/${quotationId}/finalize`);
@@ -253,13 +260,15 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
             </div>
           ) : (
             <div className="space-y-6">
-              {Object.entries(ordersMap).map(([supplierId, items]) => {
-                const supplierInfo = suppliers.find((s) => s.supplierId === supplierId);
+              {Object.entries(ordersMap).map(([orderKey, items]) => {
+                const supplierInfo = suppliers.find((s) =>
+                  (s.quotationSupplierId || s.supplierId) === orderKey,
+                );
                 const supplierName = supplierInfo?.name || 'Distribuidor';
                 const totalOrder = items.reduce((acc, i) => acc + i.price * i.quantity, 0);
 
                 return (
-                  <div key={supplierId} className={`rounded-2xl border overflow-hidden shadow-sm transition-all ${
+                  <div key={orderKey} className={`rounded-2xl border overflow-hidden shadow-sm transition-all ${
                     isDarkMode ? 'bg-slate-950/60 border-slate-800' : 'bg-white border-slate-200'
                   }`}>
                     
@@ -274,13 +283,13 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
                       <div className="text-right">
                         <span className="text-[10px] font-bold opacity-60 uppercase tracking-wider">Total do Pedido:</span>
                         <p className="text-base font-black font-mono text-emerald-600 dark:text-emerald-400">{formatCurrency(totalOrder)}</p>
-                        {sentOrderIds[supplierId] && (
+                        {sentOrderIds[orderKey] && (
                           <div className="mt-2 flex flex-wrap justify-end gap-2">
-                            <button type="button" onClick={() => void updateOrderStatus(supplierId, 'RECEIVED')} disabled={orderStatuses[supplierId] === 'RECEIVED' || orderStatuses[supplierId] === 'CLOSED'} className="rounded-xl bg-indigo-600 px-3 py-2 text-[10px] font-bold text-white disabled:opacity-50">
-                              {orderStatuses[supplierId] === 'RECEIVED' || orderStatuses[supplierId] === 'CLOSED' ? '✓ Recebido' : 'Confirmar recebimento'}
+                            <button type="button" onClick={() => void updateOrderStatus(orderKey, 'RECEIVED')} disabled={orderStatuses[orderKey] === 'RECEIVED' || orderStatuses[orderKey] === 'CLOSED'} className="rounded-xl bg-indigo-600 px-3 py-2 text-[10px] font-bold text-white disabled:opacity-50">
+                              {orderStatuses[orderKey] === 'RECEIVED' || orderStatuses[orderKey] === 'CLOSED' ? '✓ Recebido' : 'Confirmar recebimento'}
                             </button>
-                            <button type="button" onClick={() => void updateOrderStatus(supplierId, 'CLOSED')} disabled={orderStatuses[supplierId] !== 'RECEIVED'} className="rounded-xl bg-slate-700 px-3 py-2 text-[10px] font-bold text-white disabled:opacity-50">
-                              {orderStatuses[supplierId] === 'CLOSED' ? '✓ Cotação baixada' : 'Dar baixa na cotação'}
+                            <button type="button" onClick={() => void updateOrderStatus(orderKey, 'CLOSED')} disabled={orderStatuses[orderKey] !== 'RECEIVED'} className="rounded-xl bg-slate-700 px-3 py-2 text-[10px] font-bold text-white disabled:opacity-50">
+                              {orderStatuses[orderKey] === 'CLOSED' ? '✓ Cotação baixada' : 'Dar baixa na cotação'}
                             </button>
                           </div>
                         )}
@@ -335,13 +344,13 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
                     }`}>
                       <button
                         type="button"
-                        onClick={() => void sendOrderToRepresentative(supplierId)}
-                        disabled={Boolean(sentOrderIds[supplierId]) || sendingOrders[supplierId]}
+                        onClick={() => void sendOrderToRepresentative(orderKey)}
+                        disabled={Boolean(sentOrderIds[orderKey]) || sendingOrders[orderKey]}
                         className="rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-lg shadow-indigo-600/25 transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {sentOrderIds[supplierId]
+                        {sentOrderIds[orderKey]
                           ? '✓ Enviado ao representante'
-                          : sendingOrders[supplierId]
+                          : sendingOrders[orderKey]
                             ? 'Enviando...'
                             : '📤 Enviar ao representante'}
                       </button>

@@ -101,6 +101,7 @@ export default function QuotationItemsSection({
                             alt={item.description || 'Produto'}
                             fill
                             sizes="40px"
+                            unoptimized
                             className="object-cover"
                           />
                         </div>

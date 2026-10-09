@@ -1,4 +1,41 @@
-# Economia Certa ERP
+# Economia Certa
+
+#### Video Demo: <URL_DO_VIDEO_AQUI>
+
+#### Description:
+
+O Economia Certa é uma aplicação web para gestão de compras e cotações B2B,
+desenvolvida como projeto final para o CS50. O sistema foi pensado para
+resolver um problema comum de lojas que precisam consultar vários
+representantes e distribuidoras antes de realizar uma compra. Em vez de
+controlar propostas por mensagens, planilhas e cálculos manuais, o lojista
+pode cadastrar produtos, montar uma cotação, encaminhá-la a fornecedores,
+comparar respostas e transformar a escolha final em pedidos separados.
+
+O projeto possui dois ambientes principais. No ambiente do lojista, o usuário
+gerencia empresa, usuários, categorias, produtos, estoque, preços e cotações.
+No portal B2B, o representante acessa as cotações recebidas, pode representar
+mais de uma distribuidora e responde cada cotação em nome da empresa correta.
+O lojista também pode escolher o menor preço automaticamente, comprar todos os
+itens de uma distribuidora, selecionar fornecedor produto a produto ou marcar
+um item como não comprado. Ao final, o sistema apresenta um resumo com
+produtos, quantidades, preços, subtotais, totais por distribuidora, itens não
+atendidos e motivos das decisões.
+
+Uma decisão importante de projeto foi não usar apenas o identificador do
+representante para separar respostas. Um mesmo representante pode trabalhar
+com várias distribuidoras independentes. Por isso, cada participação em uma
+cotação recebe um `quotationSupplierId` próprio e pode apontar para um
+`brandId` específico. Preços, observações, status, tokens de acesso e pedidos
+utilizam esse vínculo individual. Assim, uma resposta destinada à Distribuidora
+1 não aparece para a Distribuidora 2, mesmo quando ambas pertencem ao mesmo
+representante.
+
+O vídeo da demonstração deve apresentar o fluxo completo: login, cadastro de
+produtos, criação de uma cotação, escolha das distribuidoras, resposta no
+portal, comparação de preços, geração de pedidos separados e encerramento
+interno pelo representante. Antes de enviar o projeto, substitua
+`<URL_DO_VIDEO_AQUI>` pela URL real do vídeo solicitado pelo CS50.
 
 [![Next.js](https://img.shields.io/badge/Next.js-16.3.3-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19.2.8-149ECA?style=for-the-badge&logo=react&logoColor=white)](https://react.dev/)
@@ -22,6 +59,7 @@ O sistema liga lojistas, representantes e empresas fornecedoras num fluxo B2B ra
 - [Modelo multi-tenant](#modelo-multi-tenant)
 - [Arquitetura da base de dados](#arquitetura-da-base-de-dados)
 - [Fluxo de cotações e pedidos](#fluxo-de-cotações-e-pedidos)
+- [Arquivos principais](#arquivos-principais)
 - [Estrutura do repositório](#estrutura-do-repositório)
 - [Pré-requisitos](#pré-requisitos)
 - [Instalação e configuração](#instalação-e-configuração)
@@ -84,7 +122,7 @@ As métricas de cotações activas excluem negociações encerradas ou parcialme
 - Importação de produtos por planilhas `.xls` e `.xlsx`.
 - Alertas para reposição de itens abaixo do mínimo.
 
-### Portal do fornecedor
+### Portal do representante e das distribuidoras
 
 O portal permite que representantes trabalhem com várias empresas fornecedoras. Cada empresa representada possui identidade comercial e dados próprios, mesmo quando partilha o mesmo representante.
 
@@ -95,7 +133,10 @@ Exemplo: DPC e Solfarma podem ser geridas pelo mesmo representante sem que:
 - os pedidos sejam encaminhados para o fornecedor errado;
 - os estados de uma negociação alterem a outra.
 
-As respostas são isoladas por vínculo específico entre cotação e fornecedor (`quotation_supplier_id`) e os pedidos são separados por `supplier_id`.
+As respostas são isoladas por vínculo específico entre cotação e distribuidora
+(`quotation_supplier_id`). Os pedidos novos também guardam esse vínculo, além
+do identificador do representante, para que duas distribuidoras do mesmo
+representante nunca compartilhem respostas ou pedidos.
 
 ### Gestão cadastral da empresa
 
@@ -124,7 +165,7 @@ O preenchimento pode ser acelerado por integrações de CNPJ e CEP, reduzindo er
 - Opção de não comprar um produto.
 - Persistência dos itens não pedidos, incluindo produtos sem oferta.
 - Geração de pedidos consolidados por fornecedor.
-- Copiar pedido ou preparar envio por WhatsApp.
+- Exportação da decisão em CSV para consulta e conferência.
 
 ### Ciclo de vida dos pedidos
 
@@ -136,7 +177,8 @@ SENT ───────────────► DISPATCHED ─────
 ```
 
 - `SENT`: pedido criado e enviado pelo lojista.
-- `DISPATCHED`: representante encaminhou o pedido para a empresa.
+- `DISPATCHED`: etapa disponível para fluxos operacionais que necessitem de
+  encaminhamento.
 - `RECEIVED`: lojista confirmou o recebimento da mercadoria.
 - `CLOSED`: conferência concluída e negociação baixada.
 
@@ -229,9 +271,9 @@ A persistência utiliza PostgreSQL com Drizzle ORM. O schema principal está em 
 | `supplier_connections` | Relação entre lojistas e fornecedores | `company_id` + `supplier_id` |
 | `quotations` | Cabeçalho da cotação | `company_id`; prazo e condição |
 | `quotation_items` | Produtos solicitados na cotação | `quotation_id` + `product_id` |
-| `quotation_suppliers` | Participação individual de cada fornecedor | `quotation_id` + `supplier_id`; token |
+| `quotation_suppliers` | Participação individual de cada distribuidora | `quotation_id` + `id`; `supplier_id` e `brand_id`; token |
 | `quotation_supplier_items` | Respostas de preço por fornecedor | `quotation_supplier_id` + `product_id` |
-| `purchase_orders` | Pedido final por fornecedor | `quotation_id` + `supplier_id` |
+| `purchase_orders` | Pedido final por distribuidora | `quotation_id` + `quotation_supplier_id`; `supplier_id` como compatibilidade |
 | `purchase_order_items` | Snapshot dos itens comprados | descrição, imagem, quantidade e preço |
 | `quotation_unrequested_items` | Itens não comprados na negociação | `quotation_id` + `product_id` |
 | `audit_logs` | Eventos importantes do processo | empresa, cotação, fornecedor e acção |
@@ -272,13 +314,61 @@ Comparador
   ▼
 Operação
   │
-  ├─ 8. Representante recebe o pedido
-  ├─ 9. Representante encaminha para a empresa
-  ├─ 10. Lojista confirma recebimento
-  └─ 11. Lojista encerra a cotação
+  ├─ 8. Representante recebe o pedido separado da sua distribuidora
+  ├─ 9. Representante envia o pedido no sistema externo da empresa
+  ├─ 10. Representante marca o recebimento como encerrado no sistema
+  └─ 11. Histórico e auditoria registram a operação
 ```
 
 Cada etapa relevante deve ser reflectida no estado persistido e no histórico de auditoria.
+
+---
+
+## Arquivos principais
+
+Os arquivos abaixo concentram as decisões e os fluxos mais importantes do
+projeto:
+
+- [`src/app/page.tsx`](src/app/page.tsx) apresenta o dashboard do lojista, com
+  métricas de produtos, cotações ativas, cotações concluídas e alertas de
+  estoque mínimo.
+- [`src/app/cotacoes/nova/page.tsx`](src/app/cotacoes/nova/page.tsx) implementa
+  a criação de uma cotação. O lojista informa produtos, quantidades, prazo,
+  condição de pagamento, fornecedores participantes e se a quantidade deve
+  ficar visível para o representante.
+- [`src/app/cotacoes/editar/[id]/page.tsx`](src/app/cotacoes/editar/[id]/page.tsx)
+  permite alterar os mesmos dados da criação, incluindo os fornecedores
+  participantes e a opção de marcar ou desmarcar todos.
+- [`src/app/cotacoes/respostas/[id]/page.tsx`](src/app/cotacoes/respostas/[id]/page.tsx)
+  é o comparador principal. Ele calcula o menor preço, permite decisões
+  individuais, agrupa a escolha por distribuidora, registra itens não
+  comprados, exibe o resumo final e gera pedidos.
+- [`src/app/cotacoes/pedidos/[id]/page.tsx`](src/app/cotacoes/pedidos/[id]/page.tsx)
+  mostra os pedidos separados por distribuidora, seus itens, valores, status e
+  ações de acompanhamento.
+- [`src/app/portal/painel/page.tsx`](src/app/portal/painel/page.tsx) contém o
+  painel do representante, incluindo marcas representadas, cotações recebidas,
+  conexões com lojistas e pedidos destinados à distribuidora ativa.
+- [`src/app/portal/cotacao/[token]/page.tsx`](src/app/portal/cotacao/[token]/page.tsx)
+  é a tela usada pelo representante para responder uma cotação através do
+  token específico do vínculo.
+- [`src/app/api/portal/quotations/route.ts`](src/app/api/portal/quotations/route.ts)
+  lista cotações do portal e agrupa os itens pelo `quotationSupplierId`.
+- [`src/app/api/portal/cotacoes/detalhes/route.ts`](src/app/api/portal/cotacoes/detalhes/route.ts)
+  carrega os dados e preços exclusivos de uma participação de fornecedor.
+- [`src/app/api/quotations/[id]/finalize/route.ts`](src/app/api/quotations/%5Bid%5D/finalize/route.ts)
+  valida as escolhas, grava itens não comprados, cria pedidos separados e
+  controla as transições de status.
+- [`src/db/schema.ts`](src/db/schema.ts) define o modelo PostgreSQL usado pela
+  aplicação, incluindo empresas, produtos, fornecedores, marcas, cotações,
+  respostas, pedidos e auditoria.
+- [`src/services/quotationService.ts`](src/services/quotationService.ts)
+  concentra a criação de vínculos entre cotação, representante e
+  distribuidora.
+- [`src/lib/authServer.ts`](src/lib/authServer.ts) valida a sessão da empresa
+  nas operações server-side.
+- [`src/db/migrations`](src/db/migrations) contém as alterações versionadas
+  necessárias para manter o banco compatível com o código.
 
 ---
 
@@ -482,7 +572,11 @@ As chamadas passam por rotas internas da aplicação para que os componentes do 
 
 ## Estado do projecto
 
-O projecto encontra-se em evolução activa, com o fluxo principal de cotações, respostas, pedidos, encaminhamento, recebimento, encerramento e histórico já estruturado.
+O projeto encontra-se em evolução ativa, com o fluxo principal de cotações,
+respostas, pedidos separados por distribuidora, exportação da decisão,
+encerramento interno e histórico já estruturado. O README documenta a versão
+atual do sistema; a URL do vídeo deve ser preenchida antes da submissão ao
+CS50.
 
 Áreas recomendadas para evolução contínua:
 
@@ -515,4 +609,3 @@ test(finalize): validar transições de estado do pedido
 ## Licença
 
 Este projecto é distribuído sob a licença MIT. Consulte o ficheiro [`LICENSE`](LICENSE) para os termos completos.
-

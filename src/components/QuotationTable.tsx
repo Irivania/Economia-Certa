@@ -16,6 +16,7 @@ interface QuotationItem {
 }
 
 interface QuotationSupplier {
+  id: string;
   supplierId: string;
   name?: string | null;
   status?: string | null;
@@ -58,13 +59,13 @@ export default function QuotationTable({
 
   const supplierTotals: Record<string, number> = {};
   suppliers.forEach((sup) => {
-    supplierTotals[sup.supplierId] = 0;
+    supplierTotals[sup.id] = 0;
   });
 
   productsList.forEach((prod) => {
     const validPrices: number[] = [];
     suppliers.forEach((sup) => {
-      const resp = prod.responses[sup.supplierId];
+      const resp = prod.responses[sup.id];
       if (resp && !resp.outOfStock && resp.price > 0) {
         validPrices.push(resp.price);
       }
@@ -98,13 +99,13 @@ export default function QuotationTable({
     let custoEscolhido = 0;
 
     suppliers.forEach((sup) => {
-      const resp = prod.responses[sup.supplierId];
+      const resp = prod.responses[sup.id];
       if (resp && !resp.outOfStock && resp.price > 0) {
         if (resp.price < menorPreco) {
           menorPreco = resp.price;
-          melhorFornecedorId = sup.supplierId;
+          melhorFornecedorId = sup.id;
         }
-        if (sup.supplierId === selectedSupplierId) {
+        if (sup.id === selectedSupplierId) {
           custoEscolhido = resp.price;
         }
       }
@@ -222,10 +223,10 @@ export default function QuotationTable({
               }`}>
                 <th className="p-5 font-extrabold min-w-[300px]">Produto / EAN / Qtd</th>
                 {suppliers.map((sup) => {
-                  const isFullySelected = productsList.every((prod) => selectedChoices[prod.productId] === sup.supplierId);
+                  const isFullySelected = productsList.every((prod) => selectedChoices[prod.productId] === sup.id);
 
                   return (
-                    <th key={sup.supplierId} className="p-5 text-center min-w-[220px] border-l border-slate-500/10">
+                    <th key={sup.id} className="p-5 text-center min-w-[220px] border-l border-slate-500/10">
                       <div className="font-black text-sm tracking-tight text-indigo-600 dark:text-indigo-400">
                         {sup.name || 'Fornecedor'}
                       </div>
@@ -248,7 +249,7 @@ export default function QuotationTable({
                       <div className="mt-3">
                         <button
                           type="button"
-                          onClick={() => onSelectAllForSupplier(sup.supplierId)}
+                          onClick={() => onSelectAllForSupplier(sup.id)}
                           className="text-[11px] bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500 hover:text-white px-3.5 py-2 rounded-xl font-bold transition-all shadow-sm cursor-pointer inline-flex items-center gap-1.5"
                         >
                           {isFullySelected ? '✓ Todos Selecionados' : '⚡ Comprar tudo aqui'}
@@ -271,10 +272,10 @@ export default function QuotationTable({
                   let menorPreco = Infinity;
                   let melhorFornecedorId = '';
                   suppliers.forEach((sup) => {
-                    const resp = prod.responses[sup.supplierId];
+                    const resp = prod.responses[sup.id];
                     if (resp && !resp.outOfStock && resp.price > 0 && resp.price < menorPreco) {
                       menorPreco = resp.price;
-                      melhorFornecedorId = sup.supplierId;
+                      melhorFornecedorId = sup.id;
                     }
                   });
 
@@ -313,12 +314,12 @@ export default function QuotationTable({
                       </td>
 
                       {suppliers.map((sup) => {
-                        const resp = prod.responses[sup.supplierId];
-                        const isVencedor = resp && !resp.outOfStock && resp.price > 0 && sup.supplierId === melhorFornecedorId;
-                        const isSelected = selectedChoices[prod.productId] === sup.supplierId;
+                        const resp = prod.responses[sup.id];
+                        const isVencedor = resp && !resp.outOfStock && resp.price > 0 && sup.id === melhorFornecedorId;
+                        const isSelected = selectedChoices[prod.productId] === sup.id;
 
                         return (
-                          <td key={sup.supplierId} className={`p-5 text-center border-l border-slate-500/10 transition-all ${
+                          <td key={sup.id} className={`p-5 text-center border-l border-slate-500/10 transition-all ${
                             isSelected ? (isDarkMode ? 'bg-indigo-950/50' : 'bg-indigo-50/80') : isVencedor ? (isDarkMode ? 'bg-emerald-950/30' : 'bg-emerald-50/40') : ''
                           }`}>
                             {!resp ? (
@@ -344,7 +345,7 @@ export default function QuotationTable({
 
                                 <button
                                   type="button"
-                                  onClick={() => onSelectChoice(prod.productId, sup.supplierId)}
+                                  onClick={() => onSelectChoice(prod.productId, sup.id)}
                                   className={`w-full py-2 px-4 rounded-xl text-xs font-extrabold transition-all shadow-sm active:scale-95 cursor-pointer ${
                                     isSelected
                                       ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25'
@@ -370,9 +371,9 @@ export default function QuotationTable({
               <tr>
                 <td className="p-6 uppercase tracking-wider text-xs font-black">Total Alocado por Fornecedor:</td>
                 {suppliers.map((sup) => {
-                  const supplierTotal = supplierTotals[sup.supplierId] || 0;
+                  const supplierTotal = supplierTotals[sup.id] || 0;
                   return (
-                    <td key={sup.supplierId} className="p-6 text-center border-l border-slate-500/10">
+                    <td key={sup.id} className="p-6 text-center border-l border-slate-500/10">
                       <span className="text-emerald-600 dark:text-emerald-400 text-base font-black">
                         {formatCurrency(supplierTotal)}
                       </span>

@@ -18,6 +18,8 @@ export interface QuotationSupplierResult {
   quotationSupplierId: string;
   quotationId: string;
   supplierId?: string;
+  brandId?: string | null;
+  brandName?: string | null;
   supplierName?: string | null;
   status: string;
   totalOffered?: number | string | null;
@@ -36,6 +38,7 @@ interface QuotationsListProps {
   quotations: QuotationSupplierResult[];
   loading: boolean;
   activeBrandName: string;
+  activeBrandId: string;
 }
 
 export function QuotationsList({
@@ -43,6 +46,7 @@ export function QuotationsList({
   quotations,
   loading,
   activeBrandName,
+  activeBrandId,
 }: QuotationsListProps) {
   const router = useRouter();
 
@@ -93,7 +97,7 @@ export function QuotationsList({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {quotations.map((cot) => {
-          const isPending = !cot.status || cot.status === 'PENDING' || cot.status === 'PENDENTE';
+          const isPending = !cot.status || cot.status === 'PENDING' || cot.status === 'PENDENTE' || cot.status === 'ENVIADO' || cot.status === 'SENT';
           const totalValue = Number(cot.totalOffered || 0).toLocaleString('pt-BR', {
             style: 'currency',
             currency: 'BRL',
@@ -147,7 +151,7 @@ export function QuotationsList({
                 <span className="text-[11px] opacity-60 font-medium">Ação Executiva</span>
                 <button
                   type="button"
-                  onClick={() => router.push(`/portal/cotacao/${cot.token}`)}
+                  onClick={() => router.push(`/portal/cotacao/${cot.token}?brandId=${encodeURIComponent(cot.brandId || activeBrandId)}`)}
                   className="px-5 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black uppercase tracking-wider transition shadow-md shadow-indigo-600/30 cursor-pointer active:scale-95 flex items-center gap-2"
                 >
                   <span>Responder Cotação</span>

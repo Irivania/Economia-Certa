@@ -261,7 +261,7 @@ export default function SupplierPortalDashboard() {
   const handleOrderStatusChange = async (
     orderId: string,
     quotationId: string,
-    status: 'DISPATCHED',
+    status: 'CLOSED',
   ) => {
     const response = await fetch(`/api/quotations/${quotationId}/finalize`, {
       method: 'PUT',
@@ -276,7 +276,7 @@ export default function SupplierPortalDashboard() {
     setPurchaseOrders((current) => current.map((order) => (
       order.id === orderId ? { ...order, status } : order
     )));
-    showToast('Pedido encaminhado para a empresa e registrado no histórico.');
+    showToast('Cotação encerrada e registrada no histórico. O envio externo deve ser feito no sistema da empresa.');
   };
 
   return (
@@ -377,17 +377,14 @@ export default function SupplierPortalDashboard() {
         {/* Lista de Cotações com Produtos Detalhados */}
         <QuotationsList
           isDarkMode={isDarkMode}
-          quotations={quotations.filter((cot: QuotationSupplierResult & { supplierId?: string; supplierName?: string | null; companyId?: string; brandId?: string; brandName?: string; tradeName?: string; storeName?: string }) => {
+          quotations={quotations.filter((cot: QuotationSupplierResult & { supplierId?: string; supplierName?: string | null; companyId?: string; brandId?: string | null; brandName?: string | null; tradeName?: string; storeName?: string }) => {
             if (!activeCompany || activeCompany.id === 'default-empty') return true;
 
-            const supplierName = String(cot.supplierName || '').toUpperCase();
-            const matchesCompany =
-              cot.supplierId === activeCompany.supplierId ||
-              (Boolean(supplierName) &&
-                (supplierName.includes(activeCompany.tradeName.toUpperCase()) ||
-                  supplierName.includes(activeCompany.corporateName.toUpperCase())));
-
-            if (!matchesCompany) return false;
+            // Cada vínculo da cotação pertence a uma única distribuidora.
+            // Nunca exibir um vínculo de outra marca na marca ativa.
+            if (cot.brandId) return cot.brandId === activeCompany.id;
+            // Compatibilidade somente com registros antigos sem marca.
+            if (cot.supplierId && cot.supplierId !== activeCompany.supplierId) return false;
             if (!selectedStoreFilter) return true;
 
             const matchesId = cot.companyId === selectedStoreFilter.companyId;
@@ -396,6 +393,7 @@ export default function SupplierPortalDashboard() {
             return matchesId || Boolean(matchesStoreName);
           })}
           loading={loading}
+          activeBrandId={activeCompany.id}
           activeBrandName={selectedStoreFilter ? `${activeCompany?.tradeName} (${selectedStoreFilter.storeName})` : (activeCompany?.tradeName || 'GERAL')}
         />
 
@@ -403,8 +401,10 @@ export default function SupplierPortalDashboard() {
           isDarkMode={isDarkMode}
           onOrderStatusChange={handleOrderStatusChange}
           orders={purchaseOrders.filter((order) => (
-            activeCompany?.supplierId
-              ? order.supplierId === activeCompany.supplierId
+            activeCompany?.id && activeCompany.id !== 'default-empty'
+              ? order.brandId
+                ? order.brandId === activeCompany.id
+                : order.supplierId === activeCompany.supplierId
               : false
           ))}
         />

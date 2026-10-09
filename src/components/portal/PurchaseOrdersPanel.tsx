@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+
 interface OrderItem {
   description: string;
   quantity: number;
@@ -11,7 +13,11 @@ interface OrderItem {
 export interface PortalPurchaseOrder {
   id: string;
   quotationId: string;
+  quotationSupplierId?: string | null;
   supplierId: string;
+  supplierName?: string | null;
+  brandId?: string | null;
+  brandName?: string | null;
   paymentTerms?: string | null;
   status: string;
   totalAmount: number;
@@ -22,17 +28,29 @@ export interface PortalPurchaseOrder {
 interface PurchaseOrdersPanelProps {
   isDarkMode: boolean;
   orders: PortalPurchaseOrder[];
-  onOrderStatusChange: (orderId: string, quotationId: string, status: 'DISPATCHED') => Promise<void>;
+  onOrderStatusChange: (orderId: string, quotationId: string, status: 'CLOSED') => Promise<void>;
 }
 
 const statusLabels: Record<string, string> = {
   SENT: 'Pedido enviado pelo lojista',
   DISPATCHED: 'Encaminhado pela empresa',
   RECEIVED: 'Mercadoria recebida',
-  CLOSED: 'Cotação baixada',
+  CLOSED: 'Cotação encerrada e registrada',
 };
 
 export function PurchaseOrdersPanel({ isDarkMode, orders, onOrderStatusChange }: PurchaseOrdersPanelProps) {
+  const [closingOrderId, setClosingOrderId] = useState<string | null>(null);
+
+  const closeOrder = async (order: PortalPurchaseOrder) => {
+    if (closingOrderId) return;
+    setClosingOrderId(order.id);
+    try {
+      await onOrderStatusChange(order.id, order.quotationId, 'CLOSED');
+    } finally {
+      setClosingOrderId(null);
+    }
+  };
+
   if (!orders.length) return null;
 
   return (
@@ -60,6 +78,9 @@ export function PurchaseOrdersPanel({ isDarkMode, orders, onOrderStatusChange }:
                   {statusLabels[order.status] || order.status}
                 </span>
                 <p className="mt-1 text-xs opacity-70">
+                  Distribuidora: <strong>{order.brandName || order.supplierName || 'Distribuidora não identificada'}</strong>
+                </p>
+                <p className="mt-1 text-xs opacity-70">
                   Condição: <strong>{order.paymentTerms || 'Não informada'}</strong>
                 </p>
               </div>
@@ -70,10 +91,11 @@ export function PurchaseOrdersPanel({ isDarkMode, orders, onOrderStatusChange }:
             {order.status === 'SENT' && (
               <button
                 type="button"
-                onClick={() => void onOrderStatusChange(order.id, order.quotationId, 'DISPATCHED')}
-                className="mt-4 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-lg shadow-indigo-600/25 transition hover:bg-indigo-500"
+                onClick={() => void closeOrder(order)}
+                disabled={closingOrderId === order.id}
+                className="mt-4 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-lg shadow-indigo-600/25 transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                🚚 Enviar para a empresa
+                {closingOrderId === order.id ? 'Registrando encerramento...' : '✓ Marcar cotação como encerrada'}
               </button>
             )}
 

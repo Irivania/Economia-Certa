@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
-import { quotations, quotationSuppliers, suppliers, supplierConnections } from '@/db/schema';
+import { quotations, quotationSuppliers, suppliers, supplierConnections, supplierBrands } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 export async function GET(
@@ -28,7 +28,10 @@ export async function GET(
     // 2. Busca os fornecedores vinculados a esta cotação
     const linkedSuppliers = await db
       .select({
+        quotationSupplierId: quotationSuppliers.id,
         supplierId: suppliers.id,
+        brandId: quotationSuppliers.brandId,
+        brandName: supplierBrands.tradeName,
         name: suppliers.name,
         phone: suppliers.phone,
         token: quotationSuppliers.token,
@@ -37,6 +40,7 @@ export async function GET(
       })
       .from(quotationSuppliers)
       .innerJoin(suppliers, eq(quotationSuppliers.supplierId, suppliers.id))
+      .leftJoin(supplierBrands, eq(quotationSuppliers.brandId, supplierBrands.id))
       .where(eq(quotationSuppliers.quotationId, quotationId));
 
     // 3. Buscar conexões B2B ativas (ACCEPTED) para a empresa desta cotação
@@ -54,12 +58,16 @@ export async function GET(
 
     // Mapeia os dados indicando se cada fornecedor é ou não um parceiro B2B ativo
     const trackingData = linkedSuppliers.map((sup) => ({
-      id: sup.supplierId,
-      name: sup.name,
+      id: sup.quotationSupplierId,
+      supplierId: sup.supplierId,
+      brandId: sup.brandId,
+      name: sup.brandName || sup.name,
       phone: sup.phone,
       status: ['RESPONDIDO', 'responded'].includes(sup.status)
         ? 'RESPONDIDO'
-        : 'PENDENTE',
+        : ['ENVIADO', 'SENT'].includes(sup.status)
+          ? 'ENVIADO'
+          : 'PENDENTE',
       answeredAt: null,
       totalOffered: sup.totalOffered ? Number(sup.totalOffered) : 0,
       token: sup.token,

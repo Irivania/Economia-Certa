@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
-import { quotations, quotationItems, products, quotationSuppliers, quotationSupplierItems, suppliers } from '@/db/schema';
+import { quotations, quotationItems, products, quotationSuppliers, quotationSupplierItems, suppliers, supplierBrands } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
@@ -48,6 +48,8 @@ export async function GET(
       .select({
         quotationSupplierId: quotationSuppliers.id,
         supplierId: quotationSuppliers.supplierId,
+        brandId: quotationSuppliers.brandId,
+        brandName: supplierBrands.tradeName,
         supplierName: suppliers.name,
         status: quotationSuppliers.status,
         totalOffered: quotationSuppliers.totalOffered,
@@ -55,6 +57,7 @@ export async function GET(
       })
       .from(quotationSuppliers)
       .leftJoin(suppliers, eq(quotationSuppliers.supplierId, suppliers.id))
+      .leftJoin(supplierBrands, eq(quotationSuppliers.brandId, supplierBrands.id))
       .where(eq(quotationSuppliers.quotationId, quotationId));
 
     // 4. Busca todos os itens respondidos na tabela isolada e filtra por segurança no código

@@ -84,11 +84,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
           .from(quotationSuppliers)
           .where(and(
             eq(quotationSuppliers.quotationId, quotationId),
-            inArray(quotationSuppliers.supplierId, selectedSupplierIds),
+            inArray(quotationSuppliers.id, selectedSupplierIds),
           ))
         : [];
       const suppliersById = new Map(
-        quotationSupplierRows.map((row) => [row.supplierId, row]),
+        quotationSupplierRows.map((row) => [row.quotationSupplierId, row]),
       );
       const quotationItemRows = await tx
       .select({ productId: quotationItems.productId })
@@ -116,10 +116,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
       const createdOrders = [];
 
-      for (const [supplierId, items] of Object.entries(orders)) {
+      for (const [quotationSupplierId, items] of Object.entries(orders)) {
       if (!items.length) continue;
 
-      const quotationSupplier = suppliersById.get(supplierId);
+      const quotationSupplier = suppliersById.get(quotationSupplierId);
       if (!quotationSupplier) {
           return { error: 'Uma das empresas selecionadas não participa desta cotação.', status: 400 as const };
       }
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         const [supplier] = await tx
         .select({ id: suppliers.id })
         .from(suppliers)
-        .where(eq(suppliers.id, supplierId));
+        .where(eq(suppliers.id, quotationSupplier.supplierId));
 
       if (!supplier) continue;
 
@@ -141,7 +141,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .from(purchaseOrders)
         .where(and(
           eq(purchaseOrders.quotationId, quotationId),
-          eq(purchaseOrders.supplierId, supplierId),
+          eq(purchaseOrders.quotationSupplierId, quotationSupplierId),
         ));
       if (existingOrder) {
           createdOrders.push(existingOrder);
@@ -157,8 +157,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .insert(purchaseOrders)
         .values({
           quotationId,
+          quotationSupplierId,
           companyId: quotation.companyId,
-          supplierId,
+          supplierId: quotationSupplier.supplierId,
           paymentTerms: body.paymentTerms || quotation.paymentTerms || null,
           status: 'SENT',
           totalAmount: totalAmount.toFixed(2),
@@ -229,7 +230,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
       if (!order) return { error: 'Pedido não encontrado.', status: 404 as const };
       const transitions: Record<string, string[]> = {
-        SENT: ['DISPATCHED', 'RECEIVED'],
+        SENT: ['DISPATCHED', 'RECEIVED', 'CLOSED'],
         DISPATCHED: ['RECEIVED'],
         RECEIVED: ['CLOSED'],
         CLOSED: [],

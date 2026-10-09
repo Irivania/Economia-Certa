@@ -75,7 +75,7 @@ export default function EditQuotationItemsTable({
                     <div className="flex items-center gap-3">
                       {item.imageUrl ? (
                         <div className="relative h-10 w-10 flex-shrink-0 rounded-lg overflow-hidden border border-slate-200 bg-white">
-                          <Image src={item.imageUrl} alt={item.description || 'Produto'} fill sizes="40px" className="object-cover" />
+                          <Image src={item.imageUrl} alt={item.description || 'Produto'} fill sizes="40px" unoptimized className="object-cover" />
                         </div>
                       ) : (
                         <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-slate-400 text-xs">

@@ -142,6 +142,7 @@ export default function QuotationItemsTable({
                               alt={item.description}
                               fill
                               sizes="40px"
+                              unoptimized
                               className="object-cover"
                             />
                           </div>

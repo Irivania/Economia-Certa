@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const token = searchParams.get("token");
+    const requestedBrandId = searchParams.get("brandId");
 
     if (!token) {
       return NextResponse.json(
@@ -150,6 +151,7 @@ export async function GET(request: NextRequest) {
 
         const rawQty = item.requestedQuantity ?? item.quantity ?? 1;
         const quantity = Number(String(rawQty).replace(",", ".")) || 1;
+        const showQuantity = quotData.showQuantities !== false;
         const productName =
           (prod.description as string) ||
           (prod.name as string) ||
@@ -176,7 +178,8 @@ export async function GET(request: NextRequest) {
           barcode,
           description: (prod.brand as string) ? `Marca: ${prod.brand}` : "",
           imageUrl: (prod.imageUrl as string) || (prod.image as string) || null,
-          quantity,
+          quantity: showQuantity ? quantity : null,
+          showQuantity,
           unit,
           price: Number(savedPrice) || 0,
           outOfStock: Boolean(isOutOfStock),
@@ -191,7 +194,37 @@ export async function GET(request: NextRequest) {
       return nameA.localeCompare(nameB);
     });
 
-    const brandId = quotData.brandId as string | null | undefined;
+    const quotationBrandId =
+      (supplierRecord.brandId as string | null | undefined) ||
+      (quotData.brandId as string | null | undefined);
+    let brandId = quotationBrandId;
+
+    if (!brandId && requestedBrandId) {
+      const [requestedBrand] = await db
+        .select({
+          id: supplierBrands.id,
+          tradeName: supplierBrands.tradeName,
+          corporateName: supplierBrands.corporateName,
+        })
+        .from(supplierBrands)
+        .where(
+          and(
+            eq(supplierBrands.id, requestedBrandId),
+            eq(supplierBrands.supplierId, supplierRecord.supplierId),
+          ),
+        )
+        .limit(1);
+
+      if (!requestedBrand) {
+        return NextResponse.json(
+          { error: "Distribuidora selecionada não pertence a este representante." },
+          { status: 400 },
+        );
+      }
+
+      brandId = requestedBrand.id;
+    }
+
     let resolvedSupplierName: string | null = null;
 
     if (brandId) {

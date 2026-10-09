@@ -1,5 +1,11 @@
 import { db } from '@/db/db';
-import { supplierConnections, quotationItems, quotationSuppliers } from '@/db/schema';
+import {
+  supplierConnections,
+  quotationItems,
+  quotationSuppliers,
+  supplierBrands,
+  suppliers,
+} from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
 import crypto from 'crypto';
 
@@ -37,14 +43,73 @@ export async function saveQuotationItems(quotationId: string, items: unknown[]) 
   }
 }
 
+export async function resolvePortalSupplierId(supplierId: string) {
+  const [sourceSupplier] = await db
+    .select({ email: suppliers.email, name: suppliers.name })
+    .from(suppliers)
+    .where(eq(suppliers.id, supplierId))
+    .limit(1);
+
+  if (!sourceSupplier?.email) return supplierId;
+
+  const [portalSupplier] = await db
+    .select({ id: suppliers.id })
+    .from(suppliers)
+    .where(
+      and(
+        eq(suppliers.email, sourceSupplier.email),
+        eq(suppliers.companyId, 'independente'),
+      ),
+    )
+    .limit(1);
+
+  return portalSupplier?.id || supplierId;
+}
+
+export async function resolveQuotationBrandId(supplierId: string) {
+  const [sourceSupplier] = await db
+    .select({ email: suppliers.email, name: suppliers.name })
+    .from(suppliers)
+    .where(eq(suppliers.id, supplierId))
+    .limit(1);
+
+  if (!sourceSupplier?.email) return null;
+
+  const representedBrands = await db
+    .select({
+      id: supplierBrands.id,
+      tradeName: supplierBrands.tradeName,
+      corporateName: supplierBrands.corporateName,
+    })
+    .from(supplierBrands)
+    .innerJoin(suppliers, eq(supplierBrands.supplierId, suppliers.id))
+    .where(eq(suppliers.email, sourceSupplier.email));
+
+  if (representedBrands.length === 1) return representedBrands[0].id;
+
+  const normalizedName = sourceSupplier.name?.trim();
+  if (!normalizedName) return null;
+
+  const matchingBrand = representedBrands.find((brand) =>
+    [brand.tradeName, brand.corporateName]
+      .filter(Boolean)
+      .some((name) => name?.trim().toUpperCase() === normalizedName.toUpperCase()),
+  );
+
+  return matchingBrand?.id || null;
+}
+
 export async function linkQuotationSuppliers(quotationId: string, supplierIds: string[]) {
   const createdQuotations = [];
   for (const supplierId of supplierIds) {
     const supplierToken = crypto.randomUUID();
+    const resolvedSupplierId = await resolvePortalSupplierId(String(supplierId));
+    const brandId = await resolveQuotationBrandId(String(supplierId));
     await db.insert(quotationSuppliers).values({
       id: crypto.randomUUID(),
       quotationId,
-      supplierId: String(supplierId),
+      supplierId: resolvedSupplierId,
+      brandId,
       token: supplierToken,
       status: 'PENDING',
     });

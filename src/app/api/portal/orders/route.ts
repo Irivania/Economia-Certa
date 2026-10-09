@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { eq, inArray } from 'drizzle-orm';
 import { db } from '@/db/db';
-import { purchaseOrderItems, purchaseOrders, suppliers } from '@/db/schema';
+import {
+  purchaseOrderItems,
+  purchaseOrders,
+  quotationSuppliers,
+  supplierBrands,
+  suppliers,
+} from '@/db/schema';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,9 +22,12 @@ export async function GET(request: NextRequest) {
       .select({
         id: purchaseOrders.id,
         quotationId: purchaseOrders.quotationId,
+        quotationSupplierId: purchaseOrders.quotationSupplierId,
         companyId: purchaseOrders.companyId,
         supplierId: purchaseOrders.supplierId,
         supplierName: suppliers.name,
+        brandId: supplierBrands.id,
+        brandName: supplierBrands.tradeName,
         paymentTerms: purchaseOrders.paymentTerms,
         status: purchaseOrders.status,
         totalAmount: purchaseOrders.totalAmount,
@@ -28,6 +37,11 @@ export async function GET(request: NextRequest) {
       })
       .from(purchaseOrders)
       .leftJoin(suppliers, eq(purchaseOrders.supplierId, suppliers.id))
+      .leftJoin(
+        quotationSuppliers,
+        eq(purchaseOrders.quotationSupplierId, quotationSuppliers.id),
+      )
+      .leftJoin(supplierBrands, eq(quotationSuppliers.brandId, supplierBrands.id))
       .where(
         supplierId
           ? eq(purchaseOrders.supplierId, supplierId)

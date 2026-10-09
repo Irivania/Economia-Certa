@@ -8,7 +8,8 @@ interface QuotationItem {
   barcode: string;
   description: string;
   imageUrl?: string | null;
-  quantity: number;
+  quantity: number | null;
+  showQuantity?: boolean;
   unit: string;
 }
 
@@ -78,7 +79,9 @@ export function SupplierQuotationTable({
                   <td className="py-4 px-6 font-mono text-[11px] opacity-70">{item.barcode}</td>
                   <td className="py-4 px-6 text-center font-mono font-bold text-indigo-500 text-sm">
                     <span className={`px-3 py-1.5 rounded-xl border ${isDarkMode ? 'bg-indigo-950/30 border-indigo-800/50' : 'bg-indigo-50 border-indigo-100'}`}>
-                      {Number(item.quantity)} {item.unit}
+                      {item.showQuantity !== false && item.quantity != null
+                        ? `${Number(item.quantity)} ${item.unit}`
+                        : 'Conforme necessidade'}
                     </span>
                   </td>
                   

@@ -59,6 +59,7 @@ interface ApiQuotation {
   id: string;
   title?: string;
   paymentTerms?: string | null;
+  showQuantities?: boolean | null;
   supplierId?: string | null;
   suppliers?: ApiSupplierLink[];
   startDate?: string | Date | null;
@@ -101,6 +102,7 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [closingTime, setClosingTime] = useState('');
+  const [showQuantities, setShowQuantities] = useState(true);
   
   const [quotationItems, setQuotationItems] = useState<QuotationItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -164,6 +166,7 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
         setStartDate(toDateInputValue(current.startDate));
         setEndDate(toDateInputValue(current.endDate));
         setClosingTime(current.closingTime || '');
+        setShowQuantities(current.showQuantities !== false);
 
         setSuppliers(Array.isArray(suppliersData) ? suppliersData : []);
 
@@ -204,6 +207,14 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
         ? current.filter((id) => id !== supplierId)
         : [...current, supplierId],
     );
+  };
+
+  const handleSelectAllSuppliers = () => {
+    setSelectedSupplierIds(suppliers.map((supplier) => supplier.id));
+  };
+
+  const handleDeselectAllSuppliers = () => {
+    setSelectedSupplierIds([]);
   };
 
   const handleRemoveItem = (id: string) => {
@@ -284,6 +295,7 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
           startDate: startDate || null,
           endDate: endDate || null,
           closingTime: closingTime || null,
+          showQuantities,
           items: quotationItems,
         }),
       });
@@ -361,12 +373,79 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
             onOpenModal={() => setIsModalOpen(true)}
           />
 
-          <QuotationSuppliersSection
-            suppliers={suppliers}
-            selectedSupplierIds={selectedSupplierIds}
-            onToggleSupplier={toggleSupplier}
-            loading={loadingSuppliers}
-          />
+          <div className={`rounded-2xl border p-5 ${
+            isDarkMode ? 'border-indigo-900/60 bg-indigo-950/20' : 'border-indigo-100 bg-indigo-50/60'
+          }`}>
+            <h2 className="text-sm font-black uppercase tracking-wider">Quantidade enviada aos representantes</h2>
+            <p className="mt-1 text-xs opacity-70">
+              Escolha se os representantes verão a quantidade solicitada ao responder.
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 ${
+                showQuantities ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-500/20'
+              }`}>
+                <input
+                  type="radio"
+                  name="quantity-visibility"
+                  checked={showQuantities}
+                  onChange={() => setShowQuantities(true)}
+                  className="mt-0.5 accent-emerald-600"
+                />
+                <span>
+                  <span className="block text-xs font-extrabold">Enviar com quantidade</span>
+                  <span className="mt-1 block text-[11px] opacity-70">O representante verá a quantidade de cada item.</span>
+                </span>
+              </label>
+              <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 ${
+                !showQuantities ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-500/20'
+              }`}>
+                <input
+                  type="radio"
+                  name="quantity-visibility"
+                  checked={!showQuantities}
+                  onChange={() => setShowQuantities(false)}
+                  className="mt-0.5 accent-indigo-600"
+                />
+                <span>
+                  <span className="block text-xs font-extrabold">Enviar sem quantidade</span>
+                  <span className="mt-1 block text-[11px] opacity-70">O representante informará os preços sem ver a quantidade.</span>
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <div className={`space-y-4 rounded-2xl border p-6 transition-all ${
+            isDarkMode ? 'bg-slate-950/50 border-slate-800' : 'bg-slate-50/60 border-slate-200/80'
+          }`}>
+            <div className="flex flex-col gap-2 border-b border-slate-500/10 pb-4 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-sm font-black uppercase tracking-wider">Fornecedores Participantes</h2>
+              <div className="flex items-center gap-3 text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={handleSelectAllSuppliers}
+                  disabled={loadingSuppliers || suppliers.length === 0}
+                  className="text-emerald-600 hover:underline disabled:cursor-not-allowed disabled:opacity-40 dark:text-emerald-400"
+                >
+                  Marcar todos
+                </button>
+                <span className="opacity-30">|</span>
+                <button
+                  type="button"
+                  onClick={handleDeselectAllSuppliers}
+                  disabled={loadingSuppliers || suppliers.length === 0}
+                  className="opacity-75 hover:underline disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Desmarcar todos
+                </button>
+              </div>
+            </div>
+            <QuotationSuppliersSection
+              suppliers={suppliers}
+              selectedSupplierIds={selectedSupplierIds}
+              onToggleSupplier={toggleSupplier}
+              loading={loadingSuppliers}
+            />
+          </div>
 
           {error && <p role="alert" className="rounded-2xl bg-rose-500/10 border border-rose-500/20 px-4 py-3 text-xs font-semibold text-rose-500">{error}</p>}
 

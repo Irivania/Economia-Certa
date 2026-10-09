@@ -87,6 +87,7 @@ export default function DashboardPage() {
 
   const handleLogout = () => {
     sessionStorage.removeItem('melo_company_session');
+    void fetch('/api/auth/logout', { method: 'POST' });
     router.push('/login');
   };
 

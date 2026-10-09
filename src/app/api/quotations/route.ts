@@ -1,11 +1,17 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
-import { quotations, quotationItems, quotationSuppliers, suppliers } from '@/db/schema';
+import { quotations, quotationItems, quotationSuppliers, suppliers, supplierBrands } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import { uppercaseText } from '@/lib/text';
 import { formatQuotationDate, parseOptionalQuotationDate } from '@/lib/quotationDates';
-import { getActiveB2BSuppliers, saveQuotationItems, linkQuotationSuppliers } from '@/services/quotationService';
+import {
+  getActiveB2BSuppliers,
+  saveQuotationItems,
+  linkQuotationSuppliers,
+  resolvePortalSupplierId,
+  resolveQuotationBrandId,
+} from '@/services/quotationService';
 import { requireCompanySession } from '@/lib/authServer';
 
 export async function GET(request: NextRequest) {
@@ -25,12 +31,15 @@ export async function GET(request: NextRequest) {
         id: quotationSuppliers.id,
         quotationId: quotationSuppliers.quotationId,
         supplierId: quotationSuppliers.supplierId,
+        brandId: quotationSuppliers.brandId,
         status: quotationSuppliers.status,
         token: quotationSuppliers.token,
         name: suppliers.name,
+        brandName: supplierBrands.tradeName,
       })
       .from(quotationSuppliers)
-      .leftJoin(suppliers, eq(quotationSuppliers.supplierId, suppliers.id));
+      .leftJoin(suppliers, eq(quotationSuppliers.supplierId, suppliers.id))
+      .leftJoin(supplierBrands, eq(quotationSuppliers.brandId, supplierBrands.id));
 
     const data = quotationList.map((quotation) => ({
       ...quotation,
@@ -42,7 +51,7 @@ export async function GET(request: NextRequest) {
         .filter((supplier) => supplier.quotationId === quotation.id)
         .map((supplier) => ({
           id: supplier.supplierId,
-          name: supplier.name || 'Fornecedor',
+          name: supplier.brandName || supplier.name || 'Fornecedor',
           status: supplier.status,
           token: supplier.token,
         })),
@@ -68,6 +77,7 @@ export async function POST(request: NextRequest) {
     const startDate = parseOptionalQuotationDate(body, 'startDate');
     const endDate = parseOptionalQuotationDate(body, 'endDate');
     const closingTime = body.closingTime ? String(body.closingTime) : null;
+    const showQuantities = body.showQuantities !== false;
     const items = body.items;
 
     if (!title) {
@@ -76,7 +86,13 @@ export async function POST(request: NextRequest) {
 
     const connectedSupplierIds = await getActiveB2BSuppliers(companyId);
     const explicitSupplierIds = Array.isArray(supplierIds) ? supplierIds.map(String) : [];
-    const combinedSupplierIds = Array.from(new Set([...explicitSupplierIds, ...connectedSupplierIds]));
+    const explicitPortalSupplierIds = new Set(
+      await Promise.all(explicitSupplierIds.map((id) => resolvePortalSupplierId(id))),
+    );
+    const additionalConnectedSupplierIds = connectedSupplierIds.filter(
+      (id) => !explicitPortalSupplierIds.has(id),
+    );
+    const combinedSupplierIds = Array.from(new Set([...explicitSupplierIds, ...additionalConnectedSupplierIds]));
 
     if (combinedSupplierIds.length === 0) {
       return NextResponse.json({ error: 'Selecione ao menos um fornecedor ou estabeleça parcerias B2B ativas.' }, { status: 400 });
@@ -93,6 +109,7 @@ export async function POST(request: NextRequest) {
         startDate,
         endDate,
         closingTime,
+        showQuantities,
         status: 'OPEN',
       })
       .returning();
@@ -126,6 +143,7 @@ export async function PUT(request: NextRequest) {
     const startDate = parseOptionalQuotationDate(body, 'startDate');
     const endDate = parseOptionalQuotationDate(body, 'endDate');
     const closingTime = body.closingTime ? String(body.closingTime) : null;
+    const showQuantities = body.showQuantities !== false;
     const items = body.items;
 
     if (!id || !title) {
@@ -135,7 +153,7 @@ export async function PUT(request: NextRequest) {
     // 2. Atualização garantindo ownership da empresa (Prevenção de IDOR)
     const [updatedQuotation] = await db
       .update(quotations)
-      .set({ title, paymentTerms, startDate, endDate, closingTime })
+      .set({ title, paymentTerms, startDate, endDate, closingTime, showQuantities })
       .where(and(eq(quotations.id, id), eq(quotations.companyId, companyId)))
       .returning();
 
@@ -150,24 +168,37 @@ export async function PUT(request: NextRequest) {
 
     const connectedSupplierIds = await getActiveB2BSuppliers(companyId);
     const explicitSupplierIds = Array.isArray(supplierIds) ? supplierIds.map(String) : [];
-    const combinedSupplierIds = Array.from(new Set([...explicitSupplierIds, ...connectedSupplierIds]));
+    const explicitPortalSupplierIds = new Set(
+      await Promise.all(explicitSupplierIds.map((supplierId) => resolvePortalSupplierId(supplierId))),
+    );
+    const additionalConnectedSupplierIds = connectedSupplierIds.filter(
+      (supplierId) => !explicitPortalSupplierIds.has(supplierId),
+    );
+    const combinedSupplierIds = Array.from(new Set([...explicitSupplierIds, ...additionalConnectedSupplierIds]));
 
     if (combinedSupplierIds.length > 0) {
-      const existingRelations = await db.select().from(quotationSuppliers).where(eq(quotationSuppliers.quotationId, id));
-      const existingSupplierIds = existingRelations.map((relation) => relation.supplierId);
+    const existingRelations = await db.select().from(quotationSuppliers).where(eq(quotationSuppliers.quotationId, id));
 
-      for (const relation of existingRelations) {
+    for (const relation of existingRelations) {
         if (!combinedSupplierIds.includes(relation.supplierId)) {
           await db.delete(quotationSuppliers).where(eq(quotationSuppliers.id, relation.id));
         }
       }
 
       for (const supplierId of combinedSupplierIds) {
-        if (!existingSupplierIds.includes(supplierId)) {
+        const resolvedSupplierId = await resolvePortalSupplierId(String(supplierId));
+        const brandId = await resolveQuotationBrandId(String(supplierId));
+        const alreadyLinked = existingRelations.some((relation) =>
+          relation.supplierId === resolvedSupplierId &&
+          relation.brandId === brandId,
+        );
+
+        if (!alreadyLinked) {
           await db.insert(quotationSuppliers).values({
             id: crypto.randomUUID(),
             quotationId: id,
-            supplierId: String(supplierId),
+            supplierId: resolvedSupplierId,
+            brandId,
             token: crypto.randomUUID(),
             status: 'PENDING',
           });

@@ -136,6 +136,7 @@ export const quotations = pgTable("quotations", {
   storeName: text("store_name"),
   token: text("token"),
   observation: text("observation"),
+  showQuantities: boolean("show_quantities").default(true).notNull(),
   status: text("status").default("PENDING").notNull(),
   startDate: date("start_date"),
   endDate: date("end_date"),
@@ -149,6 +150,7 @@ export const quotationSuppliers = pgTable("quotation_suppliers", {
     .$defaultFn(() => crypto.randomUUID()),
   quotationId: text("quotation_id").notNull(),
   supplierId: text("supplier_id").notNull(),
+  brandId: text("brand_id"),
   token: text("token")
     .notNull()
     .$defaultFn(() => crypto.randomUUID()),
@@ -183,6 +185,7 @@ export const purchaseOrders = pgTable("purchase_orders", {
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
   quotationId: text("quotation_id").notNull(),
+  quotationSupplierId: text("quotation_supplier_id"),
   companyId: text("company_id").notNull(),
   supplierId: text("supplier_id").notNull(),
   paymentTerms: text("payment_terms"),
@@ -194,7 +197,7 @@ export const purchaseOrders = pgTable("purchase_orders", {
 }, (table) => ({
   quotationSupplierUnique: uniqueIndex("purchase_orders_quotation_supplier_idx").on(
     table.quotationId,
-    table.supplierId,
+    table.quotationSupplierId,
   ),
 }));
 

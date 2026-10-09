@@ -45,17 +45,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({
+    const session = {
+      userId: account.userId,
+      companyId: account.companyId,
+      name: account.userName,
+      tradeName: account.tradeName || account.companyName || '',
+      email: account.userEmail,
+      role: account.role || 'geral',
+    };
+
+    const response = NextResponse.json({
       success: true,
-      session: {
-        userId: account.userId,
-        companyId: account.companyId,
-        name: account.userName,          // 👈 Usa estritamente o nome do colaborador (Paulo, Maria, etc.)
-        tradeName: account.tradeName || account.companyName || '',
-        email: account.userEmail,
-        role: account.role || 'geral',     // 👈 Respeita o cargo real (gerente, supervisor, etc.) sem forçar ADMIN
-      },
+      session,
     });
+
+    response.cookies.set('melo_company_session', JSON.stringify(session), {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    return response;
   } catch (error) {
     console.error('[Company Login Error]:', error);
     return NextResponse.json({ error: 'Não foi possível processar o login.' }, { status: 500 });

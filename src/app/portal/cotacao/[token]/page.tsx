@@ -13,7 +13,8 @@ interface QuotationItem {
   barcode: string;
   description: string;
   imageUrl?: string | null;
-  quantity: number;
+  quantity: number | null;
+  showQuantity?: boolean;
   unit: string;
   price?: number;
   outOfStock?: boolean;
@@ -56,6 +57,9 @@ export default function SupplierQuotationResponsePage() {
   const router = useRouter();
   const params = useParams();
   const token = params?.token as string;
+  const brandId = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('brandId')
+    : null;
   const { isDarkMode, mounted: themeMounted } = useTheme();
 
   const mounted = useSyncExternalStore(subscribeToHydration, () => true, () => false);
@@ -91,7 +95,8 @@ export default function SupplierQuotationResponsePage() {
 
   const loadQuotationDetails = useCallback(async () => {
     try {
-      const res = await fetch(`/api/portal/cotacoes/detalhes?token=${token}`);
+      const brandQuery = brandId ? `&brandId=${encodeURIComponent(brandId)}` : '';
+      const res = await fetch(`/api/portal/cotacoes/detalhes?token=${token}${brandQuery}`);
       if (res.ok) {
         const data = (await res.json()) as QuotationDetail;
         setQuotation(data);
@@ -136,7 +141,7 @@ export default function SupplierQuotationResponsePage() {
     } finally {
       setLoading(false);
     }
-  }, [token, showToast]);
+  }, [token, brandId, showToast]);
 
   useEffect(() => {
     if (!sessionData) {

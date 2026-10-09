@@ -69,6 +69,7 @@ export default function Page() {
   const [startDate, setStartDate] = useState(getTodayDateString());
   const [endDate, setEndDate] = useState('');
   const [closingTime, setClosingTime] = useState('');
+  const [showQuantities, setShowQuantities] = useState(true);
   const [selectedSupplierIds, setSelectedSupplierIds] = useState<string[]>([]);
   
   const [quotationItems, setQuotationItems] = useState<QuotationItem[]>([]);
@@ -251,6 +252,7 @@ export default function Page() {
           startDate: startDate || null,
           endDate: endDate || null,
           closingTime: closingTime || null,
+          showQuantities,
           items: quotationItems,
         }),
       });
@@ -322,6 +324,51 @@ export default function Page() {
               onUpdateQuantity={handleUpdateQuantity}
               onRemoveItem={handleRemoveItem}
             />
+
+            <div className={`rounded-2xl border p-5 ${
+              isDarkMode ? 'border-indigo-900/60 bg-indigo-950/20' : 'border-indigo-100 bg-indigo-50/60'
+            }`}>
+              <h2 className="text-sm font-black uppercase tracking-wider">Quantidade enviada aos representantes</h2>
+              <p className="mt-1 text-xs opacity-70">
+                Escolha se os representantes verão a quantidade solicitada ao responder.
+              </p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 ${
+                  showQuantities
+                    ? 'border-emerald-500 bg-emerald-500/10'
+                    : 'border-slate-500/20'
+                }`}>
+                  <input
+                    type="radio"
+                    name="quantity-visibility"
+                    checked={showQuantities}
+                    onChange={() => setShowQuantities(true)}
+                    className="mt-0.5 accent-emerald-600"
+                  />
+                  <span>
+                    <span className="block text-xs font-extrabold">Enviar com quantidade</span>
+                    <span className="mt-1 block text-[11px] opacity-70">O representante verá a quantidade de cada item.</span>
+                  </span>
+                </label>
+                <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 ${
+                  !showQuantities
+                    ? 'border-indigo-500 bg-indigo-500/10'
+                    : 'border-slate-500/20'
+                }`}>
+                  <input
+                    type="radio"
+                    name="quantity-visibility"
+                    checked={!showQuantities}
+                    onChange={() => setShowQuantities(false)}
+                    className="mt-0.5 accent-indigo-600"
+                  />
+                  <span>
+                    <span className="block text-xs font-extrabold">Enviar sem quantidade</span>
+                    <span className="mt-1 block text-[11px] opacity-70">O representante informará os preços sem ver a quantidade.</span>
+                  </span>
+                </label>
+              </div>
+            </div>
 
             <div className={`space-y-4 rounded-2xl border p-6 transition-all ${
               isDarkMode ? 'bg-slate-950/50 border-slate-800' : 'bg-slate-50/60 border-slate-200/80'

@@ -25,6 +25,8 @@ interface QuotationItem {
 interface QuotationSupplier {
   id: string;
   supplierId: string;
+  brandId?: string | null;
+  brandName?: string | null;
   name?: string | null;
   status?: string | null;
   observation?: string | null;
@@ -105,7 +107,14 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
         const res = await fetch(`/api/quotations/${quotationId}`);
         if (!res.ok) throw new Error('Não foi possível carregar os dados.');
         const data = await res.json();
-        setQuotation(data);
+        setQuotation({
+          ...data,
+          suppliers: (data.suppliers || []).map((supplier: QuotationSupplier & { quotationSupplierId?: string }) => ({
+            ...supplier,
+            id: supplier.quotationSupplierId || supplier.id,
+            name: supplier.brandName || supplier.name,
+          })),
+        });
 
         const initialChoices: Record<string, string> = {};
         const rawItems = data.items || [];
@@ -115,7 +124,7 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
         // Mapeia os preços respondidos por cada quotationSupplierId para o supplierId correspondente
         const supplierMapping: Record<string, string> = {};
         suppliers.forEach((sup: QuotationSupplier) => {
-          supplierMapping[sup.id] = sup.supplierId;
+          supplierMapping[sup.id] = sup.id;
         });
 
         const tempMap: Record<string, { responses: Record<string, { price: number; outOfStock: boolean }> }> = {};
@@ -142,10 +151,10 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
           let bestSup = '';
           let lowest = Infinity;
           suppliers.forEach((sup: QuotationSupplier) => {
-            const resp = prodData.responses[sup.supplierId];
+            const resp = prodData.responses[sup.id];
             if (resp && !resp.outOfStock && resp.price > 0 && resp.price < lowest) {
               lowest = resp.price;
-              bestSup = sup.supplierId;
+              bestSup = sup.id;
             }
           });
           if (bestSup) {
@@ -191,7 +200,7 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
 
   const supplierMapping: Record<string, string> = {};
   suppliers.forEach((sup) => {
-    supplierMapping[sup.id] = sup.supplierId;
+    supplierMapping[sup.id] = sup.id;
   });
 
   const productsMap: Record<string, { 
@@ -241,10 +250,10 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
       let bestSup = '';
       let lowest = Infinity;
       suppliers.forEach((sup) => {
-        const resp = prod.responses[sup.supplierId];
+        const resp = prod.responses[sup.id];
         if (resp && !resp.outOfStock && resp.price > 0 && resp.price < lowest) {
           lowest = resp.price;
-          bestSup = sup.supplierId;
+          bestSup = sup.id;
         }
       });
       if (bestSup) {
@@ -364,13 +373,14 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
       }
 
       const finalized = await finalizeResponse.json() as {
-        orders: Array<{ id: string; supplierId: string }>;
+        orders: Array<{ id: string; supplierId: string; quotationSupplierId?: string | null }>;
       };
       const ordersWithIds = finalized.orders.reduce<Record<string, unknown>>((result, order) => {
-        result[order.supplierId] = {
+        const orderKey = order.quotationSupplierId || order.supplierId;
+        result[orderKey] = {
           orderId: order.id,
           status: 'SENT',
-          items: ordersMap[order.supplierId],
+          items: ordersMap[orderKey] || ordersMap[order.supplierId],
         };
         return result;
       }, {});
@@ -390,14 +400,74 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
     }
   };
 
+  const handleExportSelection = () => {
+    const headers = ['Produto', 'EAN', 'Quantidade', 'Distribuidora escolhida', 'Preço unitário', 'Total', 'Decisão'];
+    const rows = productsList.map((product) => {
+      const supplierId = selectedChoices[product.productId];
+      const supplier = suppliers.find((item) => item.id === supplierId);
+      const response = supplierId ? product.responses[supplierId] : undefined;
+      const ignored = ignoredProducts.has(product.productId);
+      const quantity = product.requestedQuantity;
+      const price = response?.price || 0;
+      return [
+        product.description,
+        product.ean || '',
+        quantity,
+        supplier?.name || '',
+        price.toFixed(2),
+        (price * quantity).toFixed(2),
+        ignored ? 'Não comprar' : supplier ? 'Comprar' : 'Sem seleção',
+      ];
+    });
+    const escapeCsv = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
+    const csv = [headers, ...rows].map((row) => row.map(escapeCsv).join(';')).join('\r\n');
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `decisao-${quotation.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const pendingProducts = productsList.filter((prod) => {
     const hasChoice = selectedChoices[prod.productId];
     const allOutOfStock = suppliers.every((sup) => {
-      const resp = prod.responses[sup.supplierId];
+      const resp = prod.responses[sup.id];
       return !resp || resp.outOfStock || resp.price === 0;
     });
     return !ignoredProducts.has(prod.productId) && (!hasChoice || allOutOfStock);
   });
+
+  const selectedBySupplier = suppliers.map((supplier) => ({
+    supplier,
+    items: productsList.filter((product) => selectedChoices[product.productId] === supplier.id),
+  })).filter((group) => group.items.length > 0);
+
+  const unrequestedSummary = productsList
+    .filter((product) => ignoredProducts.has(product.productId) || !selectedChoices[product.productId])
+    .map((product) => {
+      const hasResponse = suppliers.some((supplier) => {
+        const response = product.responses[supplier.id];
+        return response && !response.outOfStock && response.price > 0;
+      });
+      return {
+        product,
+        reason: ignoredProducts.has(product.productId)
+          ? 'Não comprar: escolha do lojista'
+          : hasResponse
+            ? 'Não comprado: fornecedor não selecionado'
+            : 'Não atendido: nenhuma distribuidora informou disponibilidade',
+      };
+    });
+
+  const summaryTotal = selectedBySupplier.reduce(
+    (total, group) => total + group.items.reduce(
+      (groupTotal, product) => groupTotal + (product.responses[group.supplier.id]?.price || 0) * product.requestedQuantity,
+      0,
+    ),
+    0,
+  );
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
@@ -443,6 +513,14 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
 
             <button
               type="button"
+              onClick={handleExportSelection}
+              className="px-5 py-3 rounded-2xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-bold transition-all active:scale-95 cursor-pointer flex items-center gap-2"
+            >
+              📥 Baixar decisão
+            </button>
+
+            <button
+              type="button"
               onClick={handleFinalizeQuotation}
               disabled={saving}
               className="px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold shadow-xl shadow-emerald-600/25 transition-all active:scale-95 cursor-pointer flex items-center gap-2 disabled:opacity-50"
@@ -464,6 +542,100 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
           onSelectAllForSupplier={handleSelectAllForSupplier}
           formatCurrency={formatCurrency}
         />
+
+        {/* Resumo pronto para confirmação e envio */}
+        <section className={`rounded-3xl border p-6 md:p-8 shadow-xl ${
+          isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+        }`}>
+          <div className="flex flex-col lg:flex-row justify-between gap-4 border-b border-slate-500/10 pb-5">
+            <div>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                Resumo da decisão
+              </span>
+              <h2 className="text-lg font-black tracking-tight mt-1">Pedidos separados por distribuidora</h2>
+              <p className="text-xs opacity-60 mt-1">
+                Esta é a lista que será preparada para envio após a confirmação.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-right text-xs">
+              <div>
+                <span className="block text-[10px] uppercase tracking-wider opacity-50">Itens escolhidos</span>
+                <strong className="text-base">{productsList.length - unrequestedSummary.length}</strong>
+              </div>
+              <div>
+                <span className="block text-[10px] uppercase tracking-wider opacity-50">Total estimado</span>
+                <strong className="text-base text-emerald-600 dark:text-emerald-400">{formatCurrency(summaryTotal)}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 mt-5 lg:grid-cols-2">
+            {selectedBySupplier.map(({ supplier, items }) => {
+              const supplierTotal = items.reduce(
+                (total, product) => total + (product.responses[supplier.id]?.price || 0) * product.requestedQuantity,
+                0,
+              );
+              return (
+                <div key={supplier.id} className={`rounded-2xl border p-5 ${
+                  isDarkMode ? 'border-slate-700 bg-slate-950/50' : 'border-slate-200 bg-slate-50/70'
+                }`}>
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div>
+                      <h3 className="text-sm font-black">{supplier.name || 'Distribuidora não identificada'}</h3>
+                      <p className="text-[11px] opacity-60">{items.length} produto(s) selecionado(s)</p>
+                    </div>
+                    <strong className="text-sm text-emerald-600 dark:text-emerald-400">{formatCurrency(supplierTotal)}</strong>
+                  </div>
+                  <div className="space-y-2">
+                    {items.map((product) => {
+                      const price = product.responses[supplier.id]?.price || 0;
+                      return (
+                        <div key={product.productId} className="flex items-center justify-between gap-3 border-t border-slate-500/10 pt-2 text-xs">
+                          <div className="min-w-0">
+                            <p className="font-bold truncate">{product.description}</p>
+                            <p className="text-[11px] opacity-60">Qtd.: {product.requestedQuantity}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="font-mono font-bold">{formatCurrency(price)}</p>
+                            <p className="text-[11px] opacity-60">{formatCurrency(price * product.requestedQuantity)}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {unrequestedSummary.length > 0 && (
+            <div className={`mt-5 rounded-2xl border p-5 ${
+              isDarkMode ? 'border-amber-500/30 bg-amber-500/10' : 'border-amber-200 bg-amber-50'
+            }`}>
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div>
+                  <h3 className="text-sm font-black text-amber-700 dark:text-amber-300">Itens não pedidos</h3>
+                  <p className="text-[11px] opacity-70">Eles não serão enviados a nenhuma distribuidora.</p>
+                </div>
+                <strong className="text-xs">{unrequestedSummary.length} item(ns)</strong>
+              </div>
+              <div className="space-y-2">
+                {unrequestedSummary.map(({ product, reason }) => (
+                  <div key={product.productId} className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-t border-amber-500/20 pt-2 text-xs">
+                    <span className="font-bold">{product.description} <span className="font-normal opacity-70">• Qtd.: {product.requestedQuantity}</span></span>
+                    <span className="text-[11px] opacity-75">{reason}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-5 grid gap-2 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-4 text-xs sm:grid-cols-3">
+            <span><strong>Período:</strong> {formatDate(quotation.startDate)} até {formatDate(quotation.endDate)}</span>
+            <span><strong>Pagamento:</strong> {quotation.paymentTerms || 'Não informado'}</span>
+            <span><strong>Quantidade:</strong> conforme solicitado na cotação</span>
+          </div>
+        </section>
 
         {/* Painel de Pendências */}
         {pendingProducts.length > 0 && (
