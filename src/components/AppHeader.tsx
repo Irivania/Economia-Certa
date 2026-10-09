@@ -3,7 +3,7 @@
 import { useTheme, ThemeColor } from '@/context/ThemeContext';
 import Link from 'next/link';
 import { useSyncExternalStore } from 'react';
-import { getCompanySession } from '@/lib/companySession';
+import type { CompanySession } from '@/lib/companySession';
 
 interface AppHeaderProps {
   title: string;
@@ -56,18 +56,57 @@ const colorMap = {
   },
 };
 
+const emptyCompanySession: CompanySession = {};
+let sessionSnapshot: CompanySession = emptyCompanySession;
+let sessionRawValue: string | null | undefined;
+
+function readCompanySession(): CompanySession {
+  if (typeof window === 'undefined') {
+    return emptyCompanySession;
+  }
+
+  const rawSession = sessionStorage.getItem('melo_company_session');
+  if (rawSession === sessionRawValue) {
+    return sessionSnapshot;
+  }
+
+  sessionRawValue = rawSession;
+
+  if (!rawSession) {
+    sessionSnapshot = emptyCompanySession;
+    return sessionSnapshot;
+  }
+
+  try {
+    sessionSnapshot = JSON.parse(rawSession) as CompanySession;
+  } catch {
+    sessionSnapshot = emptyCompanySession;
+  }
+
+  return sessionSnapshot;
+}
+
+function subscribeToCompanySession(onStoreChange: () => void) {
+  window.addEventListener('storage', onStoreChange);
+  window.addEventListener('company-session-change', onStoreChange);
+
+  return () => {
+    window.removeEventListener('storage', onStoreChange);
+    window.removeEventListener('company-session-change', onStoreChange);
+  };
+}
+
 export function AppHeader({ title, subtitle, onOpenCmd }: AppHeaderProps) {
   const { themeColor, setThemeColor, isDarkMode, toggleDarkMode, mounted } = useTheme();
-  const companyName = useSyncExternalStore(
-    () => () => {},
-    () => {
-      const session = getCompanySession();
-      return session?.tradeName || session?.name || 'Empresa';
-    },
-    () => 'Empresa',
+  const session = useSyncExternalStore(
+    subscribeToCompanySession,
+    readCompanySession,
+    () => emptyCompanySession,
   );
+  const companyName = session.tradeName || session.name || 'Melo Perfumaria';
+  const userName = session.name || '';
+  const userRole = session.role ? String(session.role).toUpperCase() : '';
 
-  // Garante consistência exata no SSR usando 'blue-light' como padrão antes de hidratar no cliente
   const activeThemeKey: ThemeColor = mounted && themeColor ? themeColor : 'blue-light';
   const themeStyles = colorMap[activeThemeKey] || colorMap['blue-light'];
 
@@ -80,8 +119,14 @@ export function AppHeader({ title, subtitle, onOpenCmd }: AppHeaderProps) {
           <div className="flex flex-wrap items-center gap-3">
             <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-semibold tracking-wider uppercase backdrop-blur-md ${themeStyles.badge}`}>
               <span className={`w-2 h-2 rounded-full ${themeStyles.dot} animate-pulse`} />
-              Ambiente Ativo • {companyName}
+              Loja • {companyName}
             </div>
+
+            {userName && (
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/20 bg-black/30 backdrop-blur-md text-xs font-bold text-white uppercase tracking-wider">
+                👤 {userName} {userRole && `• ${userRole}`}
+              </div>
+            )}
 
             <div className="flex items-center gap-1.5 bg-black/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 text-xs">
               <span className="text-white/80 font-medium mr-1">Temas:</span>

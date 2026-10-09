@@ -7,9 +7,9 @@ import {
   quotationItems,
   quotationSupplierItems,
   products,
-  suppliers,
+  supplierBrands,
 } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { recordAuditLog } from "@/modules/audit/auditService";
 
 export const dynamic = "force-dynamic";
@@ -30,11 +30,10 @@ export async function GET(request: NextRequest) {
     const supplierRecords = await db
       .select()
       .from(quotationSuppliers)
-      .leftJoin(suppliers, eq(quotationSuppliers.supplierId, suppliers.id))
       .where(eq(quotationSuppliers.token, token));
 
-    const supplierRow = supplierRecords?.[0];
-    const supplierRecord = supplierRow?.quotation_suppliers;
+    const supplierRecord = supplierRecords?.[0];
+
     if (!supplierRecord) {
       return NextResponse.json(
         { error: "Link de acesso ou fornecedor inválido para este token." },
@@ -192,6 +191,44 @@ export async function GET(request: NextRequest) {
       return nameA.localeCompare(nameB);
     });
 
+    const brandId = quotData.brandId as string | null | undefined;
+    let resolvedSupplierName: string | null = null;
+
+    if (brandId) {
+      const [brand] = await db
+        .select({
+          tradeName: supplierBrands.tradeName,
+          corporateName: supplierBrands.corporateName,
+        })
+        .from(supplierBrands)
+        .where(
+          and(
+            eq(supplierBrands.id, brandId),
+            eq(supplierBrands.supplierId, supplierRecord.supplierId),
+          ),
+        )
+        .limit(1);
+
+      resolvedSupplierName = brand?.tradeName || brand?.corporateName || null;
+    }
+
+    if (!resolvedSupplierName) {
+      const supplierBrandRows = await db
+        .select({
+          tradeName: supplierBrands.tradeName,
+          corporateName: supplierBrands.corporateName,
+        })
+        .from(supplierBrands)
+        .where(eq(supplierBrands.supplierId, supplierRecord.supplierId));
+
+      if (supplierBrandRows.length === 1) {
+        resolvedSupplierName =
+          supplierBrandRows[0].tradeName ||
+          supplierBrandRows[0].corporateName ||
+          null;
+      }
+    }
+
     return NextResponse.json({
       quotationId: targetQuotationId,
       title:
@@ -199,7 +236,7 @@ export async function GET(request: NextRequest) {
         (quotData.name as string) ||
         "Cotação de Reposição",
       companyName: (compData.name as string) || "Melo Perfumaria",
-      supplierName: supplierRow.suppliers?.name || "Empresa representada",
+      supplierName: resolvedSupplierName || "DISTRIBUIDORA PARCEIRA",
       status: supplierRecord.status,
       isLocked, // Isolado por fornecedor: True apenas se este fornecedor específico já respondeu
       observation: supplierRecord.observation || "",
