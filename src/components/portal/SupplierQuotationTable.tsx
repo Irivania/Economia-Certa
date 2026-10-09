@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Image from 'next/image';
 
 interface QuotationItem {
   id: string;
@@ -57,8 +56,14 @@ export function SupplierQuotationTable({
                 <tr key={item.id} className={`group transition-all ${isUnavailable ? (isDarkMode ? 'bg-red-950/20 opacity-60' : 'bg-red-50/50 opacity-70') : (isDarkMode ? 'hover:bg-slate-800/50' : 'hover:bg-slate-50/80')}`}>
                   <td className="py-4 px-6 text-center">
                     {item.imageUrl ? (
-                      <div className="w-12 h-12 relative rounded-2xl overflow-hidden border border-slate-500/20 mx-auto shadow-sm group-hover:scale-105 transition duration-300">
-                        <Image src={item.imageUrl} alt={item.productName} fill sizes="48px" className="object-cover" />
+                      <div className="w-12 h-12 relative rounded-2xl overflow-hidden border border-slate-500/20 mx-auto shadow-sm group-hover:scale-105 transition duration-300 bg-white flex items-center justify-center">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img 
+                          src={item.imageUrl} 
+                          alt={item.productName} 
+                          loading="lazy"
+                          className="w-full h-full object-cover" 
+                        />
                       </div>
                     ) : (
                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xs font-bold mx-auto border ${isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-500'}`}>

@@ -1,21 +1,26 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { ChangePasswordModal } from '@/components/auth/ChangePasswordModal';
 
 export default function CompanyLoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Estado para o modal de Recuperação de Senha
+  // Estados para o modal de Recuperação de Senha
   const [isForgotOpen, setIsForgotOpen] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
+
+  // Estados para o Modal de Troca Obrigatória de Senha (Primeiro Acesso)
+  const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [tempUserId, setTempUserId] = useState('');
 
   // Validação básica de formato de e-mail por Regex
   const isValidEmail = (emailStr: string) => {
@@ -30,49 +35,54 @@ export default function CompanyLoginPage() {
     const sanitizedEmail = email.trim().toLowerCase();
 
     if (!sanitizedEmail || !password) {
-      setError("Por favor, preencha todos os campos obrigatórios.");
+      setError('Por favor, preencha todos os campos obrigatórios.');
       setLoading(false);
       return;
     }
 
     if (!isValidEmail(sanitizedEmail)) {
-      setError("Por favor, insira um formato de e-mail válido.");
+      setError('Por favor, insira um formato de e-mail válido.');
       setLoading(false);
       return;
     }
 
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: sanitizedEmail, password }),
       });
 
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        // Mensagem genérica para mitigar ataques de enumeração de utilizadores
         throw new Error(
           (data as { error?: string }).error ||
-            "Credenciais inválidas ou acesso corporativo negado.",
+            'Credenciais inválidas ou acesso corporativo negado.',
         );
       }
 
-      // NOTA DE SEGURANÇA: O backend deve retornar um cookie HttpOnly seguro contendo o token JWT.
-      // O frontend apenas redireciona após a confirmação bem-sucedida da API.
+      // Verifica se o colaborador precisa de alterar a senha no primeiro acesso
+      if (data.mustChangePassword) {
+        setTempUserId(data.session.userId);
+        setMustChangePassword(true);
+        setLoading(false);
+        return;
+      }
+
       if (data.session) {
         sessionStorage.setItem(
-          "melo_company_session",
+          'melo_company_session',
           JSON.stringify(data.session),
         );
       }
-      router.push("/");
+      router.push('/');
     } catch (err: unknown) {
-      console.error("[Company Auth Security Error]:", err);
+      console.error('[Company Auth Security Error]:', err);
       const errorMessage =
         err instanceof Error
           ? err.message
-          : "Ocorreu um erro ao processar a autenticação.";
+          : 'Ocorreu um erro ao processar a autenticação.';
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -84,27 +94,27 @@ export default function CompanyLoginPage() {
     const sanitizedForgotEmail = forgotEmail.trim().toLowerCase();
 
     if (!isValidEmail(sanitizedForgotEmail)) {
-      alert("Insira um e-mail válido para recuperação.");
+      alert('Insira um e-mail válido para recuperação.');
       return;
     }
 
     setForgotSent(true);
 
     try {
-      await fetch("/api/auth/forgot-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: sanitizedForgotEmail }),
       });
     } catch (err) {
-      console.error("Erro ao solicitar recuperação:", err);
+      console.error('Erro ao solicitar recuperação:', err);
     } finally {
       setTimeout(() => {
         setForgotSent(false);
         setIsForgotOpen(false);
-        setForgotEmail("");
+        setForgotEmail('');
         alert(
-          "Se o e-mail estiver cadastrado, as instruções de recuperação foram enviadas.",
+          'Se o e-mail estiver cadastrado, as instruções de recuperação foram enviadas.',
         );
       }, 1500);
     }
@@ -118,6 +128,7 @@ export default function CompanyLoginPage() {
 
       {/* Contentor Principal */}
       <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 bg-white/90 backdrop-blur-2xl rounded-[2.5rem] shadow-[0_20px_60px_rgba(15,23,42,0.08)] border border-slate-200 overflow-hidden relative z-10 animate-in fade-in zoom-in-95 duration-500">
+        
         {/* Painel Esquerdo */}
         <div className="lg:col-span-5 p-8 sm:p-12 bg-gradient-to-br from-indigo-900 via-indigo-950 to-slate-900 text-white flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-800 relative">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-amber-500/20 via-transparent to-transparent pointer-events-none" />
@@ -156,7 +167,7 @@ export default function CompanyLoginPage() {
               Acesso Administrativo
             </h1>
             <p className="text-xs text-slate-500 font-medium">
-              Entre com as credenciais da sua empresa
+              Entre com as credenciais da sua empresa ou colaborador
             </p>
           </div>
 
@@ -167,12 +178,11 @@ export default function CompanyLoginPage() {
             </div>
           )}
 
-          {/* O fluxo OAuth deve ser ligado a um endpoint real antes de ser disponibilizado. */}
           <button
             type="button"
             onClick={() =>
               setError(
-                "Login com Google ainda não está configurado. Utilize o e-mail corporativo.",
+                'Login com Google ainda não está configurado. Utilize o e-mail corporativo.',
               )
             }
             disabled={loading}
@@ -210,7 +220,7 @@ export default function CompanyLoginPage() {
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-700 tracking-wide uppercase">
-                E-mail do Administrador
+                E-mail Corporativo
               </label>
               <input
                 type="email"
@@ -238,7 +248,7 @@ export default function CompanyLoginPage() {
               </div>
               <div className="relative group">
                 <input
-                  type={showPassword ? "text" : "password"}
+                  type={showPassword ? 'text' : 'password'}
                   required
                   autoComplete="current-password"
                   value={password}
@@ -252,38 +262,13 @@ export default function CompanyLoginPage() {
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer transition p-1"
                 >
                   {showPassword ? (
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
-                      />
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                     </svg>
                   ) : (
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                      />
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                     </svg>
                   )}
                 </button>
@@ -306,23 +291,17 @@ export default function CompanyLoginPage() {
             </button>
           </form>
 
-          {/* Links Inferiores com Opção de Cadastro Integrada */}
+          {/* Links Inferiores */}
           <div className="space-y-2 text-center pt-6 border-t border-slate-100">
             <p className="text-xs text-slate-500 font-medium">
-              Ainda não possui uma conta empresarial?{" "}
-              <Link
-                href="/register"
-                className="text-indigo-600 font-bold hover:text-indigo-700 transition underline underline-offset-4"
-              >
+              Ainda não possui uma conta empresarial?{' '}
+              <Link href="/register" className="text-indigo-600 font-bold hover:text-indigo-700 transition underline underline-offset-4">
                 Criar nova empresa
               </Link>
             </p>
             <p className="text-xs text-slate-500 font-medium">
-              Procura o portal de distribuidores?{" "}
-              <Link
-                href="/portal/login"
-                className="text-indigo-600 font-bold hover:text-indigo-700 transition underline underline-offset-4"
-              >
+              Procura o portal de distribuidores?{' '}
+              <Link href="/portal/login" className="text-indigo-600 font-bold hover:text-indigo-700 transition underline underline-offset-4">
                 Aceder como Fornecedor
               </Link>
             </p>
@@ -330,10 +309,21 @@ export default function CompanyLoginPage() {
         </div>
       </div>
 
+      {/* 🔒 Modal Modularizado de Troca Obrigatória de Senha */}
+      <ChangePasswordModal
+        isOpen={mustChangePassword}
+        userId={tempUserId}
+        tempPasswordUsed={password}
+        onSuccess={() => {
+          setMustChangePassword(false);
+          setPassword('');
+        }}
+      />
+
       {/* Modal de Recuperação de Senha */}
       {isForgotOpen && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 space-y-6 border border-slate-200">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 space-y-6 border border-slate-200 text-slate-900">
             <div className="flex justify-between items-center border-b pb-4 border-slate-100">
               <div>
                 <h3 className="text-sm font-black text-slate-900">
@@ -344,6 +334,7 @@ export default function CompanyLoginPage() {
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setIsForgotOpen(false)}
                 className="text-slate-400 hover:text-slate-600 font-bold text-base cursor-pointer"
               >
@@ -379,7 +370,7 @@ export default function CompanyLoginPage() {
                   disabled={forgotSent}
                   className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-2xl text-xs transition cursor-pointer shadow-lg shadow-indigo-600/20 disabled:opacity-50"
                 >
-                  {forgotSent ? "A enviar..." : "Enviar Instruções"}
+                  {forgotSent ? 'A enviar...' : 'Enviar Instruções'}
                 </button>
               </div>
             </form>

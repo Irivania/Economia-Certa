@@ -12,6 +12,7 @@ import { DashboardMetrics } from '@/components/dashboard/DashboardMetrics';
 import { DashboardQuickAccess } from '@/components/dashboard/DashboardQuickAccess';
 import { RoleSelectionModal } from '@/components/dashboard/RoleSelectionModal';
 import { getCompanyId } from '@/lib/companySession';
+import { apiFetch } from '@/lib/apiClient';
 
 const subscribeToHydration = () => () => {};
 
@@ -52,7 +53,7 @@ export default function DashboardPage() {
       const sessionData = sessionStorage.getItem('melo_company_session');
       if (sessionData) {
         const parsed = JSON.parse(sessionData);
-        return parsed.role || 'admin';
+        return (parsed.role || 'admin').toLowerCase();
       }
     } catch (e) {
       console.error(e);
@@ -90,6 +91,11 @@ export default function DashboardPage() {
   };
 
   const handleRoleChange = (newRole: UserRole) => {
+    if (userRole !== 'admin') {
+      addToast('Acesso Restrito', 'Apenas administradores podem alterar níveis de permissão.', 'warning');
+      return;
+    }
+
     setUserRole(newRole);
     try {
       const sessionData = sessionStorage.getItem('melo_company_session');
@@ -128,12 +134,14 @@ export default function DashboardPage() {
   }, [handleKeyDown]);
 
   useEffect(() => {
+    if (!companyId) return;
+
     async function loadMetrics() {
       try {
         setLoading(true);
         const [pRes, qRes] = await Promise.all([
-          fetch(`/api/products?companyId=${companyId}`),
-          fetch(`/api/quotations?companyId=${companyId}`),
+          apiFetch('/api/products'),
+          apiFetch('/api/quotations'),
         ]);
 
         if (pRes.ok) {
@@ -190,7 +198,13 @@ export default function DashboardPage() {
       <DashboardHeader
         userName={userName}
         userRole={userRole}
-        onOpenPermissionModal={() => setIsPermissionModalOpen(true)}
+        onOpenPermissionModal={() => {
+          if (userRole === 'admin') {
+            setIsPermissionModalOpen(true);
+          } else {
+            addToast('Acesso Restrito', 'Apenas administradores podem alterar o nível de permissão.', 'warning');
+          }
+        }}
         onLogout={handleLogout}
         isDarkMode={isDarkMode}
       />
@@ -258,12 +272,14 @@ export default function DashboardPage() {
 
       </main>
 
-      <RoleSelectionModal
-        isOpen={isPermissionModalOpen}
-        onClose={() => setIsPermissionModalOpen(false)}
-        userRole={userRole}
-        onRoleChange={handleRoleChange}
-      />
+      {userRole === 'admin' && (
+        <RoleSelectionModal
+          isOpen={isPermissionModalOpen}
+          onClose={() => setIsPermissionModalOpen(false)}
+          userRole={userRole}
+          onRoleChange={handleRoleChange}
+        />
+      )}
 
       <ToastContainer toasts={toasts} isDarkMode={isDarkMode} />
       <CommandMenu isOpen={isCmdOpen} onClose={() => setIsCmdOpen(false)} isDarkMode={isDarkMode} latestQuotationId={latestQuotationId} />

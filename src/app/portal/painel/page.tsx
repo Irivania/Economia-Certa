@@ -100,56 +100,48 @@ export default function SupplierPortalDashboard() {
       if (cotRes.ok) setQuotations(await cotRes.json());
       if (connRes.ok) setConnections(await connRes.json());
       
+      let brandsData: RepresentedCompany[] = [];
       if (brandsRes.ok) {
-        let brandsData = (await brandsRes.json()) as RepresentedCompany[];
-        
-        if (!Array.isArray(brandsData) || brandsData.length === 0) {
-          const defaultBrands = [
-            { supplierId, tradeName: 'DPC', corporateName: 'DPC DISTRIBUIDOR ATACADISTA S/A', cnpj: '88.471.517/0001-77', email: supplierEmail, phone: '' },
-            { supplierId, tradeName: 'SOLFARMA', corporateName: 'SOLFARMA COMERCIO DE PRODUTOS FARMACEUTICOS', cnpj: '48.054.219/0001-74', email: supplierEmail, phone: '' }
-          ];
-
-          for (const b of defaultBrands) {
-            await fetch('/api/portal/brands', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(b)
-            });
-          }
-          const retryBrands = await fetch(`/api/portal/brands?supplierId=${supplierId}`);
-          if (retryBrands.ok) {
-            brandsData = await retryBrands.json();
-          }
-        }
-
-        setRepresentedCompanies(brandsData);
-
-        const representedSupplierIds = Array.from(new Set([
-          supplierId,
-          ...brandsData
-            .map((brand) => brand.supplierId)
-            .filter((id): id is string => Boolean(id)),
-        ]));
-        const orderResponses = await Promise.all(
-          representedSupplierIds.map((representedSupplierId) =>
-            representedSupplierId === supplierId && ordersRes.ok
-              ? ordersRes.json() as Promise<PortalPurchaseOrder[]>
-              : fetch(`/api/portal/orders?supplierId=${representedSupplierId}`)
-                  .then((response) => response.ok ? response.json() as Promise<PortalPurchaseOrder[]> : []),
-          ),
-        );
-        const uniqueOrders = new Map<string, PortalPurchaseOrder>();
-        orderResponses.flat().forEach((order) => uniqueOrders.set(order.id, order));
-        setPurchaseOrders(Array.from(uniqueOrders.values()));
-        
-        setActiveCompany((prev) => {
-          if (brandsData.length > 0 && (!prev || prev.id === 'default-empty')) {
-            return brandsData[0];
-          }
-          const found = brandsData.find(b => b.id === prev?.id);
-          return found || brandsData[0] || prev;
-        });
+        brandsData = await brandsRes.json();
       }
+
+      setRepresentedCompanies(brandsData);
+
+      const representedSupplierIds = Array.from(new Set([
+        supplierId,
+        ...brandsData
+          .map((brand) => brand.supplierId)
+          .filter((id): id is string => Boolean(id)),
+      ]));
+
+      const orderResponses = await Promise.all(
+        representedSupplierIds.map((representedSupplierId) =>
+          representedSupplierId === supplierId && ordersRes.ok
+            ? ordersRes.json() as Promise<PortalPurchaseOrder[]>
+            : fetch(`/api/portal/orders?supplierId=${representedSupplierId}`)
+                .then((response) => response.ok ? response.json() as Promise<PortalPurchaseOrder[]> : []),
+        ),
+      );
+
+      const uniqueOrders = new Map<string, PortalPurchaseOrder>();
+      orderResponses.flat().forEach((order) => uniqueOrders.set(order.id, order));
+      setPurchaseOrders(Array.from(uniqueOrders.values()));
+      
+      setActiveCompany((prev) => {
+        if (brandsData.length > 0 && (!prev || prev.id === 'default-empty')) {
+          return brandsData[0];
+        }
+        const found = brandsData.find(b => b.id === prev?.id);
+        return found || brandsData[0] || {
+          id: 'default-empty',
+          tradeName: 'SELECIONE UMA MARCA',
+          corporateName: '',
+          cnpj: '',
+          email: '',
+          phone: ''
+        };
+      });
+
     } catch (err) {
       console.error('Erro ao carregar dados do portal:', err);
     } finally {
@@ -293,7 +285,8 @@ export default function SupplierPortalDashboard() {
         title="Painel do Representante B2B"
         representativeName={supplier.name}
         representativeEmail={supplier.email}
-        activeBrand={activeCompany?.tradeName || (representedCompanies[0]?.tradeName ?? 'SELECIONE UMA MARCA')}
+        // Exibe estritamente o nome da distribuidora ativa selecionada no contexto
+        activeBrand={activeCompany?.tradeName || representedCompanies[0]?.tradeName || 'GERAL'}
         onLogout={handleLogout}
       />
 

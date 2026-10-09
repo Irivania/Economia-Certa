@@ -4,6 +4,9 @@ import { companies, users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 
+// Hash dummy estático para equalizar o tempo de resposta contra Timing Attacks
+const DUMMY_HASH = '$2a$10$1234567890123456789012uX/X.X.X.X.X.X.X.X.X.X.X.X.X.X';
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -30,12 +33,16 @@ export async function POST(request: NextRequest) {
       .where(eq(users.email, email))
       .limit(1);
 
-    const valid = account?.passwordHash
-      ? await bcrypt.compare(password, account.passwordHash)
-      : false;
+    // Se a conta não existir, comparamos contra um hash dummy para manter o tempo de resposta constante
+    const hashToCompare = account?.passwordHash || DUMMY_HASH;
+    const validPassword = await bcrypt.compare(password, hashToCompare);
 
-    if (!account || !valid || !account.userId) {
-      return NextResponse.json({ error: 'Credenciais inválidas ou acesso não autorizado.' }, { status: 401 });
+    // Se a conta não foi encontrada ou a senha estiver errada, rejeitamos com mensagem genérica
+    if (!account || !account.userId || !account.passwordHash || !validPassword) {
+      return NextResponse.json(
+        { error: 'Credenciais inválidas ou acesso não autorizado.' },
+        { status: 401 }
+      );
     }
 
     return NextResponse.json({
@@ -43,10 +50,10 @@ export async function POST(request: NextRequest) {
       session: {
         userId: account.userId,
         companyId: account.companyId,
-        name: account.companyName || account.userName,
-        tradeName: account.tradeName || '',
+        name: account.userName,          // 👈 Usa estritamente o nome do colaborador (Paulo, Maria, etc.)
+        tradeName: account.tradeName || account.companyName || '',
         email: account.userEmail,
-        role: account.role || 'ADMIN',
+        role: account.role || 'geral',     // 👈 Respeita o cargo real (gerente, supervisor, etc.) sem forçar ADMIN
       },
     });
   } catch (error) {

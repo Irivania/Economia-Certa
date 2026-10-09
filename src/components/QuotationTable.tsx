@@ -223,15 +223,13 @@ export default function QuotationTable({
                 <th className="p-5 font-extrabold min-w-[300px]">Produto / EAN / Qtd</th>
                 {suppliers.map((sup) => {
                   const isFullySelected = productsList.every((prod) => selectedChoices[prod.productId] === sup.supplierId);
-                  const supTotal = supplierTotals[sup.supplierId] || 0;
-                  const freeShippingMin = 450;
-                  const hasFreeShipping = supTotal >= freeShippingMin;
-                  const missingForFree = freeShippingMin - supTotal;
 
                   return (
                     <th key={sup.supplierId} className="p-5 text-center min-w-[220px] border-l border-slate-500/10">
-                      <div className="font-black text-sm tracking-tight">{sup.name || 'Fornecedor'}</div>
-                      <div className="mt-2 space-y-1">
+                      <div className="font-black text-sm tracking-tight text-indigo-600 dark:text-indigo-400">
+                        {sup.name || 'Fornecedor'}
+                      </div>
+                      <div className="mt-2 space-y-1.5">
                         <span className="inline-block px-2.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
                           💳 {paymentTerms || 'Condição não informada'}
                         </span>
@@ -241,21 +239,10 @@ export default function QuotationTable({
                               ? 'bg-slate-800/70 text-slate-300'
                               : 'bg-slate-100 text-slate-600'
                           }`}>
-                            <strong className="font-black">Observação:</strong>{' '}
+                            <strong className="font-black">Obs:</strong>{' '}
                             {sup.observation}
                           </p>
                         )}
-                        <div>
-                          {hasFreeShipping ? (
-                            <span className="inline-block px-2 py-0.5 rounded text-[8px] font-extrabold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                              🚚 Frete Grátis Liberado!
-                            </span>
-                          ) : (
-                            <span className="inline-block opacity-75 text-[9px] font-semibold">
-                              📦 Faltam {formatCurrency(missingForFree)} p/ Frete Grátis
-                            </span>
-                          )}
-                        </div>
                       </div>
 
                       <div className="mt-3">

@@ -20,6 +20,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { AppHeader } from '@/components/AppHeader';
 import { CommandMenu } from '@/components/CommandMenu';
 import { getCompanyId } from '@/lib/companySession';
+import { apiFetch } from '@/lib/apiClient';
 
 interface Supplier {
   id: string;
@@ -96,9 +97,10 @@ export default function Page() {
 
   const loadProductsAndSuppliers = useCallback(async () => {
     try {
+      // Utiliza o apiFetch para enviar a sessão corporativa e o companyId com segurança
       const [supRes, prodRes] = await Promise.all([
-        fetch(`/api/suppliers?companyId=${companyId}`),
-        fetch(`/api/products?companyId=${companyId}`)
+        apiFetch('/api/suppliers'),
+        apiFetch('/api/products')
       ]);
 
       if (supRes.ok) {
@@ -204,7 +206,7 @@ export default function Page() {
 
   const handleQuickRegister = async (itemPendente: ItemPendente) => {
     try {
-      const res = await fetch('/api/products', {
+      const res = await apiFetch('/api/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -238,7 +240,7 @@ export default function Page() {
 
     try {
       setSubmitting(true);
-      const response = await fetch('/api/quotations', {
+      const response = await apiFetch('/api/quotations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

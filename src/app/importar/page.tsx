@@ -6,7 +6,7 @@ import { ProductImportModal, Product, ItemPendente } from '@/components/ProductI
 import { useTheme } from '@/context/ThemeContext';
 import { AppHeader } from '@/components/AppHeader';
 import { CommandMenu } from '@/components/CommandMenu';
-import { getCompanyId } from '@/lib/companySession';
+import { apiFetch } from '@/lib/apiClient';
 
 export default function ImportarPage() {
   const { isDarkMode } = useTheme();
@@ -14,7 +14,6 @@ export default function ImportarPage() {
   const [loading, setLoading] = useState(true);
   const [isCmdOpen, setIsCmdOpen] = useState(false);
 
-  const companyId = getCompanyId();
   const latestQuotationId = '';
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -35,7 +34,8 @@ export default function ImportarPage() {
   useEffect(() => {
     async function loadProducts() {
       try {
-        const res = await fetch(`/api/products?companyId=${companyId}`);
+        // Utiliza o apiFetch para injetar a sessão e o companyId de forma automática
+        const res = await apiFetch('/api/products');
         if (!res.ok) throw new Error('Erro ao carregar produtos.');
         const data = await res.json();
         if (Array.isArray(data)) {
@@ -49,7 +49,7 @@ export default function ImportarPage() {
     }
 
     loadProducts();
-  }, [companyId]);
+  }, []);
 
   const handleQuickRegister = async (itemPendente: ItemPendente) => {
     console.log(itemPendente);

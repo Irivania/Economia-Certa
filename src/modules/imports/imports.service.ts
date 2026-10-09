@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 
 export const importRowSchema = z.object({
   ean: z.string().optional(),
-  description: z.string().min(1, 'A descrição é obrigatória.'),
+  description: z.string().min(3, 'A descrição deve ter pelo menos 3 caracteres.'),
   brand: z.string().optional(),
   category: z.string().optional(),
   unit: z.string().default('UN'),

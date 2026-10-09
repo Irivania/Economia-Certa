@@ -6,16 +6,14 @@ import crypto from 'crypto';
 import { uppercaseText } from '@/lib/text';
 import { formatQuotationDate, parseOptionalQuotationDate } from '@/lib/quotationDates';
 import { getActiveB2BSuppliers, saveQuotationItems, linkQuotationSuppliers } from '@/services/quotationService';
+import { requireCompanySession } from '@/lib/authServer';
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const companyId = searchParams.get('companyId');
-
-  if (!companyId) {
-    return NextResponse.json({ error: 'companyId é obrigatório' }, { status: 400 });
-  }
-
   try {
+    // 1. Validação estrita da sessão no servidor (Elimina IDOR e dependência de query params)
+    const session = requireCompanySession(request);
+    const companyId = session.companyId;
+
     const quotationList = await db
       .select()
       .from(quotations)
@@ -53,14 +51,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data);
   } catch (error) {
     console.error('Erro ao buscar cotações:', error);
-    return NextResponse.json({ error: 'Erro ao buscar cotações.' }, { status: 500 });
+    return NextResponse.json({ error: 'Acesso não autorizado ou sessão inválida.' }, { status: 401 });
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    // 1. Validação estrita da sessão no servidor
+    const session = requireCompanySession(request);
+    const companyId = session.companyId;
+
     const body = await request.json() as Record<string, unknown>;
-    const companyId = String(body.companyId || '');
     const title = uppercaseText(String(body.title || '').trim());
     const paymentTerms = uppercaseText(String(body.paymentTerms || 'Boleto 28 Dias').trim());
     const supplierIds = body.supplierIds;
@@ -69,8 +70,8 @@ export async function POST(request: Request) {
     const closingTime = body.closingTime ? String(body.closingTime) : null;
     const items = body.items;
 
-    if (!companyId || !title) {
-      return NextResponse.json({ error: 'companyId e title são obrigatórios' }, { status: 400 });
+    if (!title) {
+      return NextResponse.json({ error: 'O título da cotação é obrigatório' }, { status: 400 });
     }
 
     const connectedSupplierIds = await getActiveB2BSuppliers(companyId);
@@ -85,7 +86,7 @@ export async function POST(request: Request) {
       .insert(quotations)
       .values({
         id: crypto.randomUUID(),
-        companyId,
+        companyId, // Derivado de forma segura do servidor
         title,
         paymentTerms,
         storeName: 'Melo Perfumaria',
@@ -111,11 +112,14 @@ export async function POST(request: Request) {
   }
 }
 
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
   try {
+    // 1. Validação estrita da sessão no servidor
+    const session = requireCompanySession(request);
+    const companyId = session.companyId;
+
     const body = await request.json() as Record<string, unknown>;
     const id = String(body.id || '');
-    const companyId = String(body.companyId || '');
     const title = uppercaseText(String(body.title || '').trim());
     const paymentTerms = uppercaseText(String(body.paymentTerms || '').trim());
     const supplierIds = body.supplierIds;
@@ -124,10 +128,11 @@ export async function PUT(request: Request) {
     const closingTime = body.closingTime ? String(body.closingTime) : null;
     const items = body.items;
 
-    if (!id || !companyId || !title) {
-      return NextResponse.json({ error: 'id, companyId e title são obrigatórios' }, { status: 400 });
+    if (!id || !title) {
+      return NextResponse.json({ error: 'id e title são obrigatórios' }, { status: 400 });
     }
 
+    // 2. Atualização garantindo ownership da empresa (Prevenção de IDOR)
     const [updatedQuotation] = await db
       .update(quotations)
       .set({ title, paymentTerms, startDate, endDate, closingTime })
@@ -135,7 +140,7 @@ export async function PUT(request: Request) {
       .returning();
 
     if (!updatedQuotation) {
-      return NextResponse.json({ error: 'Cotação não encontrada' }, { status: 404 });
+      return NextResponse.json({ error: 'Cotação não encontrada ou sem permissão' }, { status: 404 });
     }
 
     if (items) {
@@ -179,14 +184,18 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    // 1. Validação estrita da sessão no servidor
+    const session = requireCompanySession(request);
+    const companyId = session.companyId;
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-    const companyId = searchParams.get('companyId');
 
-    if (!id || !companyId) {
-      return NextResponse.json({ error: 'id e companyId são obrigatórios' }, { status: 400 });
+    if (!id) {
+      return NextResponse.json({ error: 'id é obrigatório' }, { status: 400 });
     }
 
+    // 2. Exclusão restrita ao tenant validado (Prevenção de IDOR)
     await db.delete(quotationItems).where(eq(quotationItems.quotationId, id));
     await db.delete(quotationSuppliers).where(eq(quotationSuppliers.quotationId, id));
     await db.delete(quotations).where(and(eq(quotations.id, id), eq(quotations.companyId, companyId)));

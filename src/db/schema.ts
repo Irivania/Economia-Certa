@@ -245,6 +245,7 @@ export const auditLogs = pgTable("audit_logs", {
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
   companyId: text("company_id"),
+  userId: text("user_id"), // 🔒 Rastreabilidade exata do colaborador que realizou a ação
   quotationId: text("quotation_id"),
   supplierId: text("supplier_id"),
   action: text("action").notNull(),

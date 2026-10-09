@@ -1,18 +1,23 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/context/ThemeContext';
 import { AppHeader } from '@/components/AppHeader';
 import { ToastContainer } from '@/components/ToastContainer';
+import { UsersTable } from '@/components/users/UsersTable';
+import { UserModals } from '@/components/users/UserModals';
+import { apiFetch } from '@/lib/apiClient';
 
 interface UserItem {
   id: string;
   name: string;
   email: string;
   role: 'admin' | 'gerente' | 'supervisor' | 'geral';
-  status: 'ativo' | 'inativo';
+  status: 'ativo' | 'pausado';
+  active: boolean;
+  tempPassword?: string;
 }
 
 interface ToastMessage {
@@ -22,7 +27,6 @@ interface ToastMessage {
   type: 'success' | 'info' | 'warning';
 }
 
-// Função auxiliar pura fora do componente para geração de IDs únicos seguros
 function generateUniqueId(): string {
   if (typeof window !== 'undefined' && window.crypto?.randomUUID) {
     return window.crypto.randomUUID();
@@ -34,34 +38,64 @@ export default function UsersManagementPage() {
   const router = useRouter();
   const { isDarkMode } = useTheme();
 
-  const [users, setUsers] = useState<UserItem[]>([
-    { id: '1', name: 'Irivânia Melo (Administração)', email: 'melo.perfumaria@gmail.com', role: 'admin', status: 'ativo' },
-    { id: '2', name: 'Carlos Gerente', email: 'carlos.gerente@meloperfumaria.com', role: 'gerente', status: 'ativo' },
-    { id: '3', name: 'Ana Supervisor', email: 'ana.supervisor@meloperfumaria.com', role: 'supervisor', status: 'ativo' },
-    { id: '4', name: 'Roberto Operador', email: 'roberto.geral@meloperfumaria.com', role: 'geral', status: 'ativo' },
-  ]);
+  const [users, setUsers] = useState<UserItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
+  // Modais
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [createdUserData, setCreatedUserData] = useState<{ name: string; email: string; tempPassword: string } | null>(null);
+
+  // Criar
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newRole, setNewRole] = useState<'admin' | 'gerente' | 'supervisor' | 'geral'>('geral');
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  // Verificar se o utilizador logado é Admin
-  useEffect(() => {
-    const sessionData = sessionStorage.getItem('melo_company_session');
-    if (sessionData) {
-      try {
-        const parsed = JSON.parse(sessionData);
-        if (parsed.role && parsed.role !== 'admin') {
-          alert('Acesso restrito a Administradores.');
-          router.push('/');
-        }
-      } catch (e) {
-        console.error(e);
+  // Editar
+  const [editingUser, setEditingUser] = useState<UserItem | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editRole, setEditRole] = useState<'admin' | 'gerente' | 'supervisor' | 'geral'>('geral');
+
+  const fetchUsers = useCallback(async () => {
+    try {
+      const sessionData = sessionStorage.getItem('melo_company_session');
+      if (!sessionData) {
+        router.push('/login');
+        return;
       }
+
+      const parsed = JSON.parse(sessionData);
+      if (parsed.role && parsed.role !== 'admin') {
+        alert('Acesso restrito a Administradores.');
+        router.push('/');
+        return;
+      }
+
+      const res = await apiFetch('/api/users');
+
+      if (res.ok) {
+        const data = await res.json();
+        setUsers(Array.isArray(data) ? data : []);
+      }
+    } catch {
+      console.error('Erro ao carregar utilizadores');
+    } finally {
+      setLoading(false);
     }
   }, [router]);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadData() {
+      if (isMounted) await fetchUsers();
+    }
+    void loadData();
+    return () => {
+      isMounted = false;
+    };
+  }, [fetchUsers]);
 
   const addToast = (title: string, description: string, type: 'success' | 'info' | 'warning' = 'success') => {
     const id = generateUniqueId();
@@ -71,34 +105,130 @@ export default function UsersManagementPage() {
     }, 4000);
   };
 
-  const handleCreateUser = (e: React.FormEvent) => {
+  const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName || !newEmail) return;
 
-    const newUser: UserItem = {
-      id: generateUniqueId(),
-      name: newName,
-      email: newEmail,
-      role: newRole,
-      status: 'ativo',
-    };
+    try {
+      const res = await apiFetch('/api/users', {
+        method: 'POST',
+        body: JSON.stringify({ name: newName, email: newEmail, role: newRole }),
+      });
 
-    setUsers((prev) => [newUser, ...prev]);
-    setIsModalOpen(false);
-    setNewName('');
-    setNewEmail('');
-    setNewRole('geral');
-    addToast('Utilizador Cadastrado', `O acesso para ${newName} foi liberado com sucesso!`, 'success');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.error || 'Erro ao cadastrar utilizador.');
+      }
+
+      const data = await res.json();
+      setUsers((prev) => [data, ...prev]);
+      setIsModalOpen(false);
+      setNewName('');
+      setNewEmail('');
+      setNewRole('geral');
+      setCreatedUserData({ name: data.name, email: data.email, tempPassword: data.tempPassword });
+      addToast('Utilizador Cadastrado', `Acesso gerado para ${newName}!`, 'success');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Erro ao criar utilizador.');
+    }
   };
 
-  const handleDeleteUser = (id: string) => {
-    setUsers((prev) => prev.filter((u) => u.id !== id));
-    addToast('Acesso Revogado', 'O utilizador foi removido do sistema.', 'warning');
+  const handleToggleStatus = async (user: UserItem) => {
+    const newActiveState = !user.active;
+    try {
+      const res = await apiFetch('/api/users', {
+        method: 'PUT',
+        body: JSON.stringify({ id: user.id, active: newActiveState }),
+      });
+
+      if (!res.ok) throw new Error('Erro ao alterar estado.');
+
+      const updated = await res.json();
+      setUsers((prev) => prev.map((u) => (u.id === updated.id ? { ...u, active: updated.active, status: updated.status } : u)));
+      addToast('Estado Atualizado', `O acesso foi ${newActiveState ? 'ativado' : 'pausado'}.`, 'info');
+    } catch {
+      alert('Não foi possível alterar o estado.');
+    }
+  };
+
+  const openEditModal = (user: UserItem) => {
+    setEditingUser(user);
+    setEditName(user.name);
+    setEditEmail(user.email);
+    setEditRole(user.role);
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+
+    try {
+      const res = await apiFetch('/api/users', {
+        method: 'PUT',
+        body: JSON.stringify({ id: editingUser.id, name: editName, email: editEmail, role: editRole }),
+      });
+
+      if (!res.ok) throw new Error('Erro ao atualizar.');
+
+      const updated = await res.json();
+      setUsers((prev) => prev.map((u) => (u.id === updated.id ? { ...u, ...updated } : u)));
+      setIsEditModalOpen(false);
+      setEditingUser(null);
+      addToast('Atualizado', 'Informações do colaborador atualizadas.', 'success');
+    } catch {
+      alert('Não foi possível atualizar.');
+    }
+  };
+
+  // Função para redefinir a palavra-passe do utilizador em edição
+  const handleResetPassword = async () => {
+    if (!editingUser) return;
+
+    try {
+      const res = await apiFetch('/api/users', {
+        method: 'PUT',
+        body: JSON.stringify({ id: editingUser.id, resetPassword: true }),
+      });
+
+      if (!res.ok) throw new Error('Erro ao redefinir palavra-passe.');
+
+      const updated = await res.json();
+      setIsEditModalOpen(false);
+      setEditingUser(null);
+
+      // Exibe o modal com a nova palavra-passe temporária gerada
+      setCreatedUserData({
+        name: updated.name,
+        email: updated.email,
+        tempPassword: updated.tempPassword,
+      });
+
+      addToast('Palavra-passe Redefinida', `Nova senha gerada para ${updated.name}!`, 'success');
+    } catch {
+      alert('Não foi possível redefinir a palavra-passe.');
+    }
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    if (!confirm('Deseja remover permanentemente este utilizador?')) return;
+
+    try {
+      const res = await apiFetch(`/api/users?id=${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) throw new Error('Erro ao remover.');
+
+      setUsers((prev) => prev.filter((u) => u.id !== id));
+      addToast('Removido', 'Colaborador excluído do sistema.', 'warning');
+    } catch {
+      alert('Erro ao excluir.');
+    }
   };
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
-      
       <AppHeader
         title="Gestão de Utilizadores & Permissões"
         subtitle="Controle centralizado de acessos corporativos da empresa."
@@ -106,8 +236,6 @@ export default function UsersManagementPage() {
       />
 
       <main className="max-w-7xl mx-auto px-6 sm:px-12 mt-8 pb-20 space-y-8">
-        
-        {/* Barra de Ações Superior */}
         <div className={`p-6 rounded-2xl border shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
           <div>
             <h2 className="text-base font-black">Colaboradores Autorizados</h2>
@@ -130,139 +258,44 @@ export default function UsersManagementPage() {
           </div>
         </div>
 
-        {/* Tabela de Utilizadores */}
-        <div className={`rounded-2xl border shadow-xl overflow-hidden ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className={`border-b text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'border-slate-800 bg-slate-950/50 text-slate-400' : 'border-slate-100 bg-slate-50 text-slate-500'}`}>
-                  <th className="py-4 px-6">Nome / Colaborador</th>
-                  <th className="py-4 px-6">E-mail Corporativo</th>
-                  <th className="py-4 px-6">Nível de Acesso (RBAC)</th>
-                  <th className="py-4 px-6">Estado</th>
-                  <th className="py-4 px-6 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                {users.map((user) => (
-                  <tr key={user.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition">
-                    <td className="py-4 px-6 font-bold flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-indigo-600/10 text-indigo-600 flex items-center justify-center font-black">
-                        {user.name.substring(0, 2).toUpperCase()}
-                      </div>
-                      {user.name}
-                    </td>
-                    <td className="py-4 px-6 font-mono opacity-80">{user.email}</td>
-                    <td className="py-4 px-6">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        user.role === 'admin' ? 'bg-purple-500/10 text-purple-600 border border-purple-500/20' :
-                        user.role === 'gerente' ? 'bg-indigo-500/10 text-indigo-600 border border-indigo-500/20' :
-                        user.role === 'supervisor' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' :
-                        'bg-slate-500/10 text-slate-600 border border-slate-500/20'
-                      }`}>
-                        {user.role}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6">
-                      <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        Ativo
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 text-right">
-                      {user.email !== 'melo.perfumaria@gmail.com' && (
-                        <button
-                          onClick={() => handleDeleteUser(user.id)}
-                          className="px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-600 hover:bg-rose-500/20 font-bold transition cursor-pointer"
-                        >
-                          Revogar
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
+        <UsersTable
+          users={users}
+          loading={loading}
+          isDarkMode={isDarkMode}
+          onToggleStatus={handleToggleStatus}
+          onEdit={openEditModal}
+          onDelete={handleDeleteUser}
+        />
       </main>
 
-      {/* Modal para Adicionar Novo Utilizador */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className={`rounded-3xl shadow-2xl max-w-md w-full p-8 space-y-6 border ${isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'}`}>
-            <div className="flex justify-between items-center border-b pb-4 border-slate-100 dark:border-slate-800">
-              <div>
-                <h3 className="text-sm font-black">Conceder Novo Acesso</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Defina o nível de permissão do colaborador.</p>
-              </div>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold text-base cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateUser} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold mb-1.5 uppercase">Nome Completo</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ex: João da Silva"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  className={`w-full px-4 py-3 rounded-2xl border text-xs focus:outline-none focus:border-indigo-600 font-medium ${isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'}`}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold mb-1.5 uppercase">E-mail Corporativo</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="joao@meloperfumaria.com"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  className={`w-full px-4 py-3 rounded-2xl border text-xs focus:outline-none focus:border-indigo-600 font-medium ${isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'}`}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold mb-1.5 uppercase">Nível de Permissão</label>
-                <select
-                  value={newRole}
-                  onChange={(e) => setNewRole(e.target.value as UserItem['role'])}
-                  className={`w-full px-4 py-3 rounded-2xl border text-xs focus:outline-none focus:border-indigo-600 font-medium ${isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'}`}
-                >
-                  <option value="admin">Administrador (Acesso Total)</option>
-                  <option value="gerente">Gerente (Fornecedores e Relatórios)</option>
-                  <option value="supervisor">Supervisor (Importações e Stocks)</option>
-                  <option value="geral">Acesso Geral (Operador)</option>
-                </select>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold py-3.5 rounded-2xl text-xs transition cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-2xl text-xs transition cursor-pointer shadow-lg shadow-indigo-600/20"
-                >
-                  Salvar e Liberar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <UserModals
+        isDarkMode={isDarkMode}
+        isModalOpen={isModalOpen}
+        setIsModalOpen={setIsModalOpen}
+        newName={newName}
+        setNewName={setNewName}
+        newEmail={newEmail}
+        setNewEmail={setNewEmail}
+        newRole={newRole}
+        setNewRole={setNewRole}
+        handleCreateUser={handleCreateUser}
+        createdUserData={createdUserData}
+        setCreatedUserData={setCreatedUserData}
+        onCopyPassword={(pwd) => {
+          navigator.clipboard.writeText(pwd);
+          addToast('Copiado', 'Palavra-passe copiada para a área de transferência!', 'success');
+        }}
+        isEditModalOpen={isEditModalOpen}
+        setIsEditModalOpen={setIsEditModalOpen}
+        editName={editName}
+        setEditName={setEditName}
+        editEmail={editEmail}
+        setEditEmail={setEditEmail}
+        editRole={editRole}
+        setEditRole={setEditRole}
+        handleUpdateUser={handleUpdateUser}
+        onResetPassword={handleResetPassword}
+      />
 
       <ToastContainer toasts={toasts} isDarkMode={isDarkMode} />
     </div>

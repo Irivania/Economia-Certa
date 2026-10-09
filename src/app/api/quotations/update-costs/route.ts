@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
-import { quotationItems, products } from '@/db/schema';
+import { quotationSuppliers, quotationSupplierItems, products } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 export async function POST(request: NextRequest) {
@@ -15,24 +15,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 1. Busca todos os itens da cotação
+    // 1. Busca todos os itens de resposta dos fornecedores para esta cotação através das ligações de fornecedores da cotação
     const items = await db
       .select({
-        productId: quotationItems.productId,
-        price: quotationItems.price,
+        productId: quotationSupplierItems.productId,
+        price: quotationSupplierItems.price,
+        outOfStock: quotationSupplierItems.outOfStock,
       })
-      .from(quotationItems)
-      .where(eq(quotationItems.quotationId, quotationId));
+      .from(quotationSupplierItems)
+      .innerJoin(
+        quotationSuppliers,
+        eq(quotationSupplierItems.quotationSupplierId, quotationSuppliers.id)
+      )
+      .where(eq(quotationSuppliers.quotationId, quotationId));
 
     if (items.length === 0) {
-      return NextResponse.json({ error: 'Nenhum item encontrado nesta cotação.' }, { status: 404 });
+      return NextResponse.json({ error: 'Nenhum item respondido encontrado nesta cotação.' }, { status: 404 });
     }
 
-    // 2. Descobre o menor preço ofertado para cada produto dentro desta cotação
+    // 2. Descobre o menor preço ofertado para cada produto dentro desta cotação (ignorando itens sem stock)
     const lowestPricesMap: { [productId: string]: number } = {};
     items.forEach((item) => {
+      if (item.outOfStock || item.price === null) return;
       const priceVal = Number(item.price) || 0;
-      if (!lowestPricesMap[item.productId] || priceVal < lowestPricesMap[item.productId]) {
+      if (priceVal > 0 && (!lowestPricesMap[item.productId] || priceVal < lowestPricesMap[item.productId])) {
         lowestPricesMap[item.productId] = priceVal;
       }
     });
@@ -42,7 +48,7 @@ export async function POST(request: NextRequest) {
     for (const [productId, bestPrice] of Object.entries(lowestPricesMap)) {
       await db
         .update(products)
-        .set({ costPrice: bestPrice.toString() }) // ou number, dependendo do schema
+        .set({ costPrice: bestPrice.toString() })
         .where(and(eq(products.id, productId), eq(products.companyId, companyId)));
       
       updatedCount++;

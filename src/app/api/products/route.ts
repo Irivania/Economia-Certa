@@ -4,15 +4,13 @@ import { products } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { uppercaseText } from '@/lib/text';
+import { requireCompanySession } from '@/lib/authServer';
 
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const companyId = searchParams.get('companyId');
-
-    if (!companyId) {
-      return NextResponse.json({ error: 'companyId é obrigatório' }, { status: 400 });
-    }
+    // 1. Validação estrita da sessão no servidor (Elimina IDOR e dependência de query params)
+    const session = requireCompanySession(request);
+    const companyId = session.companyId;
 
     const data = await db
       .select()
@@ -22,15 +20,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data);
   } catch (error) {
     console.error('Erro ao buscar produtos:', error);
-    return NextResponse.json([], { status: 500 });
+    return NextResponse.json({ error: 'Acesso não autorizado ou sessão inválida' }, { status: 401 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    // 1. Validação estrita da sessão no servidor
+    const session = requireCompanySession(request);
+    const companyId = session.companyId;
+
     const body = await request.json();
     const {
-      companyId,
       description,
       code,
       brand,
@@ -49,14 +50,14 @@ export async function POST(request: NextRequest) {
       category,
     } = body;
 
-    if (!companyId || !description) {
-      return NextResponse.json({ error: 'companyId e description são obrigatórios' }, { status: 400 });
+    if (!description) {
+      return NextResponse.json({ error: 'A descrição do produto é obrigatória' }, { status: 400 });
     }
 
     const trimmedCode = code ? code.trim() : null;
     const cleanDescription = uppercaseText(String(description).trim());
 
-    // 1. Validação: Verificar se já existe um produto com o mesmo Código de Barras (EAN)
+    // 2. Validação: Verificar se já existe um produto com o mesmo Código de Barras (EAN) na mesma empresa
     if (trimmedCode) {
       const existingByEan = await db
         .select()
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 2. Validação Antiduplicação: Verificar se já existe um produto com exatamente a mesma descrição
+    // 3. Validação Antiduplicação por Descrição
     const existingByName = await db
       .select()
       .from(products)
@@ -80,19 +81,18 @@ export async function POST(request: NextRequest) {
       .limit(1);
 
     if (existingByName.length > 0) {
-      // Retorna o produto existente sem duplicar
       return NextResponse.json(
         { success: true, product: existingByName[0], message: 'Produto já cadastrado anteriormente.' },
         { status: 200 }
       );
     }
 
-    // 3. Inserção se realmente for novo
+    // 4. Inserção segura associada ao tenant autenticado
     const newProduct = await db
       .insert(products)
       .values({
         id: randomUUID(),
-        companyId,
+        companyId, // Derivado do servidor com segurança
         description: cleanDescription,
         ean: trimmedCode,
         brand: brand ? uppercaseText(String(brand).trim()) : null,
@@ -121,10 +121,13 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    // 1. Validação estrita da sessão no servidor
+    const session = requireCompanySession(request);
+    const companyId = session.companyId;
+
     const body = await request.json();
     const {
       id,
-      companyId,
       description,
       code,
       brand,
@@ -143,10 +146,11 @@ export async function PUT(request: NextRequest) {
       category,
     } = body;
 
-    if (!id || !companyId || !description) {
-      return NextResponse.json({ error: 'id, companyId e description são obrigatórios' }, { status: 400 });
+    if (!id || !description) {
+      return NextResponse.json({ error: 'id e description são obrigatórios' }, { status: 400 });
     }
 
+    // 2. Atualização garantindo ownership da empresa (Prevenção de IDOR)
     const [updated] = await db
       .update(products)
       .set({
@@ -171,7 +175,7 @@ export async function PUT(request: NextRequest) {
       .returning();
 
     if (!updated) {
-      return NextResponse.json({ error: 'Produto não encontrado' }, { status: 404 });
+      return NextResponse.json({ error: 'Produto não encontrado ou sem permissão' }, { status: 404 });
     }
 
     return NextResponse.json({ success: true, product: updated });
@@ -183,14 +187,18 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    // 1. Validação estrita da sessão no servidor
+    const session = requireCompanySession(request);
+    const companyId = session.companyId;
+
     const searchParams = request.nextUrl.searchParams;
     const id = searchParams.get('id');
-    const companyId = searchParams.get('companyId');
 
-    if (!id || !companyId) {
-      return NextResponse.json({ error: 'id e companyId são obrigatórios' }, { status: 400 });
+    if (!id) {
+      return NextResponse.json({ error: 'id é obrigatório' }, { status: 400 });
     }
 
+    // 2. Exclusão restrita ao tenant validado (Prevenção de IDOR)
     await db
       .delete(products)
       .where(and(eq(products.id, id), eq(products.companyId, companyId)));

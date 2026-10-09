@@ -27,12 +27,12 @@ export async function saveQuotationItems(quotationId: string, items: unknown[]) 
 
     if (!pId) continue;
 
+    // Removido o campo 'price' pois ele não pertence à tabela quotationItems no schema atual
     await db.insert(quotationItems).values({
       id: crypto.randomUUID(),
       quotationId,
       productId: pId,
       requestedQuantity: String(qQty),
-      price: String(itemObj.costPrice || itemObj.unitPrice || 0),
     });
   }
 }

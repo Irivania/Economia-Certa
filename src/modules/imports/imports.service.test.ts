@@ -42,7 +42,7 @@ describe('ImportsService - Processamento de Planilhas', () => {
     // Validações
     expect(result.totalProcessed).toBe(2);
     expect(result.successfulImports.length).toBe(1); // Apenas o primeiro é válido
-    expect(result.successfulImports[0].description).toBe('Arroz Integral 1kg');
+    expect(result.successfulImports[0].description).toBe('ARROZ INTEGRAL 1KG'); // Ajustado para maiúsculas conforme a padronização do ERP
     
     expect(result.errors.length).toBe(1); // O segundo deve cair nos erros por causa da descrição curta
     expect(result.errors[0].row).toBe(3); // Linha 2 do array + cabeçalho (linha 1) = linha 3

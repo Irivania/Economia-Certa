@@ -23,15 +23,21 @@ interface QuotationDetail {
   quotationId: string;
   title: string;
   companyName: string;
-  supplierName?: string | null;
+  supplierName?: string | null; // Nome da distribuidora/marca correspondente a esta cotação
   status?: string;
-  isLocked?: boolean; // <-- Flag de bloqueio individual por fornecedor
+  isLocked?: boolean;
   observation?: string | null;
   startDate?: string | null;
   endDate?: string | null;
   closingTime?: string | null;
   paymentTerms?: string | null;
   items: QuotationItem[];
+}
+
+interface SupplierSession {
+  name?: string;
+  email?: string;
+  companyName?: string;
 }
 
 const subscribeToHydration = () => () => {};
@@ -58,6 +64,14 @@ export default function SupplierQuotationResponsePage() {
     () => sessionStorage.getItem('melo_supplier_session') ?? '',
     () => ''
   );
+
+  const parsedSupplierSession: SupplierSession = (() => {
+    try {
+      return sessionData ? JSON.parse(sessionData) : {};
+    } catch {
+      return {};
+    }
+  })();
 
   const [quotation, setQuotation] = useState<QuotationDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -262,9 +276,10 @@ export default function SupplierQuotationResponsePage() {
     <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50/80 text-slate-900'}`}>
       <SupplierHeader
         title="Portal do Fornecedor"
-        representativeName="Fornecedor"
-        representativeEmail=""
-        activeBrand={quotation?.supplierName || 'GERAL'}
+        representativeName={parsedSupplierSession.name || 'Representante'}
+        representativeEmail={parsedSupplierSession.email || ''}
+        // Exibe estritamente a distribuidora da cotação no contexto, nunca o nome da pessoa
+        activeBrand={quotation?.supplierName || 'DISTRIBUIDORA PARCEIRA'}
         onLogout={() => router.push('/portal/login')}
       />
 
@@ -302,7 +317,6 @@ export default function SupplierQuotationResponsePage() {
               totalItems={totalItems}
             />
 
-            {/* Envolvemos a tabela ou repassamos o estado de bloqueio para que desative os inputs */}
             <div className={quotation.isLocked ? 'pointer-events-none opacity-85 select-none' : ''}>
               <SupplierQuotationTable
                 items={quotation.items}

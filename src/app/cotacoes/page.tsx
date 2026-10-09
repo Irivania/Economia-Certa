@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useTheme } from '@/context/ThemeContext';
 import { AppHeader } from '@/components/AppHeader';
 import { CommandMenu } from '@/components/CommandMenu';
-import { getCompanyId } from '@/lib/companySession';
+import { apiFetch } from '@/lib/apiClient';
 
 interface SupplierTracking {
   id: string;
@@ -23,8 +23,6 @@ interface Quotation {
   closingTime?: string | null;
   suppliers?: SupplierTracking[];
 }
-
-const companyId = getCompanyId();
 
 function formatDate(value?: string | null) {
   if (!value) return '-';
@@ -71,7 +69,8 @@ export default function Page() {
   useEffect(() => {
     async function loadQuotations() {
       try {
-        const response = await fetch(`/api/quotations?companyId=${companyId}`);
+        // Utiliza o apiFetch para injetar automaticamente a sessão e o companyId
+        const response = await apiFetch('/api/quotations');
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Erro ao buscar cotações.');
         setQuotations(Array.isArray(data) ? data : []);
@@ -89,7 +88,7 @@ export default function Page() {
     if (!confirm(`Deseja realmente excluir a cotação "${quotation.title}"?`)) return;
 
     try {
-      const response = await fetch(`/api/quotations?id=${quotation.id}&companyId=${companyId}`, { 
+      const response = await apiFetch(`/api/quotations?id=${quotation.id}`, { 
         method: 'DELETE' 
       });
 

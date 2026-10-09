@@ -79,20 +79,8 @@ export async function GET(request: NextRequest) {
 
     let records;
     if (supplierId) {
-      const [sessionSupplier] = await db
-        .select({ email: suppliers.email })
-        .from(suppliers)
-        .where(eq(suppliers.id, supplierId));
-
-      const supplierIds = sessionSupplier?.email
-        ? (await db
-            .select({ id: suppliers.id })
-            .from(suppliers)
-            .where(eq(suppliers.email, sessionSupplier.email)))
-            .map((supplier) => supplier.id)
-        : [supplierId];
-
-      records = await query.where(inArray(quotationSuppliers.supplierId, supplierIds));
+      // Isola estritamente pelo ID específico da marca/distribuidora ativa (evitando mistura de CNPJs com o mesmo email)
+      records = await query.where(eq(quotationSuppliers.supplierId, supplierId));
     } else {
       records = await query;
     }
@@ -117,8 +105,6 @@ export async function GET(request: NextRequest) {
     const groupedRecords = new Map<string, GroupedQuotation>();
 
     for (const record of records) {
-      // Cada vínculo cotação-fornecedor é uma resposta independente, mesmo
-      // quando a mesma cotação foi enviada a mais de uma empresa representada.
       const groupKey = record.quotationSupplierId;
       let quotation = groupedRecords.get(groupKey);
 

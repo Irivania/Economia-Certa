@@ -11,6 +11,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { AppHeader } from '@/components/AppHeader';
 import { CommandMenu } from '@/components/CommandMenu';
 import { getCompanyId } from '@/lib/companySession';
+import { apiFetch } from '@/lib/apiClient';
 
 interface Supplier {
   id: string;
@@ -116,10 +117,11 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
       if (!quotationId) return;
 
       try {
+        // Utiliza o apiFetch para injetar automaticamente a sessão e o companyId
         const [quotationsRes, suppliersRes, productsRes] = await Promise.all([
-          fetch(`/api/quotations?companyId=${companyId}`),
-          fetch(`/api/suppliers?companyId=${companyId}`),
-          fetch(`/api/products?companyId=${companyId}`),
+          apiFetch('/api/quotations'),
+          apiFetch('/api/suppliers'),
+          apiFetch('/api/products'),
         ]);
 
         if (!quotationsRes.ok || !suppliersRes.ok) {
@@ -132,10 +134,6 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
         let productsData: unknown = [];
         if (productsRes.ok) {
           productsData = await productsRes.json();
-        }
-        if (!Array.isArray(productsData) || (productsData as unknown[]).length === 0) {
-          const fallbackRes = await fetch('/api/products');
-          if (fallbackRes.ok) productsData = await fallbackRes.json();
         }
 
         const quotationPayload = quotationsData as { quotations?: ApiQuotation[] };
@@ -274,7 +272,7 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
 
     try {
       setSubmitting(true);
-      const response = await fetch('/api/quotations', {
+      const response = await apiFetch('/api/quotations', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

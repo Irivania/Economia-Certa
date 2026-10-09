@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useTheme } from '@/context/ThemeContext';
@@ -9,6 +9,7 @@ import { CommandMenu } from '@/components/CommandMenu';
 import { ProductForm } from '@/components/ProductForm';
 import { ProductTable } from '@/components/ProductTable';
 import { getCompanyId } from '@/lib/companySession';
+import { apiFetch } from '@/lib/apiClient';
 
 interface Product {
   id: string;
@@ -29,7 +30,7 @@ interface Product {
   cest?: string | null;
 }
 
-export default function ProductsPage() {
+function ProductsContent() {
   const { isDarkMode, mounted } = useTheme();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get('returnTo');
@@ -86,7 +87,8 @@ export default function ProductsPage() {
 
   const refreshProducts = useCallback(async () => {
     try {
-      const res = await fetch(`/api/products?companyId=${companyId}`);
+      // Utiliza o apiFetch para enviar a sessão e o companyId de forma segura
+      const res = await apiFetch('/api/products');
       if (!res.ok) throw new Error('Erro ao carregar produtos.');
       const data = await res.json();
       
@@ -102,14 +104,14 @@ export default function ProductsPage() {
       setError('Não foi possível buscar os produtos.');
       console.error(err);
     }
-  }, [companyId]);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
 
     async function loadData() {
       try {
-        const res = await fetch(`/api/products?companyId=${companyId}`);
+        const res = await apiFetch('/api/products');
         if (!res.ok) throw new Error('Erro ao carregar produtos.');
         const data = await res.json();
         
@@ -137,7 +139,7 @@ export default function ProductsPage() {
     return () => {
       isMounted = false;
     };
-  }, [companyId]);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -171,9 +173,8 @@ export default function ProductsPage() {
         cest: formMode === 'complete' ? cest : null,
       };
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bodyData),
       });
 
@@ -211,7 +212,7 @@ export default function ProductsPage() {
     setStockMax(prod.stockMax ?? '');
     setNcm(prod.ncm || '');
     setCest(prod.cest || '');
-    setFormMode('complete'); // Abre automaticamente no modo completo ao editar
+    setFormMode('complete');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -219,7 +220,7 @@ export default function ProductsPage() {
     if (!confirm('Deseja realmente excluir este produto?')) return;
 
     try {
-      const res = await fetch(`/api/products?id=${id}&companyId=${companyId}`, {
+      const res = await apiFetch(`/api/products?id=${id}`, {
         method: 'DELETE',
       });
 
@@ -257,7 +258,6 @@ export default function ProductsPage() {
   return (
     <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
       
-      {/* Cabeçalho Global Unificado */}
       <AppHeader
         title="Catálogo & Gestão de Produtos"
         subtitle="Controle de itens, custos, estoque e tributos da empresa."
@@ -280,7 +280,6 @@ export default function ProductsPage() {
           </div>
         )}
 
-        {/* Seletor de Modo de Cadastro (Abas Sênior) */}
         <div className={`p-8 rounded-3xl shadow-2xl border space-y-6 ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200/80'}`}>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-5 border-slate-500/10">
             <div>
@@ -290,7 +289,6 @@ export default function ProductsPage() {
               <p className="text-xs opacity-60 mt-0.5">Selecione o modo de preenchimento ideal para a sua operação.</p>
             </div>
 
-            {/* Alternador de Abas */}
             <div className="flex items-center p-1 bg-slate-500/10 rounded-2xl border border-slate-500/20">
               <button
                 type="button"
@@ -389,5 +387,13 @@ export default function ProductsPage() {
       />
 
     </div>
+  );
+}
+
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">A carregar...</div>}>
+      <ProductsContent />
+    </Suspense>
   );
 }

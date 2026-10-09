@@ -1,42 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { supplierBrands, suppliers } from '@/db/schema';
+import { supplierBrands } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-
-const normalize = (value: string | null | undefined) =>
-  String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, '');
-
-async function resolveSupplierId(
-  parentSupplierId: string,
-  tradeName: string,
-  corporateName?: string | null,
-) {
-  const [parent] = await db
-    .select({ email: suppliers.email })
-    .from(suppliers)
-    .where(eq(suppliers.id, parentSupplierId));
-
-  if (!parent?.email) return parentSupplierId;
-
-  const candidates = await db
-    .select({ id: suppliers.id, name: suppliers.name })
-    .from(suppliers)
-    .where(eq(suppliers.email, parent.email));
-
-  const brandTerms = [normalize(tradeName), normalize(corporateName)].filter(Boolean);
-  const match = candidates.find((candidate) => {
-    const supplierName = normalize(candidate.name);
-    return brandTerms.some(
-      (term) => supplierName.includes(term) || term.includes(supplierName),
-    );
-  });
-
-  return match?.id || parentSupplierId;
-}
 
 export async function GET(request: Request) {
   try {
@@ -47,28 +12,16 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'supplierId é obrigatório' }, { status: 400 });
     }
 
+    // Retorna APENAS as marcas cadastradas especificamente para este supplierId (Isolamento total por conta)
     const brands = await db
       .select()
       .from(supplierBrands)
       .where(eq(supplierBrands.supplierId, supplierId));
 
-    const brandsWithSupplier = await Promise.all(
-      (brands ?? []).map(async (brand) => ({
-        ...brand,
-        supplierId: await resolveSupplierId(
-          supplierId,
-          brand.tradeName,
-          brand.corporateName,
-        ),
-      })),
-    );
-
-    return NextResponse.json(brandsWithSupplier, { status: 200 });
+    return NextResponse.json(brands || [], { status: 200 });
   } catch (error: unknown) {
     const errMessage = error instanceof Error ? error.message : String(error);
     console.error('[API BRANDS GET ERROR DETAILS]:', errMessage);
-
-    // Retorna array vazio em vez de crashar a aplicação com 500
     return NextResponse.json([], { status: 200 });
   }
 }
@@ -82,12 +35,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'supplierId e tradeName são obrigatórios' }, { status: 400 });
     }
 
-    const resolvedSupplierId = await resolveSupplierId(
-      supplierId,
-      tradeName,
-      corporateName,
-    );
-
     const [newBrand] = await db
       .insert(supplierBrands)
       .values({
@@ -100,10 +47,7 @@ export async function POST(request: Request) {
       })
       .returning();
 
-    return NextResponse.json(
-      { ...newBrand, supplierId: resolvedSupplierId },
-      { status: 201 },
-    );
+    return NextResponse.json(newBrand, { status: 201 });
   } catch (error: unknown) {
     const errMessage = error instanceof Error ? error.message : String(error);
     console.error('[API BRANDS POST ERROR DETAILS]:', errMessage);

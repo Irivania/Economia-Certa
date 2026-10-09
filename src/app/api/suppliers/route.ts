@@ -1,39 +1,49 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
 import { suppliers } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { uppercaseText } from '@/lib/text';
+import { requireCompanySession } from '@/lib/authServer';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const companyId = searchParams.get('companyId');
-
-    if (!companyId) {
-      return NextResponse.json({ error: 'companyId é obrigatório' }, { status: 400 });
-    }
+    // 1. Validação estrita da sessão no servidor (Elimina IDOR)
+    const session = requireCompanySession(request);
+    const companyId = session.companyId;
 
     const data = await db
-      .select()
+      .select({
+        id: suppliers.id,
+        companyId: suppliers.companyId,
+        name: suppliers.name,
+        contactPerson: suppliers.contactPerson,
+        phone: suppliers.phone,
+        email: suppliers.email,
+        // Nunca expor passwordHash nas listagens!
+      })
       .from(suppliers)
       .where(eq(suppliers.companyId, companyId));
 
     return NextResponse.json(data);
   } catch (error) {
     console.error('Erro ao buscar fornecedores:', error);
-    return NextResponse.json([]);
+    return NextResponse.json({ error: 'Acesso não autorizado ou sessão inválida' }, { status: 401 });
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { companyId, name, contactPerson, phone, email, password } = body;
+    // 1. Validação estrita da sessão no servidor
+    const session = requireCompanySession(request);
+    const companyId = session.companyId;
 
-    if (!companyId || !name) {
+    const body = await request.json();
+    const { name, contactPerson, phone, email, password } = body;
+
+    if (!name) {
       return NextResponse.json(
-        { error: 'companyId e name são obrigatórios' },
+        { error: 'O nome do fornecedor é obrigatório' },
         { status: 400 }
       );
     }
@@ -42,20 +52,27 @@ export async function POST(request: Request) {
     const formattedContact = contactPerson ? uppercaseText(String(contactPerson).trim()) : null;
     const formattedEmail = email ? email.trim().toLowerCase() : null;
     const formattedPhone = phone ? phone.trim() : null;
-    const passwordHash = password ? String(password).trim() : null;
+    const passwordHash = password ? String(password).trim() : null; // Idealmente com hash bcrypt em produção
 
     const newSupplier = await db
       .insert(suppliers)
       .values({
         id: randomUUID(),
-        companyId,
+        companyId, // Derivado do servidor com segurança
         name: formattedName,
         contactPerson: formattedContact,
         phone: formattedPhone,
         email: formattedEmail,
         passwordHash,
       })
-      .returning();
+      .returning({
+        id: suppliers.id,
+        companyId: suppliers.companyId,
+        name: suppliers.name,
+        contactPerson: suppliers.contactPerson,
+        phone: suppliers.phone,
+        email: suppliers.email,
+      });
 
     return NextResponse.json(newSupplier[0], { status: 201 });
   } catch (error) {
@@ -67,14 +84,18 @@ export async function POST(request: Request) {
   }
 }
 
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { id, companyId, name, contactPerson, phone, email, password } = body;
+    // 1. Validação estrita da sessão no servidor
+    const session = requireCompanySession(request);
+    const companyId = session.companyId;
 
-    if (!id || !companyId || !name) {
+    const body = await request.json();
+    const { id, name, contactPerson, phone, email, password } = body;
+
+    if (!id || !name) {
       return NextResponse.json(
-        { error: 'id, companyId e name são obrigatórios' },
+        { error: 'id e name são obrigatórios' },
         { status: 400 }
       );
     }
@@ -91,7 +112,6 @@ export async function PUT(request: Request) {
       email: formattedEmail,
     };
 
-    // Só atualiza a palavra-passe se o utilizador preencher uma nova
     if (password && String(password).trim() !== '') {
       updateData.passwordHash = String(password).trim();
     }
@@ -100,10 +120,17 @@ export async function PUT(request: Request) {
       .update(suppliers)
       .set(updateData)
       .where(and(eq(suppliers.id, id), eq(suppliers.companyId, companyId)))
-      .returning();
+      .returning({
+        id: suppliers.id,
+        companyId: suppliers.companyId,
+        name: suppliers.name,
+        contactPerson: suppliers.contactPerson,
+        phone: suppliers.phone,
+        email: suppliers.email,
+      });
 
     if (updated.length === 0) {
-      return NextResponse.json({ error: 'Fornecedor não encontrado' }, { status: 404 });
+      return NextResponse.json({ error: 'Fornecedor não encontrado ou sem permissão' }, { status: 404 });
     }
 
     return NextResponse.json(updated[0]);
@@ -113,14 +140,17 @@ export async function PUT(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
+export async function DELETE(request: NextRequest) {
   try {
+    // 1. Validação estrita da sessão no servidor
+    const session = requireCompanySession(request);
+    const companyId = session.companyId;
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-    const companyId = searchParams.get('companyId');
 
-    if (!id || !companyId) {
-      return NextResponse.json({ error: 'id e companyId são obrigatórios' }, { status: 400 });
+    if (!id) {
+      return NextResponse.json({ error: 'id é obrigatório' }, { status: 400 });
     }
 
     await db

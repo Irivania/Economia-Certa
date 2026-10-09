@@ -30,6 +30,14 @@ interface QuotationSupplier {
   observation?: string | null;
 }
 
+interface QuotationSupplierItem {
+  id: string;
+  quotationSupplierId: string;
+  productId: string;
+  price: string | number;
+  outOfStock: boolean | null;
+}
+
 interface Quotation {
   id: string;
   title: string;
@@ -38,6 +46,7 @@ interface Quotation {
   endDate?: string | Date | null;
   suppliers?: QuotationSupplier[];
   items?: QuotationItem[];
+  supplierItems?: QuotationSupplierItem[];
 }
 
 function formatCurrency(value: number | null | undefined) {
@@ -101,17 +110,30 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
         const initialChoices: Record<string, string> = {};
         const rawItems = data.items || [];
         const suppliers = data.suppliers || [];
+        const supplierItems = data.supplierItems || [];
+
+        // Mapeia os preços respondidos por cada quotationSupplierId para o supplierId correspondente
+        const supplierMapping: Record<string, string> = {};
+        suppliers.forEach((sup: QuotationSupplier) => {
+          supplierMapping[sup.id] = sup.supplierId;
+        });
 
         const tempMap: Record<string, { responses: Record<string, { price: number; outOfStock: boolean }> }> = {};
+        
         rawItems.forEach((item: QuotationItem) => {
           const prodKey = item.productId;
           if (!tempMap[prodKey]) {
             tempMap[prodKey] = { responses: {} };
           }
-          if (item.supplierId) {
-            tempMap[prodKey].responses[item.supplierId] = {
-              price: Number(item.price || 0),
-              outOfStock: Boolean(item.outOfStock),
+        });
+
+        supplierItems.forEach((si: QuotationSupplierItem) => {
+          const supId = supplierMapping[si.quotationSupplierId];
+          const prodKey = si.productId;
+          if (supId && tempMap[prodKey]) {
+            tempMap[prodKey].responses[supId] = {
+              price: Number(si.price || 0),
+              outOfStock: Boolean(si.outOfStock),
             };
           }
         });
@@ -165,6 +187,12 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
 
   const suppliers = quotation.suppliers || [];
   const rawItems = quotation.items || [];
+  const supplierItems = quotation.supplierItems || [];
+
+  const supplierMapping: Record<string, string> = {};
+  suppliers.forEach((sup) => {
+    supplierMapping[sup.id] = sup.supplierId;
+  });
 
   const productsMap: Record<string, { 
     productId: string; 
@@ -191,11 +219,15 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
         responses: {},
       };
     }
+  });
 
-    if (item.supplierId) {
-      productsMap[prodKey].responses[item.supplierId] = {
-        price: Number(item.price || 0),
-        outOfStock: Boolean(item.outOfStock),
+  supplierItems.forEach((si) => {
+    const supId = supplierMapping[si.quotationSupplierId];
+    const prodKey = si.productId;
+    if (supId && productsMap[prodKey]) {
+      productsMap[prodKey].responses[supId] = {
+        price: Number(si.price || 0),
+        outOfStock: Boolean(si.outOfStock),
       };
     }
   });

@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
-import { quotations, quotationItems, products, quotationSuppliers } from '@/db/schema';
+import { quotations, quotationItems, products, quotationSuppliers, quotationSupplierItems, suppliers } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { uppercaseText } from '@/lib/text';
 import crypto from 'crypto';
@@ -33,15 +33,30 @@ export async function GET(request: NextRequest) {
     }
 
     let [qSupplier] = await db
-      .select()
+      .select({
+        id: quotationSuppliers.id,
+        quotationId: quotationSuppliers.quotationId,
+        supplierId: quotationSuppliers.supplierId,
+        status: quotationSuppliers.status,
+        supplierName: suppliers.name,
+      })
       .from(quotationSuppliers)
+      .leftJoin(suppliers, eq(quotationSuppliers.supplierId, suppliers.id))
       .where(eq(quotationSuppliers.token, token));
 
     if (!qSupplier) {
-      [qSupplier] = await db
-        .select()
+      const [fallbackSupplier] = await db
+        .select({
+          id: quotationSuppliers.id,
+          quotationId: quotationSuppliers.quotationId,
+          supplierId: quotationSuppliers.supplierId,
+          status: quotationSuppliers.status,
+          supplierName: suppliers.name,
+        })
         .from(quotationSuppliers)
+        .leftJoin(suppliers, eq(quotationSuppliers.supplierId, suppliers.id))
         .where(eq(quotationSuppliers.quotationId, token));
+      qSupplier = fallbackSupplier;
     }
 
     if (!qSupplier) {
@@ -61,7 +76,6 @@ export async function GET(request: NextRequest) {
       .select({
         id: quotationItems.id,
         productId: quotationItems.productId,
-        supplierId: quotationItems.supplierId,
         requestedQuantity: quotationItems.requestedQuantity,
         description: products.description,
         ean: products.ean,
@@ -72,17 +86,15 @@ export async function GET(request: NextRequest) {
       .innerJoin(products, eq(quotationItems.productId, products.id))
       .where(eq(quotationItems.quotationId, quotation.id));
 
-    const baseItems = itemsList.filter((item: { supplierId?: string | null }) => !item.supplierId);
-    const finalItems = baseItems.length > 0 ? baseItems : itemsList;
-
     return NextResponse.json({
       id: quotation.id,
       title: quotation.title,
       storeName: quotation.storeName || 'Melo Perfumaria',
+      supplierName: qSupplier.supplierName || 'Distribuidora',
       startDate: quotation.startDate,
       endDate: quotation.endDate,
       closingTime: quotation.closingTime,
-      items: finalItems,
+      items: itemsList,
     });
   } catch (error) {
     console.error('Erro ao buscar cotação para resposta:', error);
@@ -105,10 +117,11 @@ export async function POST(request: Request) {
       .where(eq(quotationSuppliers.token, token));
 
     if (!qSupplier) {
-      [qSupplier] = await db
+      const [fallbackSupplier] = await db
         .select()
         .from(quotationSuppliers)
         .where(eq(quotationSuppliers.quotationId, token));
+      qSupplier = fallbackSupplier;
     }
 
     if (!qSupplier) {
@@ -126,15 +139,17 @@ export async function POST(request: Request) {
 
     if (observation) {
       await db
-        .update(quotations)
-        .set({ observation: uppercaseText(String(observation).trim()) })
-        .where(eq(quotations.id, quotation.id));
+        .update(quotationSuppliers)
+        .set({ observation: uppercaseText(String(observation).trim()), status: 'RESPONDIDO' })
+        .where(eq(quotationSuppliers.id, qSupplier.id));
+    } else {
+      await db
+        .update(quotationSuppliers)
+        .set({ status: 'RESPONDIDO' })
+        .where(eq(quotationSuppliers.id, qSupplier.id));
     }
 
-    await db
-      .update(quotationSuppliers)
-      .set({ status: 'RESPONDIDO' })
-      .where(eq(quotationSuppliers.id, qSupplier.id));
+    let calculatedTotal = 0;
 
     for (const [key, data] of Object.entries(responses) as [string, { price: string; outOfStock: boolean }][]) {
       const parsedPrice = parsePrice(data.price);
@@ -143,49 +158,64 @@ export async function POST(request: Request) {
       }
       const finalPrice = data.outOfStock ? 0 : parsedPrice || 0;
 
-      let productId = key;
-      const [existingItem] = await db
+      // Descobre com robustez o productId real independentemente de a chave ser quotationItemId ou productId
+      let resolvedProductId = key;
+      const [itemById] = await db
         .select()
         .from(quotationItems)
         .where(eq(quotationItems.id, key));
 
-      if (existingItem) {
-        productId = existingItem.productId;
+      if (itemById) {
+        resolvedProductId = itemById.productId;
+      } else {
+        // Valida se a chave é diretamente um productId existente na cotação
+        const [itemByProdId] = await db
+          .select()
+          .from(quotationItems)
+          .where(and(eq(quotationItems.quotationId, quotation.id), eq(quotationItems.productId, key)));
+        if (itemByProdId) {
+          resolvedProductId = itemByProdId.productId;
+        }
       }
 
-      const requestedQty = existingItem ? existingItem.requestedQuantity : '1';
+      const requestedQty = itemById ? Number(itemById.requestedQuantity || 1) : 1;
+      if (!data.outOfStock) {
+        calculatedTotal += finalPrice * requestedQty;
+      }
 
-      const [supplierItemResp] = await db
+      const [existingSupplierItem] = await db
         .select()
-        .from(quotationItems)
+        .from(quotationSupplierItems)
         .where(
           and(
-            eq(quotationItems.quotationId, quotation.id),
-            eq(quotationItems.productId, productId),
-            eq(quotationItems.supplierId, qSupplier.supplierId)
+            eq(quotationSupplierItems.quotationSupplierId, qSupplier.id),
+            eq(quotationSupplierItems.productId, resolvedProductId)
           )
         );
 
-      if (supplierItemResp) {
+      if (existingSupplierItem) {
         await db
-          .update(quotationItems)
+          .update(quotationSupplierItems)
           .set({
             price: String(finalPrice),
             outOfStock: Boolean(data.outOfStock),
           })
-          .where(eq(quotationItems.id, supplierItemResp.id));
+          .where(eq(quotationSupplierItems.id, existingSupplierItem.id));
       } else {
-        await db.insert(quotationItems).values({
+        await db.insert(quotationSupplierItems).values({
           id: crypto.randomUUID(),
-          quotationId: quotation.id,
-          productId: productId,
-          supplierId: qSupplier.supplierId,
-          requestedQuantity: String(requestedQty),
+          quotationSupplierId: qSupplier.id,
+          productId: resolvedProductId,
           price: String(finalPrice),
           outOfStock: Boolean(data.outOfStock),
         });
       }
     }
+
+    await db
+      .update(quotationSuppliers)
+      .set({ totalOffered: String(calculatedTotal) })
+      .where(eq(quotationSuppliers.id, qSupplier.id));
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
-import { quotations, quotationItems, products } from '@/db/schema';
+import { quotations, quotationItems, quotationSuppliers, quotationSupplierItems, products } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 interface Offer {
@@ -39,40 +39,55 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Cotação não encontrada.' }, { status: 404 });
     }
 
-    const items = await db
+    // 1. Busca os itens solicitados na cotação com os dados do produto
+    const requestedItems = await db
       .select({
-        itemId: quotationItems.id,
         productId: products.id,
         description: products.description,
         unit: products.unit,
         boxQuantity: products.boxQuantity,
-        requestedQuantity: quotationItems.requestedQuantity, // Ajustado para requestedQuantity
-        offeredPrice: quotationItems.price,
-        supplierId: quotationItems.supplierId,             // Ajustado para quotationItems.supplierId
+        requestedQuantity: quotationItems.requestedQuantity,
       })
       .from(quotationItems)
-      .innerJoin(quotations, eq(quotationItems.quotationId, quotations.id))
       .innerJoin(products, eq(quotationItems.productId, products.id))
       .where(eq(quotationItems.quotationId, quotationId));
 
+    // 2. Busca as respostas/ofertas de preços dos fornecedores para esta cotação
+    const supplierOffers = await db
+      .select({
+        supplierId: quotationSuppliers.supplierId,
+        productId: quotationSupplierItems.productId,
+        price: quotationSupplierItems.price,
+        outOfStock: quotationSupplierItems.outOfStock,
+      })
+      .from(quotationSupplierItems)
+      .innerJoin(
+        quotationSuppliers,
+        eq(quotationSupplierItems.quotationSupplierId, quotationSuppliers.id)
+      )
+      .where(eq(quotationSuppliers.quotationId, quotationId));
+
     const comparisonMap: Record<string, ComparisonProduct> = {};
 
-    items.forEach((item) => {
-      if (!comparisonMap[item.productId]) {
-        comparisonMap[item.productId] = {
-          productId: item.productId,
-          description: item.description,
-          unit: item.unit,
-          boxQuantity: item.boxQuantity,
-          requestedQuantity: item.requestedQuantity,
-          offers: [],
-        };
-      }
+    // Inicializa o mapa com os itens solicitados
+    requestedItems.forEach((item) => {
+      comparisonMap[item.productId] = {
+        productId: item.productId,
+        description: item.description,
+        unit: item.unit,
+        boxQuantity: item.boxQuantity,
+        requestedQuantity: item.requestedQuantity,
+        offers: [],
+      };
+    });
 
-      if (item.supplierId) {
-        comparisonMap[item.productId].offers.push({
-          supplierId: item.supplierId,
-          price: item.offeredPrice ? Number(item.offeredPrice) : null,
+    // Associa as ofertas dos fornecedores aos respetivos produtos
+    supplierOffers.forEach((offer) => {
+      if (comparisonMap[offer.productId]) {
+        const priceVal = offer.outOfStock || offer.price === null ? null : Number(offer.price);
+        comparisonMap[offer.productId].offers.push({
+          supplierId: offer.supplierId,
+          price: priceVal,
         });
       }
     });

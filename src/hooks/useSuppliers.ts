@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { uppercaseText } from '@/lib/text';
+import { apiFetch } from '@/lib/apiClient';
 
 export interface Supplier {
   id: string;
@@ -46,9 +47,10 @@ export function useSuppliers(companyId: string) {
 
   const loadData = useCallback(async () => {
     try {
+      // Utiliza o apiFetch para enviar a sessão e o companyId de forma segura
       const [supRes, connRes] = await Promise.all([
-        fetch(`/api/suppliers?companyId=${companyId}`),
-        fetch(`/api/portal/connections?companyId=${companyId}`)
+        apiFetch('/api/suppliers'),
+        apiFetch('/api/portal/connections')
       ]);
 
       if (supRes.ok) {
@@ -66,7 +68,7 @@ export function useSuppliers(companyId: string) {
     } finally {
       setLoading(false);
     }
-  }, [companyId]);
+  }, []);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -76,7 +78,7 @@ export function useSuppliers(companyId: string) {
 
   const handleConnectSupplier = async (supplierId: string) => {
     try {
-      const res = await fetch('/api/portal/connections', {
+      const res = await apiFetch('/api/portal/connections', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ companyId, supplierId, initiatedBy: 'COMPANY' })
@@ -91,7 +93,7 @@ export function useSuppliers(companyId: string) {
 
   const handleUpdateConnection = async (connectionId: string, status: 'ACCEPTED' | 'REJECTED') => {
     try {
-      const res = await fetch('/api/portal/connections', {
+      const res = await apiFetch('/api/portal/connections', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ connectionId, status })
@@ -116,7 +118,8 @@ export function useSuppliers(companyId: string) {
         const res = await fetch(`/api/proxy/cnpj?cep=${rawValue}`);
         const data = await res.json();
         if (res.ok && !data.erro) {
-          setAddress(uppercaseText(`${data.street || data.logradouro || ''}, Bairro: ${data.neighborhood || data.bairro || ''}, ${data.city || data.localidade || ''} - ${data.state || data.uf || ''}`));
+          setAddress(uppercaseText(`${data.street || data.logradouro || ''}, Bairro: ${data.neighborhood || data.bairro || ''}, ${data.city || data.localidade || ''}
+${data.state || data.uf || ''}`));
           showToast('Endereço localizado via CEP!');
         } else {
           showToast('CEP não encontrado. Preencha o endereço manualmente.');
@@ -147,7 +150,8 @@ export function useSuppliers(companyId: string) {
         if (res.ok && !data.message) {
           if (data.nome_fantasia || data.razao_social) setName(uppercaseText(data.nome_fantasia || data.razao_social));
           if (data.cep) setCep(data.cep);
-          if (data.logradouro) setAddress(uppercaseText(`${data.logradouro}, Nº ${data.numero || 'S/N'}, Bairro: ${data.bairro || ''}, ${data.municipio} - ${data.uf}`));
+          if (data.logradouro) setAddress(uppercaseText(`${data.logradouro}, Nº ${data.numero || 'S/N'}, Bairro: ${data.bairro || ''}, ${data.municipio}
+${data.uf}`));
           if (data.ddd_telefone_1) setPhone(data.ddd_telefone_1);
           if (data.email) setEmail(data.email.toLowerCase());
           showToast('Dados carregados via CNPJ!');
@@ -186,13 +190,14 @@ export function useSuppliers(companyId: string) {
     try {
       setSubmitting(true);
       const method = editingId ? 'PUT' : 'POST';
-      // Removida a propriedade password do body
       const bodyData = { id: editingId, companyId, name, cnpj, address, contactPerson, phone, email };
-      const res = await fetch('/api/suppliers', {
+      
+      const res = await apiFetch('/api/suppliers', {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bodyData),
       });
+
       if (!res.ok) throw new Error('Erro ao salvar.');
       resetForm();
       showToast(editingId ? 'Atualizado com sucesso!' : 'Cadastrado com sucesso!');
@@ -218,7 +223,7 @@ export function useSuppliers(companyId: string) {
   const handleDelete = async (id: string) => {
     if (!confirm('Deseja excluir este fornecedor?')) return;
     try {
-      const res = await fetch(`/api/suppliers?id=${id}&companyId=${companyId}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/suppliers?id=${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Erro ao excluir.');
       showToast('Excluído com sucesso!');
       await loadData();
