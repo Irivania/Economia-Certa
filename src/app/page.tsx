@@ -111,7 +111,7 @@ export default function DashboardPage() {
   };
 
   const addToast = (title: string, description: string, type: 'success' | 'info' | 'warning' = 'success') => {
-    const id = Math.random().toString(36).substring(2, 9);
+    const id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 9);
     setToasts((prev) => [...prev, { id, title, description, type }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -210,46 +210,48 @@ export default function DashboardPage() {
         isDarkMode={isDarkMode}
       />
 
-      <main className="max-w-7xl mx-auto px-6 sm:px-12 mt-8 pb-20 relative z-20 space-y-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 pb-20 relative z-25 space-y-6">
         
-        <div className={`p-4 rounded-2xl border shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 ${isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-white border-slate-200 text-slate-600'}`}>
+        {/* Barra de Atalhos / Dica Pro Refinada */}
+        <div className={`p-3.5 rounded-xl border shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 ${isDarkMode ? 'bg-slate-900/80 border-slate-800 text-slate-300' : 'bg-white border-slate-200 text-slate-600'}`}>
           <div className="flex items-center gap-2 text-xs">
-            <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-500 font-bold">💡 Dica Pro:</span>
-            <span>Pressione <kbd className="px-2 py-0.5 rounded bg-slate-500/20 font-mono text-[11px] font-bold">Ctrl + K</kbd> para abrir a busca rápida.</span>
+            <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-500 font-bold">💡 Dica Pro</span>
+            <span>Pressione <kbd className="px-1.5 py-0.5 rounded bg-slate-500/15 font-mono text-[11px] font-semibold">Ctrl + K</kbd> para busca rápida.</span>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <button
               onClick={() => addToast('Ação Simulada', 'Link de cotação copiado para o WhatsApp com sucesso!', 'success')}
-              className="px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 text-xs font-bold transition-colors border border-emerald-500/25 cursor-pointer"
+              className="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 text-xs font-semibold transition-colors border border-emerald-500/20 cursor-pointer"
             >
               Testar Toast WhatsApp 📲
             </button>
             <button 
               onClick={() => setIsCmdOpen(true)}
-              className="text-xs font-bold text-indigo-500 hover:underline px-2 cursor-pointer"
+              className="text-xs font-semibold text-indigo-500 hover:text-indigo-600 cursor-pointer"
             >
               Abrir Menu &rarr;
             </button>
           </div>
         </div>
 
+        {/* Alerta de Estoque Crítico */}
         {!loading && lowStockProducts.length > 0 && (
-          <div className={`${isDarkMode ? 'bg-rose-950/40 border-rose-900 text-rose-200' : 'bg-rose-50 border-rose-200 text-rose-900'} border backdrop-blur-md rounded-2xl p-6 shadow-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-all`}>
-            <div className="flex items-start gap-3">
-              <div className="p-2 bg-rose-500/20 rounded-xl text-rose-600 mt-0.5">
+          <div className={`${isDarkMode ? 'bg-rose-950/30 border-rose-900/60 text-rose-200' : 'bg-rose-50 border-rose-200 text-rose-900'} border rounded-xl p-4 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-all`}>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-rose-500/15 rounded-lg text-rose-600">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
               <div>
-                <h3 className="text-sm font-bold">Alerta de Reposição Urgente ({lowStockProducts.length} itens críticos)</h3>
-                <p className="text-xs opacity-80 mt-0.5">Existem produtos abaixo do estoque mínimo estabelecido. Recomendamos iniciar uma cotação imediata.</p>
+                <h3 className="text-xs sm:text-sm font-bold">Alerta de Reposição Urgente ({lowStockProducts.length} itens críticos)</h3>
+                <p className="text-xs opacity-80">Produtos abaixo do estoque mínimo. Recomendamos iniciar cotação imediata.</p>
               </div>
             </div>
             <Link
               href="/produtos"
-              className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-md shadow-rose-600/25 whitespace-nowrap"
+              className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition-all shadow-xs whitespace-nowrap"
             >
               Ver Produtos &rarr;
             </Link>

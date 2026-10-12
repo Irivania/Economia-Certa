@@ -71,6 +71,13 @@ export async function GET(request: NextRequest) {
     const compData =
       (quotationRow.companies as Record<string, unknown>) || quotationRow;
 
+    if (quotData.status === "CANCELLED") {
+      return NextResponse.json(
+        { error: "Esta cotação foi cancelada pela loja e não está mais disponível." },
+        { status: 410 },
+      );
+    }
+
     // 2. Validação Temporal: Verifica se a cotação já expirou
     const endDateStr = quotData.endDate as string | null | undefined;
     const closingTimeStr = quotData.closingTime as string | null | undefined;

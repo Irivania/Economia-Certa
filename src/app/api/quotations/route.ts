@@ -226,6 +226,19 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'id é obrigatório' }, { status: 400 });
     }
 
+    const linkedSuppliers = await db
+      .select({ status: quotationSuppliers.status })
+      .from(quotationSuppliers)
+      .innerJoin(quotations, eq(quotationSuppliers.quotationId, quotations.id))
+      .where(and(eq(quotationSuppliers.quotationId, id), eq(quotations.companyId, companyId)));
+
+    if (linkedSuppliers.some(({ status }) => ['ENVIADO', 'RESPONDIDO'].includes(status))) {
+      return NextResponse.json(
+        { error: 'Cotação já enviada. Use o cancelamento para preservar o histórico e bloquear o representante.' },
+        { status: 409 },
+      );
+    }
+
     // 2. Exclusão restrita ao tenant validado (Prevenção de IDOR)
     await db.delete(quotationItems).where(eq(quotationItems.quotationId, id));
     await db.delete(quotationSuppliers).where(eq(quotationSuppliers.quotationId, id));
@@ -235,5 +248,38 @@ export async function DELETE(request: NextRequest) {
   } catch (error) {
     console.error('Erro ao excluir cotação:', error);
     return NextResponse.json({ error: 'Erro interno ao excluir cotação' }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = requireCompanySession(request);
+    const body = await request.json() as Record<string, unknown>;
+    const id = String(body.id || '');
+    const action = String(body.action || '');
+
+    if (!id || action !== 'cancel') {
+      return NextResponse.json({ error: 'id e ação de cancelamento são obrigatórios' }, { status: 400 });
+    }
+
+    const [cancelledQuotation] = await db
+      .update(quotations)
+      .set({ status: 'CANCELLED' })
+      .where(and(eq(quotations.id, id), eq(quotations.companyId, session.companyId)))
+      .returning({ id: quotations.id });
+
+    if (!cancelledQuotation) {
+      return NextResponse.json({ error: 'Cotação não encontrada ou sem permissão' }, { status: 404 });
+    }
+
+    await db
+      .update(quotationSuppliers)
+      .set({ status: 'CANCELLED' })
+      .where(eq(quotationSuppliers.quotationId, id));
+
+    return NextResponse.json({ success: true, message: 'Cotação cancelada e retirada do representante.' });
+  } catch (error) {
+    console.error('Erro ao cancelar cotação:', error);
+    return NextResponse.json({ error: 'Erro interno ao cancelar cotação' }, { status: 500 });
   }
 }

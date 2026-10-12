@@ -39,6 +39,7 @@ function formatQuotationStatus(status?: string | null) {
     ORDERED: 'Pedidos enviados',
     PARTIALLY_CLOSED: 'Parcialmente encerrada',
     CLOSED: 'Encerrada',
+    CANCELLED: 'Cancelada',
   };
   return labels[status || ''] || status || 'Ativa';
 }
@@ -110,6 +111,28 @@ export default function Page() {
     } catch (error) {
       console.error('Erro ao excluir cotação:', error);
       alert('Não foi possível excluir a cotação.');
+    }
+  }
+
+  async function handleCancel(quotation: Quotation) {
+      if (!confirm(`Deseja cancelar a cotação "${quotation.title}"? O representante não poderá mais acessá-la, mas o histórico será preservado.`)) return;
+
+      try {
+        const response = await apiFetch('/api/quotations', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: quotation.id, action: 'cancel' }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || 'Não foi possível cancelar a cotação.');
+        setQuotations((current) => current.map((item) =>
+          item.id === quotation.id
+            ? { ...item, status: 'CANCELLED', suppliers: item.suppliers?.map((supplier) => ({ ...supplier, status: 'CANCELLED' })) }
+            : item,
+        ));
+      } catch (error) {
+        console.error('Erro ao cancelar cotação:', error);
+        alert(error instanceof Error ? error.message : 'Não foi possível cancelar a cotação.');
     }
   }
 
@@ -300,15 +323,28 @@ export default function Page() {
                                     type="button"
                                     onClick={() => {
                                       setOpenDropdownId(null);
-                                      handleDelete(quotation);
+                                      if (quotation.status === 'CANCELLED') return;
+                                      handleCancel(quotation);
                                     }}
                                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-rose-500 hover:bg-rose-500/10 transition-colors text-left cursor-pointer"
                                   >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 2 0 00-1-1h-4a1 2 0 00-1 1v3M4 7h16" />
                                     </svg>
-                                    Excluir Cotação
+                                    {quotation.status === 'CANCELLED' ? 'Cotação Cancelada' : 'Cancelar Cotação'}
                                   </button>
+                                  {quotation.status !== 'CANCELLED' && (!quotation.suppliers || quotation.suppliers.every((supplier) => !['ENVIADO', 'RESPONDIDO'].includes(supplier.status))) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setOpenDropdownId(null);
+                                        handleDelete(quotation);
+                                      }}
+                                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-slate-500 hover:bg-slate-500/10 transition-colors text-left cursor-pointer"
+                                    >
+                                      Excluir Cotação
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </div>

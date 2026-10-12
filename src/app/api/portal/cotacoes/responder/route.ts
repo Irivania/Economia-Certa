@@ -50,6 +50,13 @@ export async function POST(request: NextRequest) {
 
     const { supplierRecord, quotation } = record;
 
+    if (quotation.status === "CANCELLED") {
+      return NextResponse.json(
+        { success: false, error: "Esta cotação foi cancelada pela loja e não aceita mais propostas." },
+        { status: 410 },
+      );
+    }
+
     // 2. Bloqueio de Imutabilidade: Impede re-envio ou alteração se já foi respondido
     if (
       supplierRecord.status === "RESPONDIDO" ||
