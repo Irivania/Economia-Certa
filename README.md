@@ -1,6 +1,6 @@
 # Economia Certa
 
-#### Video Demo: <URL_DO_VIDEO_AQUI>
+#### Video Demo: https://youtu.be/YJ2EA5OXiCQ
 
 #### Description:
 
@@ -174,334 +174,275 @@ O fluxo operacional suporta os seguintes estados:
 ```text
 SENT ───────────────► DISPATCHED ───────────────► RECEIVED ───────────────► CLOSED
   └────────────────────────────────────────────► RECEIVED
-```
 
-- `SENT`: pedido criado e enviado pelo lojista.
-- `DISPATCHED`: etapa disponível para fluxos operacionais que necessitem de
-  encaminhamento.
-- `RECEIVED`: lojista confirmou o recebimento da mercadoria.
-- `CLOSED`: conferência concluída e negociação baixada.
+  SENT: pedido criado e enviado pelo lojista.
 
-Quando uma cotação possui múltiplos fornecedores, o status geral pode ser `PARTIALLY_CLOSED` até que todos os pedidos associados sejam encerrados.
+DISPATCHED: etapa disponível para fluxos operacionais que necessitem de
+encaminhamento.
 
----
+RECEIVED: lojista confirmou o recebimento da mercadoria.
 
-## Arquitetura da solução
+CLOSED: conferência concluída e negociação baixada.
 
-O projecto utiliza o **Next.js App Router** como camada web e BFF, combinando páginas React, componentes client-side e Route Handlers para APIs server-side.
+Quando uma cotação possui múltiplos fornecedores, o status geral pode ser PARTIALLY_CLOSED até que todos os pedidos associados sejam encerrados.
 
-```text
+Arquitetura da solução
+O projecto utiliza o Next.js App Router como camada web e BFF, combinando páginas React, componentes client-side e Route Handlers para APIs server-side.
+
 ┌─────────────────────────────────────────────────────────────┐
-│                    Next.js App Router                       │
-│  Dashboard • Catálogo • Cotações • Pedidos • Portal B2B     │
+│                       Next.js App Router                    │
+│    Dashboard • Catálogo • Cotações • Pedidos • Portal B2B    │
 ├─────────────────────────────────────────────────────────────┤
-│                   Route Handlers / API                      │
-│  Validação • Regras de negócio • Transacções • Auditoria    │
+│                     Route Handlers / API                    │
+│    Validação • Regras de negócio • Transacções • Auditoria  │
 ├─────────────────────────────────────────────────────────────┤
 │                 Drizzle ORM + PostgreSQL                    │
-│  Multi-tenant • Snapshots • Índices • Migrações             │
+│    Multi-tenant • Snapshots • Índices • Migrações           │
 ├─────────────────────────────────────────────────────────────┤
-│             Integrações públicas brasileiras                 │
-│                    BrasilAPI • ViaCEP                       │
+│             Integrações públicas brasileiras                │
+│                     BrasilAPI • ViaCEP                      │
 └─────────────────────────────────────────────────────────────┘
-```
 
-### Camadas principais
+Camadas principaisCamadaResponsabilidadesrc/appPáginas do App Router e endpoints HTTP da aplicaçãosrc/componentsComponentes de interface reutilizáveis e fluxos de UIsrc/dbSchema Drizzle, cliente de base de dados e migraçõessrc/modulesServiços e regras de negócio organizadas por domíniosrc/typesTipos e contratos partilhadossrc/utilsFormatação, cálculos e utilitários puros
 
-| Camada | Responsabilidade |
-| --- | --- |
-| `src/app` | Páginas do App Router e endpoints HTTP da aplicação |
-| `src/components` | Componentes de interface reutilizáveis e fluxos de UI |
-| `src/db` | Schema Drizzle, cliente de base de dados e migrações |
-| `src/modules` | Serviços e regras de negócio organizadas por domínio |
-| `src/types` | Tipos e contratos partilhados |
-| `src/utils` | Formatação, cálculos e utilitários puros |
+Princípios de engenharia
+Isolamento por escopo: consultas e operações comerciais devem respeitar companyId, supplierId e quotationSupplierId.
 
-### Princípios de engenharia
+Transacções: criação de pedidos, itens não pedidos, alterações de estado e auditoria devem ser consistentes.
 
-- **Isolamento por escopo:** consultas e operações comerciais devem respeitar `companyId`, `supplierId` e `quotationSupplierId`.
-- **Transacções:** criação de pedidos, itens não pedidos, alterações de estado e auditoria devem ser consistentes.
-- **Idempotência:** índices únicos evitam pedidos duplicados para a mesma cotação e fornecedor.
-- **Snapshots comerciais:** os dados relevantes do pedido são copiados no momento da finalização para preservar o histórico.
-- **Tipagem ponta a ponta:** TypeScript e Drizzle reduzem divergências entre modelo e código.
-- **Validação explícita:** entradas inválidas devem gerar respostas HTTP claras, sem fallbacks silenciosos.
+Idempotência: índices únicos evitam pedidos duplicados para a mesma cotação e fornecedor.
 
----
+Snapshots comerciais: os dados relevantes do pedido são copiados no momento da finalização para preservar o histórico.
 
-## Modelo multi-tenant
+Tipagem ponta a ponta: TypeScript e Drizzle reduzem divergências entre modelo e código.
 
+Validação explícita: entradas inválidas devem gerar respostas HTTP claras, sem fallbacks silenciosos.
+
+Modelo multi-tenant
 O isolamento é aplicado em dois níveis:
 
-### Empresa lojista
+Empresa lojista
+Produtos, categorias, cotações e pedidos pertencem à empresa através de companyId. Uma empresa não deve consultar ou alterar os dados de outra.
 
-Produtos, categorias, cotações e pedidos pertencem à empresa através de `companyId`. Uma empresa não deve consultar ou alterar os dados de outra.
-
-### Empresa fornecedora representada
-
-Um representante pode trabalhar com várias empresas. O vínculo é mantido por `supplierBrands` e as conexões com lojistas por `supplierConnections`.
+Empresa fornecedora representada
+Um representante pode trabalhar com várias empresas. O vínculo é mantido por supplierBrands e as conexões com lojistas por supplierConnections.
 
 Para uma cotação com DPC e Solfarma, a separação correcta é:
-
-```text
 quotation
 ├── quotation_suppliers (DPC)
 │   └── quotation_supplier_items (preços da DPC)
 └── quotation_suppliers (Solfarma)
     └── quotation_supplier_items (preços da Solfarma)
-```
 
-O `supplierId` do representante, sozinho, não é suficiente para identificar a empresa fornecedora. O sistema deve sempre utilizar o fornecedor específico associado à resposta ou ao pedido.
+    O supplierId do representante, sozinho, não é suficiente para identificar a empresa fornecedora. O sistema deve sempre utilizar o fornecedor específico associado à resposta ou ao pedido.
 
----
+Arquitectura da base de dados
+A persistência utiliza PostgreSQL com Drizzle ORM. O schema principal está em src/db/schema.ts.
 
-## Arquitectura da base de dados
+Tabelas centraisTabelaFinalidadeChaves/escopo relevantescompaniesDados cadastrais das empresas lojistasid; razão social, CNPJ e moradausersUtilizadores associados a uma empresacompany_idproductsCatálogo, stock e preçoscompany_id; EAN único por empresacategoriesCategorias do catálogocompany_idsuppliersRepresentantes/fornecedores com acesso ao portalid; credenciais e contactosupplier_brandsEmpresas/marcas representadas por um fornecedorsupplier_idsupplier_connectionsRelação entre lojistas e fornecedorescompany_id + supplier_idquotationsCabeçalho da cotaçãocompany_id; prazo e condiçãoquotation_itemsProdutos solicitados na cotaçãoquotation_id + product_idquotation_suppliersParticipação individual de cada distribuidoraquotation_id + id; supplier_id e brand_id; tokenquotation_supplier_itemsRespostas de preço por fornecedorquotation_supplier_id + product_idpurchase_ordersPedido final por distribuidoraquotation_id + quotation_supplier_id; supplier_id como compatibilidadepurchase_order_itemsSnapshot dos itens compradosdescrição, imagem, quantidade e preçoquotation_unrequested_itemsItens não comprados na negociaçãoquotation_id + product_idaudit_logsEventos importantes do processoempresa, cotação, fornecedor e acção
 
-A persistência utiliza PostgreSQL com Drizzle ORM. O schema principal está em [`src/db/schema.ts`](src/db/schema.ts).
-
-### Tabelas centrais
-
-| Tabela | Finalidade | Chaves/escopo relevantes |
-| --- | --- | --- |
-| `companies` | Dados cadastrais das empresas lojistas | `id`; razão social, CNPJ e morada |
-| `users` | Utilizadores associados a uma empresa | `company_id` |
-| `products` | Catálogo, stock e preços | `company_id`; EAN único por empresa |
-| `categories` | Categorias do catálogo | `company_id` |
-| `suppliers` | Representantes/fornecedores com acesso ao portal | `id`; credenciais e contacto |
-| `supplier_brands` | Empresas/marcas representadas por um fornecedor | `supplier_id` |
-| `supplier_connections` | Relação entre lojistas e fornecedores | `company_id` + `supplier_id` |
-| `quotations` | Cabeçalho da cotação | `company_id`; prazo e condição |
-| `quotation_items` | Produtos solicitados na cotação | `quotation_id` + `product_id` |
-| `quotation_suppliers` | Participação individual de cada distribuidora | `quotation_id` + `id`; `supplier_id` e `brand_id`; token |
-| `quotation_supplier_items` | Respostas de preço por fornecedor | `quotation_supplier_id` + `product_id` |
-| `purchase_orders` | Pedido final por distribuidora | `quotation_id` + `quotation_supplier_id`; `supplier_id` como compatibilidade |
-| `purchase_order_items` | Snapshot dos itens comprados | descrição, imagem, quantidade e preço |
-| `quotation_unrequested_items` | Itens não comprados na negociação | `quotation_id` + `product_id` |
-| `audit_logs` | Eventos importantes do processo | empresa, cotação, fornecedor e acção |
-
-### Integridade comercial
-
+Integridade comercial
 O schema contém índices únicos para evitar:
 
-- EAN duplicado dentro da mesma empresa.
-- Mais de um pedido para a mesma combinação de cotação e fornecedor.
-- Mais de um registo de item não pedido para a mesma cotação e produto.
+EAN duplicado dentro da mesma empresa.
 
-As migrações existentes encontram-se em [`src/db/migrations`](src/db/migrations).
+Mais de um pedido para a mesma combinação de cotação e fornecedor.
 
----
+Mais de um registo de item não pedido para a mesma cotação e produto.
 
-## Fluxo de cotações e pedidos
+As migrações existentes encontram-se em src/db/migrations.
 
-```text
+Fluxo de cotações e pedidos
+
 Lojista
-  │
-  ├─ 1. Selecciona produtos e condição de pagamento
-  ├─ 2. Cria cotação para fornecedores
-  │
-  ▼
+ │
+ ├─ 1. Selecciona produtos e condição de pagamento
+ ├─ 2. Cria cotação para fornecedores
+ │
+ ▼
 Fornecedores
-  │
-  ├─ 3. Acedem ao token individual
-  ├─ 4. Respondem preços, indisponibilidades e observações
-  │
-  ▼
+ │
+ ├─ 3. Acedem ao token individual
+ ├─ 4. Respondem preços, indisponibilidades e observações
+ │
+ ▼
 Comparador
-  │
-  ├─ 5. Lojista escolhe fornecedor por produto
-  ├─ 6. Marca itens não pedidos
-  ├─ 7. Finaliza pedidos separados por fornecedor
-  │
-  ▼
+ │
+ ├─ 5. Lojista escolhe fornecedor por produto
+ ├─ 6. Marca itens não pedidos
+ ├─ 7. Finaliza pedidos separados por fornecedor
+ │
+ ▼
 Operação
-  │
-  ├─ 8. Representante recebe o pedido separado da sua distribuidora
-  ├─ 9. Representante envia o pedido no sistema externo da empresa
-  ├─ 10. Representante marca o recebimento como encerrado no sistema
-  └─ 11. Histórico e auditoria registram a operação
-```
+ │
+ ├─ 8. Representante recebe o pedido separado da sua distribuidora
+ ├─ 9. Representante envia o pedido no sistema externo da empresa
+ ├─ 10. Representante marca o recebimento como encerrado no sistema
+ └─ 11. Histórico e auditoria registram a operação
 
-Cada etapa relevante deve ser reflectida no estado persistido e no histórico de auditoria.
+ Cada etapa relevante deve ser reflectida no estado persistido e no histórico de auditoria.
 
----
-
-## Arquivos principais
-
+Arquivos principais
 Os arquivos abaixo concentram as decisões e os fluxos mais importantes do
 projeto:
 
-- [`src/app/page.tsx`](src/app/page.tsx) apresenta o dashboard do lojista, com
-  métricas de produtos, cotações ativas, cotações concluídas e alertas de
-  estoque mínimo.
-- [`src/app/cotacoes/nova/page.tsx`](src/app/cotacoes/nova/page.tsx) implementa
-  a criação de uma cotação. O lojista informa produtos, quantidades, prazo,
-  condição de pagamento, fornecedores participantes e se a quantidade deve
-  ficar visível para o representante.
-- [`src/app/cotacoes/editar/[id]/page.tsx`](src/app/cotacoes/editar/[id]/page.tsx)
-  permite alterar os mesmos dados da criação, incluindo os fornecedores
-  participantes e a opção de marcar ou desmarcar todos.
-- [`src/app/cotacoes/respostas/[id]/page.tsx`](src/app/cotacoes/respostas/[id]/page.tsx)
-  é o comparador principal. Ele calcula o menor preço, permite decisões
-  individuais, agrupa a escolha por distribuidora, registra itens não
-  comprados, exibe o resumo final e gera pedidos.
-- [`src/app/cotacoes/pedidos/[id]/page.tsx`](src/app/cotacoes/pedidos/[id]/page.tsx)
-  mostra os pedidos separados por distribuidora, seus itens, valores, status e
-  ações de acompanhamento.
-- [`src/app/portal/painel/page.tsx`](src/app/portal/painel/page.tsx) contém o
-  painel do representante, incluindo marcas representadas, cotações recebidas,
-  conexões com lojistas e pedidos destinados à distribuidora ativa.
-- [`src/app/portal/cotacao/[token]/page.tsx`](src/app/portal/cotacao/[token]/page.tsx)
-  é a tela usada pelo representante para responder uma cotação através do
-  token específico do vínculo.
-- [`src/app/api/portal/quotations/route.ts`](src/app/api/portal/quotations/route.ts)
-  lista cotações do portal e agrupa os itens pelo `quotationSupplierId`.
-- [`src/app/api/portal/cotacoes/detalhes/route.ts`](src/app/api/portal/cotacoes/detalhes/route.ts)
-  carrega os dados e preços exclusivos de uma participação de fornecedor.
-- [`src/app/api/quotations/[id]/finalize/route.ts`](src/app/api/quotations/%5Bid%5D/finalize/route.ts)
-  valida as escolhas, grava itens não comprados, cria pedidos separados e
-  controla as transições de status.
-- [`src/db/schema.ts`](src/db/schema.ts) define o modelo PostgreSQL usado pela
-  aplicação, incluindo empresas, produtos, fornecedores, marcas, cotações,
-  respostas, pedidos e auditoria.
-- [`src/services/quotationService.ts`](src/services/quotationService.ts)
-  concentra a criação de vínculos entre cotação, representante e
-  distribuidora.
-- [`src/lib/authServer.ts`](src/lib/authServer.ts) valida a sessão da empresa
-  nas operações server-side.
-- [`src/db/migrations`](src/db/migrations) contém as alterações versionadas
-  necessárias para manter o banco compatível com o código.
+src/app/page.tsx apresenta o dashboard do lojista, com
+métricas de produtos, cotações ativas, cotações concluídas e alertas de
+estoque mínimo.
 
----
+src/app/cotacoes/nova/page.tsx implementa
+a criação de uma cotação. O lojista informa produtos, quantidades, prazo,
+condição de pagamento, fornecedores participantes e se a quantidade deve
+ficar visível para o representante.
 
-## Estrutura do repositório
+src/app/cotacoes/editar/[id]/page.tsx
+permite alterar os mesmos dados da criação, incluindo os fornecedores
+participantes e a opção de marcar ou desmarcar todos.
 
-```text
+src/app/cotacoes/respostas/[id]/page.tsx
+é o comparador principal. Ele calcula o menor preço, permite decisões
+individuais, agrupa a escolha por distribuidora, registra itens não
+comprados, exibe o resumo final e gera pedidos.
+
+src/app/cotacoes/pedidos/[id]/page.tsx
+mostra os pedidos separados por distribuidora, seus itens, valores, status e
+ações de acompanhamento.
+
+src/app/portal/painel/page.tsx contém o
+painel do representante, incluindo marcas representadas, cotações recebidas,
+conexões com lojistas e pedidos destinados à distribuidora ativa.
+
+src/app/portal/cotacao/[token]/page.tsx
+é a tela usada pelo representante para responder uma cotação através do
+token específico do vínculo.
+
+src/app/api/portal/quotations/route.ts
+lista cotações do portal e agrupa os itens pelo quotationSupplierId.
+
+src/app/api/portal/cotacoes/detalhes/route.ts
+carrega os dados e preços exclusivos de uma participação de fornecedor.
+
+src/app/api/quotations/[id]/finalize/route.ts
+valida as escolhas, grava itens não comprados, cria pedidos separados e
+controla as transições de status.
+
+src/db/schema.ts define o modelo PostgreSQL usado pela
+aplicação, incluindo empresas, produtos, fornecedores, marcas, cotações,
+respostas, pedidos e auditoria.
+
+src/services/quotationService.ts
+concentra a criação de vínculos entre cotação, representante e
+distribuidora.
+
+src/lib/authServer.ts valida a sessão da empresa
+nas operações server-side.
+
+src/db/migrations contém as alterações versionadas
+necessárias para manter o banco compatível com o código.
+
+Estrutura do repositório
+
 .
-├── public/                         # Recursos estáticos
+├── public/                     # Recursos estáticos
 ├── src/
 │   ├── app/
-│   │   ├── api/                    # Route Handlers da API
-│   │   ├── cotacoes/               # Fluxos de cotação e pedidos
-│   │   ├── configuracoes/          # Configurações da empresa
-│   │   ├── portal/                 # Portal do representante
-│   │   └── page.tsx                # Dashboard principal
-│   ├── components/                 # Componentes React reutilizáveis
+│   │   ├── api/                # Route Handlers da API
+│   │   ├── cotacoes/           # Fluxos de cotação e pedidos
+│   │   ├── configuracoes/      # Configurações da empresa
+│   │   ├── portal/             # Portal do representante
+│   │   └── page.tsx            # Dashboard principal
+│   ├── components/             # Componentes React reutilizáveis
 │   ├── db/
-│   │   ├── migrations/             # Migrações SQL/Drizzle
-│   │   ├── db.ts                   # Cliente Drizzle
-│   │   └── schema.ts               # Modelo relacional
-│   ├── modules/                    # Serviços de domínio
-│   ├── types/                      # Contratos TypeScript
-│   └── utils/                      # Funções utilitárias
-├── drizzle.config.ts               # Configuração do Drizzle Kit
-├── next.config.ts                  # Configuração do Next.js
-├── package.json                    # Scripts e dependências
-└── .env.example                    # Modelo de variáveis locais
-```
+│   │   ├── migrations/         # Migrações SQL/Drizzle
+│   │   ├── db.ts               # Cliente Drizzle
+│   │   └── schema.ts           # Modelo relacional
+│   ├── modules/                # Serviços de domínio
+│   ├── types/                  # Contratos TypeScript
+│   └── utils/                  # Funções utilitárias
+├── drizzle.config.ts           # Configuração do Drizzle Kit
+├── next.config.ts              # Configuração do Next.js
+├── package.json                # Scripts e dependências
+└── .env.example                # Modelo de variáveis locais
 
----
+.
+├── public/                     # Recursos estáticos
+├── src/
+│   ├── app/
+│   │   ├── api/                # Route Handlers da API
+│   │   ├── cotacoes/           # Fluxos de cotação e pedidos
+│   │   ├── configuracoes/      # Configurações da empresa
+│   │   ├── portal/             # Portal do representante
+│   │   └── page.tsx            # Dashboard principal
+│   ├── components/             # Componentes React reutilizáveis
+│   ├── db/
+│   │   ├── migrations/         # Migrações SQL/Drizzle
+│   │   ├── db.ts               # Cliente Drizzle
+│   │   └── schema.ts           # Modelo relacional
+│   ├── modules/                # Serviços de domínio
+│   ├── types/                  # Contratos TypeScript
+│   └── utils/                  # Funções utilitárias
+├── drizzle.config.ts           # Configuração do Drizzle Kit
+├── next.config.ts              # Configuração do Next.js
+├── package.json                # Scripts e dependências
+└── .env.example                # Modelo de variáveis locais
 
-## Pré-requisitos
-
-Antes de iniciar, instale:
-
-- **Node.js 20 ou superior** — versão recomendada para o stack actual.
-- **npm 10+** ou **pnpm 9+**.
-- **PostgreSQL 14 ou superior**, local ou gerido por um serviço compatível.
-- Git.
-
-Confirme as versões:
-
-```bash
 node --version
 npm --version
 psql --version
-```
 
----
+Instalação e configuração
+1. Clonar o repositório
 
-## Instalação e configuração
-
-### 1. Clonar o repositório
-
-```bash
-git clone https://github.com/Irivania/Economia-Certa.git
+git clone [https://github.com/Irivania/Economia-Certa.git](https://github.com/Irivania/Economia-Certa.git)
 cd Economia-Certa
-```
 
-### 2. Instalar dependências
-
+2. Instalar dependências
 Com npm:
 
-```bash
 npm install
-```
 
 Com pnpm:
 
-```bash
 pnpm install
-```
 
-### 3. Configurar o ambiente
-
+3. Configurar o ambiente
 Copie o ficheiro de exemplo:
 
-```bash
+Bash
 copy .env.example .env.local
-```
-
 No macOS/Linux:
 
-```bash
+Bash
 cp .env.example .env.local
-```
+Preencha pelo menos DATABASE_URL com a string de conexão PostgreSQL. O drizzle.config.ts carrega .env.local e .env.
 
-Preencha pelo menos `DATABASE_URL` com a string de conexão PostgreSQL. O `drizzle.config.ts` carrega `.env.local` e `.env`.
-
-### 4. Aplicar o schema/migrações
-
+4. Aplicar o schema/migrações
 Para sincronizar o schema durante o desenvolvimento:
 
-```bash
+Bash
 npx drizzle-kit push
-```
-
 Para executar as migrações versionadas já geradas:
 
-```bash
+Bash
 npx drizzle-kit migrate
-```
-
 Em produção, prefira migrações versionadas e valide previamente a existência de dados duplicados antes de aplicar índices únicos.
 
----
-
-## Execução
-
-### Desenvolvimento
-
-```bash
+Execução
+Desenvolvimento
+Bash
 npm run dev
-```
-
 A aplicação ficará disponível em:
 
-<http://localhost:3000>
+http://localhost:3000
 
-### Produção
-
-```bash
+Produção
+Bash
 npm run build
 npm run start
-```
-
----
-
-## Testes e qualidade
-
+Testes e qualidade
 Scripts disponíveis:
 
-```bash
+Bash
 # Verificação de lint
 npm run lint
 
@@ -510,102 +451,91 @@ npm run test
 
 # Testes End-to-End, quando configurados
 npx playwright test
-```
-
 Antes de abrir um pull request, recomenda-se executar:
 
-```bash
+Bash
 npm run lint
 npm run test
 npm run build
-```
-
 Alterações no fluxo de cotações devem ser validadas, no mínimo, para:
 
-- duas empresas representadas pelo mesmo representante;
-- respostas isoladas por fornecedor;
-- pedidos separados por fornecedor;
-- itens não pedidos persistidos;
-- transições inválidas de estado;
-- encerramento parcial e total da cotação;
-- duplicidade de pedidos;
-- autorização por empresa e fornecedor.
+duas empresas representadas pelo mesmo representante;
 
----
+respostas isoladas por fornecedor;
 
-## Integrações externas
+pedidos separados por fornecedor;
 
-### BrasilAPI
+itens não pedidos persistidos;
 
+transições inválidas de estado;
+
+encerramento parcial e total da cotação;
+
+duplicidade de pedidos;
+
+autorização por empresa e fornecedor.
+
+Integrações externas
+BrasilAPI
 Utilizada para auxiliar o preenchimento de dados corporativos a partir do CNPJ, como razão social, nome fantasia, contactos e endereço.
 
-### ViaCEP
-
+ViaCEP
 Utilizada para completar o endereço a partir do CEP.
 
 As chamadas passam por rotas internas da aplicação para que os componentes do frontend não dependam directamente da implementação externa.
 
----
+Variáveis de ambienteVariávelObrigatóriaDescriçãoExemploDATABASE_URLSimString de conexão com PostgreSQLpostgresql://utilizador:senha@localhost:5432/economia_certaNEXT_PUBLIC_DATABASE_URLConforme ambiente legadoVariável mantida para compatibilidade com configurações existentespostgresql://...NEXT_PUBLIC_APP_URLRecomendadaURL pública/base da aplicaçãohttp://localhost:3000
 
-## Variáveis de ambiente
+Nunca versione .env, .env.local ou credenciais reais. Utilize o .env.example apenas como contrato de configuração, sem segredos.
 
-| Variável | Obrigatória | Descrição | Exemplo |
-| --- | --- | --- | --- |
-| `DATABASE_URL` | Sim | String de conexão com PostgreSQL | `postgresql://utilizador:senha@localhost:5432/economia_certa` |
-| `NEXT_PUBLIC_DATABASE_URL` | Conforme ambiente legado | Variável mantida para compatibilidade com configurações existentes | `postgresql://...` |
-| `NEXT_PUBLIC_APP_URL` | Recomendada | URL pública/base da aplicação | `http://localhost:3000` |
+Observações de segurança e operação
+Não exponha credenciais de PostgreSQL no frontend ou em logs.
 
-> Nunca versione `.env`, `.env.local` ou credenciais reais. Utilize o `.env.example` apenas como contrato de configuração, sem segredos.
+Tokens de cotação devem ser tratados como credenciais de acesso ao fluxo do fornecedor.
 
----
+Operações de alteração de estado devem ser validadas no backend, não apenas na interface.
 
-## Observações de segurança e operação
+Toda consulta comercial deve respeitar o escopo de empresa e fornecedor.
 
-- Não exponha credenciais de PostgreSQL no frontend ou em logs.
-- Tokens de cotação devem ser tratados como credenciais de acesso ao fluxo do fornecedor.
-- Operações de alteração de estado devem ser validadas no backend, não apenas na interface.
-- Toda consulta comercial deve respeitar o escopo de empresa e fornecedor.
-- Em ambientes produtivos, utilize HTTPS, backups, rotação de segredos e monitorização.
-- Antes de aplicar migrações destrutivas ou índices únicos, faça backup e inspeccione dados existentes.
+Em ambientes produtivos, utilize HTTPS, backups, rotação de segredos e monitorização.
 
----
+Antes de aplicar migrações destrutivas ou índices únicos, faça backup e inspeccione dados existentes.
 
-## Estado do projecto
-
+Estado do projecto
 O projeto encontra-se em evolução ativa, com o fluxo principal de cotações,
 respostas, pedidos separados por distribuidora, exportação da decisão,
 encerramento interno e histórico já estruturado. O README documenta a versão
-atual do sistema; a URL do vídeo deve ser preenchida antes da submissão ao
+atual do sistema; a URL do vídeo já foi preenchida para a submissão ao
 CS50.
 
 Áreas recomendadas para evolução contínua:
 
-- Sessões server-side com cookies `HttpOnly` e autorização centralizada.
-- Testes de integração para isolamento entre empresas representadas.
-- Observabilidade com logs estruturados, métricas e tracing.
-- Pipeline CI/CD com lint, testes, build e migrações verificadas.
-- Documentação OpenAPI dos endpoints públicos e internos.
+Sessões server-side com cookies HttpOnly e autorização centralizada.
 
----
+Testes de integração para isolamento entre empresas representadas.
 
-## Contribuição
+Observabilidade com logs estruturados, métricas e tracing.
 
-1. Crie uma branch a partir da principal.
-2. Faça uma alteração pequena e focada.
-3. Adicione ou actualize testes relacionados.
-4. Execute lint, testes e build.
-5. Abra um pull request descrevendo impacto, migrações e riscos operacionais.
+Pipeline CI/CD com lint, testes, build e migrações verificadas.
+
+Documentação OpenAPI dos endpoints públicos e internos.
+
+Contribuição
+Crie uma branch a partir da principal.
+
+Faça uma alteração pequena e focada.
+
+Adicione ou actualize testes relacionados.
+
+Execute lint, testes e build.
+
+Abra um pull request descrevendo impacto, migrações e riscos operacionais.
 
 Commits devem ser claros, atómicos e orientados ao domínio, por exemplo:
 
-```text
+Plaintext
 feat(cotacoes): separar pedidos por fornecedor representado
 fix(portal): exibir dados cadastrais completos da loja
 test(finalize): validar transições de estado do pedido
-```
-
----
-
-## Licença
-
-Este projecto é distribuído sob a licença MIT. Consulte o ficheiro [`LICENSE`](LICENSE) para os termos completos.
+Licença
+Este projecto é distribuído sob a licença MIT. Consulte o ficheiro LICENSE para os termos completos.
