@@ -1,9 +1,12 @@
 'use client';
 
-import React, { use, useEffect, useState, useCallback } from 'react';
+import React, { use, useEffect, useState, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import QuotationTable from '@/components/QuotationTable';
+import { QuotationHeader } from '@/components/quotations/QuotationHeader';
+import { QuotationOrdersSummary } from '@/components/quotations/QuotationOrdersSummary';
+import { QuotationPendingAlert } from '@/components/quotations/QuotationPendingAlert';
 import { useTheme } from '@/context/ThemeContext';
 import { AppHeader } from '@/components/AppHeader';
 import { CommandMenu } from '@/components/CommandMenu';
@@ -51,12 +54,20 @@ interface Quotation {
   supplierItems?: QuotationSupplierItem[];
 }
 
+interface MappedProduct {
+  productId: string;
+  description: string;
+  ean?: string | null;
+  brand?: string | null;
+  imageUrl?: string | null;
+  requestedQuantity: number;
+  sellingPrice: number;
+  responses: Record<string, { price: number; outOfStock: boolean }>;
+}
+
 function formatCurrency(value: number | null | undefined) {
   if (value === null || value === undefined || Number.isNaN(value)) return 'R$ 0,00';
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(value);
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 }
 
 function formatDate(value?: string | Date | null) {
@@ -66,9 +77,8 @@ function formatDate(value?: string | Date | null) {
   return new Intl.DateTimeFormat('pt-BR').format(date);
 }
 
-export default function QuotationResponsesPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params);
-  const quotationId = resolvedParams?.id;
+function QuotationResponsesContent({ id }: { id: string }) {
+  const quotationId = id;
   const { isDarkMode } = useTheme();
 
   const router = useRouter();
@@ -85,9 +95,7 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
       e.preventDefault();
       setIsCmdOpen((open) => !open);
     }
-    if (e.key === 'Escape') {
-      setIsCmdOpen(false);
-    }
+    if (e.key === 'Escape') setIsCmdOpen(false);
   }, []);
 
   useEffect(() => {
@@ -121,19 +129,14 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
         const suppliers = data.suppliers || [];
         const supplierItems = data.supplierItems || [];
 
-        // Mapeia os preços respondidos por cada quotationSupplierId para o supplierId correspondente
         const supplierMapping: Record<string, string> = {};
         suppliers.forEach((sup: QuotationSupplier) => {
           supplierMapping[sup.id] = sup.id;
         });
 
         const tempMap: Record<string, { responses: Record<string, { price: number; outOfStock: boolean }> }> = {};
-        
         rawItems.forEach((item: QuotationItem) => {
-          const prodKey = item.productId;
-          if (!tempMap[prodKey]) {
-            tempMap[prodKey] = { responses: {} };
-          }
+          if (!tempMap[item.productId]) tempMap[item.productId] = { responses: {} };
         });
 
         supplierItems.forEach((si: QuotationSupplierItem) => {
@@ -157,9 +160,7 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
               bestSup = sup.id;
             }
           });
-          if (bestSup) {
-            initialChoices[prodKey] = bestSup;
-          }
+          if (bestSup) initialChoices[prodKey] = bestSup;
         });
 
         setSelectedChoices(initialChoices);
@@ -184,9 +185,9 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
   if (error || !quotation) {
     return (
       <div className={`min-h-screen flex items-center justify-center p-6 ${isDarkMode ? 'bg-slate-950' : 'bg-slate-50'}`}>
-        <div className={`border rounded-3xl p-8 text-center max-w-md shadow-2xl space-y-4 ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'}`}>
+        <div className={`border rounded-xl p-6 text-center max-w-md shadow-xs space-y-4 ${isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'}`}>
           <p className="text-xs font-semibold text-rose-500">{error || 'Cotação não encontrada.'}</p>
-          <Link href="/cotacoes" className="inline-block rounded-2xl bg-indigo-600 px-6 py-3 text-xs font-bold text-white hover:bg-indigo-500 transition shadow-lg shadow-indigo-600/25">
+          <Link href="/cotacoes" className="inline-block rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-indigo-500 transition shadow-xs">
             Voltar para listagem
           </Link>
         </div>
@@ -203,21 +204,10 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
     supplierMapping[sup.id] = sup.id;
   });
 
-  const productsMap: Record<string, { 
-    productId: string; 
-    description: string; 
-    ean?: string | null; 
-    brand?: string | null; 
-    imageUrl?: string | null; 
-    requestedQuantity: number; 
-    sellingPrice: number;
-    responses: Record<string, { price: number; outOfStock: boolean }> 
-  }> = {};
-
+  const productsMap: Record<string, MappedProduct> = {};
   rawItems.forEach((item) => {
-    const prodKey = item.productId;
-    if (!productsMap[prodKey]) {
-      productsMap[prodKey] = {
+    if (!productsMap[item.productId]) {
+      productsMap[item.productId] = {
         productId: item.productId,
         description: item.description || 'Produto sem descrição',
         ean: item.ean,
@@ -232,9 +222,8 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
 
   supplierItems.forEach((si) => {
     const supId = supplierMapping[si.quotationSupplierId];
-    const prodKey = si.productId;
-    if (supId && productsMap[prodKey]) {
-      productsMap[prodKey].responses[supId] = {
+    if (supId && productsMap[si.productId]) {
+      productsMap[si.productId].responses[supId] = {
         price: Number(si.price || 0),
         outOfStock: Boolean(si.outOfStock),
       };
@@ -256,9 +245,7 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
           bestSup = sup.id;
         }
       });
-      if (bestSup) {
-        newChoices[prod.productId] = bestSup;
-      }
+      if (bestSup) newChoices[prod.productId] = bestSup;
     });
     setSelectedChoices(newChoices);
   };
@@ -318,9 +305,7 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
         if (ignoredProducts.has(productId)) return;
         const product = productsList.find(p => p.productId === productId);
         if (product && product.responses[supplierId]) {
-          if (!ordersMap[supplierId]) {
-            ordersMap[supplierId] = [];
-          }
+          if (!ordersMap[supplierId]) ordersMap[supplierId] = [];
           ordersMap[supplierId].push({
             productId,
             description: product.description,
@@ -338,9 +323,7 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
           description: product.description,
           imageUrl: product.imageUrl,
           quantity: product.requestedQuantity,
-          reason: ignoredProducts.has(product.productId)
-            ? 'Não desejado pelo lojista'
-            : 'Sem fornecedor disponível ou não selecionado',
+          reason: ignoredProducts.has(product.productId) ? 'Não desejado pelo lojista' : 'Sem fornecedor disponível ou não selecionado',
         }));
 
       if (Object.keys(ordersMap).length === 0 && unrequestedItems.length === 0) {
@@ -348,13 +331,6 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
         setSaving(false);
         return;
       }
-
-      const orderSnapshot = {
-        paymentTerms: quotation.paymentTerms || '',
-        orders: ordersMap,
-        unrequestedItems,
-      };
-      localStorage.setItem(`quotation_orders_${quotationId}`, JSON.stringify(orderSnapshot));
 
       const finalizeResponse = await fetch(`/api/quotations/${quotationId}/finalize`, {
         method: 'POST',
@@ -371,24 +347,6 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
         const failure = await finalizeResponse.json().catch(() => ({}));
         throw new Error(failure.error || 'Não foi possível registrar os pedidos.');
       }
-
-      const finalized = await finalizeResponse.json() as {
-        orders: Array<{ id: string; supplierId: string; quotationSupplierId?: string | null }>;
-      };
-      const ordersWithIds = finalized.orders.reduce<Record<string, unknown>>((result, order) => {
-        const orderKey = order.quotationSupplierId || order.supplierId;
-        result[orderKey] = {
-          orderId: order.id,
-          status: 'SENT',
-          items: ordersMap[orderKey] || ordersMap[order.supplierId],
-        };
-        return result;
-      }, {});
-      localStorage.setItem(`quotation_orders_${quotationId}`, JSON.stringify({
-        paymentTerms: quotation.paymentTerms || '',
-        orders: ordersWithIds,
-        unrequestedItems,
-      }));
 
       alert('Cotação finalizada com sucesso! Os pedidos de compra foram gerados.');
       router.push(`/cotacoes/pedidos/${quotationId}`);
@@ -471,66 +429,23 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
-      
-      {/* HEADER GLOBAL UNIFICADO */}
       <AppHeader
         title="Economia Certa"
         subtitle="Painel gerencial inteligente e controle de compras em tempo real."
         onOpenCmd={() => setIsCmdOpen(true)}
       />
 
-      {/* CONTEÚDO PRINCIPAL */}
-      <main className="max-w-7xl mx-auto px-6 sm:px-12 -mt-12 pb-20 relative z-20 space-y-8">
-        
-        <div>
-          <Link href="/cotacoes" className="font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 px-4 py-2 rounded-xl shadow-md border border-slate-200 dark:border-slate-800 transition hover:text-indigo-600 dark:hover:text-indigo-400 inline-flex items-center gap-2 text-xs">
-            ← Voltar para listagem de cotações
-          </Link>
-        </div>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-20 relative z-20 space-y-6">
+        <QuotationHeader
+          title={quotation.title}
+          startDate={quotation.startDate}
+          endDate={quotation.endDate}
+          saving={saving}
+          onSmartQuote={handleSmartQuote}
+          onExportSelection={handleExportSelection}
+          onFinalize={handleFinalizeQuotation}
+        />
 
-        {/* Cabeçalho de Cotação */}
-        <div className={`rounded-3xl border p-8 shadow-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6 transition-all ${
-          isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/80 text-slate-900'
-        }`}>
-          <div>
-            <span className="inline-flex rounded-full bg-indigo-500/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-indigo-500 border border-indigo-500/20">
-              Mapa Comparativo de Preços & Rentabilidade
-            </span>
-            <h1 className="text-xl md:text-2xl font-black tracking-tight mt-2">{quotation.title}</h1>
-            <p className="text-xs opacity-60 mt-1 font-medium">
-              Início: <strong>{formatDate(quotation.startDate)}</strong> • Término: <strong>{formatDate(quotation.endDate)}</strong>
-            </p>
-          </div>
-          
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={handleSmartQuote}
-              className="px-5 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 text-white text-xs font-bold shadow-xl transition-all active:scale-95 cursor-pointer flex items-center gap-2"
-            >
-              ⚡ Cotação Automática (Mix Mais Barato)
-            </button>
-
-            <button
-              type="button"
-              onClick={handleExportSelection}
-              className="px-5 py-3 rounded-2xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-bold transition-all active:scale-95 cursor-pointer flex items-center gap-2"
-            >
-              📥 Baixar decisão
-            </button>
-
-            <button
-              type="button"
-              onClick={handleFinalizeQuotation}
-              disabled={saving}
-              className="px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold shadow-xl shadow-emerald-600/25 transition-all active:scale-95 cursor-pointer flex items-center gap-2 disabled:opacity-50"
-            >
-              {saving ? 'A processar...' : '✅ Finalizar Escolha e Gerar Pedidos'}
-            </button>
-          </div>
-        </div>
-
-        {/* Tabela de Comparação */}
         <QuotationTable
           productsList={productsList}
           suppliers={suppliers}
@@ -543,120 +458,35 @@ export default function QuotationResponsesPage({ params }: { params: Promise<{ i
           formatCurrency={formatCurrency}
         />
 
-        {/* Resumo pronto para confirmação e envio */}
-        <section className={`rounded-3xl border p-6 md:p-8 shadow-xl ${
-          isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-        }`}>
-          <div className="flex flex-col lg:flex-row justify-between gap-4 border-b border-slate-500/10 pb-5">
-            <div>
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                Resumo da decisão
-              </span>
-              <h2 className="text-lg font-black tracking-tight mt-1">Pedidos separados por distribuidora</h2>
-              <p className="text-xs opacity-60 mt-1">
-                Esta é a lista que será preparada para envio após a confirmação.
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-right text-xs">
-              <div>
-                <span className="block text-[10px] uppercase tracking-wider opacity-50">Itens escolhidos</span>
-                <strong className="text-base">{productsList.length - unrequestedSummary.length}</strong>
-              </div>
-              <div>
-                <span className="block text-[10px] uppercase tracking-wider opacity-50">Total estimado</span>
-                <strong className="text-base text-emerald-600 dark:text-emerald-400">{formatCurrency(summaryTotal)}</strong>
-              </div>
-            </div>
-          </div>
+        <QuotationOrdersSummary
+          isDarkMode={isDarkMode}
+          totalItemsCount={productsList.length}
+          unrequestedCount={unrequestedSummary.length}
+          summaryTotal={summaryTotal}
+            selectedBySupplier={selectedBySupplier}
+          unrequestedSummary={unrequestedSummary}
+          startDate={quotation.startDate}
+          endDate={quotation.endDate}
+          paymentTerms={quotation.paymentTerms}
+          formatCurrency={formatCurrency}
+          formatDate={formatDate}
+        />
 
-          <div className="grid gap-4 mt-5 lg:grid-cols-2">
-            {selectedBySupplier.map(({ supplier, items }) => {
-              const supplierTotal = items.reduce(
-                (total, product) => total + (product.responses[supplier.id]?.price || 0) * product.requestedQuantity,
-                0,
-              );
-              return (
-                <div key={supplier.id} className={`rounded-2xl border p-5 ${
-                  isDarkMode ? 'border-slate-700 bg-slate-950/50' : 'border-slate-200 bg-slate-50/70'
-                }`}>
-                  <div className="flex items-start justify-between gap-3 mb-4">
-                    <div>
-                      <h3 className="text-sm font-black">{supplier.name || 'Distribuidora não identificada'}</h3>
-                      <p className="text-[11px] opacity-60">{items.length} produto(s) selecionado(s)</p>
-                    </div>
-                    <strong className="text-sm text-emerald-600 dark:text-emerald-400">{formatCurrency(supplierTotal)}</strong>
-                  </div>
-                  <div className="space-y-2">
-                    {items.map((product) => {
-                      const price = product.responses[supplier.id]?.price || 0;
-                      return (
-                        <div key={product.productId} className="flex items-center justify-between gap-3 border-t border-slate-500/10 pt-2 text-xs">
-                          <div className="min-w-0">
-                            <p className="font-bold truncate">{product.description}</p>
-                            <p className="text-[11px] opacity-60">Qtd.: {product.requestedQuantity}</p>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className="font-mono font-bold">{formatCurrency(price)}</p>
-                            <p className="text-[11px] opacity-60">{formatCurrency(price * product.requestedQuantity)}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {unrequestedSummary.length > 0 && (
-            <div className={`mt-5 rounded-2xl border p-5 ${
-              isDarkMode ? 'border-amber-500/30 bg-amber-500/10' : 'border-amber-200 bg-amber-50'
-            }`}>
-              <div className="flex items-center justify-between gap-3 mb-3">
-                <div>
-                  <h3 className="text-sm font-black text-amber-700 dark:text-amber-300">Itens não pedidos</h3>
-                  <p className="text-[11px] opacity-70">Eles não serão enviados a nenhuma distribuidora.</p>
-                </div>
-                <strong className="text-xs">{unrequestedSummary.length} item(ns)</strong>
-              </div>
-              <div className="space-y-2">
-                {unrequestedSummary.map(({ product, reason }) => (
-                  <div key={product.productId} className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-t border-amber-500/20 pt-2 text-xs">
-                    <span className="font-bold">{product.description} <span className="font-normal opacity-70">• Qtd.: {product.requestedQuantity}</span></span>
-                    <span className="text-[11px] opacity-75">{reason}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="mt-5 grid gap-2 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-4 text-xs sm:grid-cols-3">
-            <span><strong>Período:</strong> {formatDate(quotation.startDate)} até {formatDate(quotation.endDate)}</span>
-            <span><strong>Pagamento:</strong> {quotation.paymentTerms || 'Não informado'}</span>
-            <span><strong>Quantidade:</strong> conforme solicitado na cotação</span>
-          </div>
-        </section>
-
-        {/* Painel de Pendências */}
-        {pendingProducts.length > 0 && (
-          <div className="rounded-3xl border border-amber-500/20 bg-amber-500/10 p-6 shadow-xl space-y-2">
-            <span className="inline-flex rounded-full bg-amber-500/20 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-amber-500">
-              ⚠️ Atenção: Gestão de Pendências
-            </span>
-            <h3 className="text-sm font-black tracking-tight text-amber-600 dark:text-amber-400">
-              Produtos sem fornecedor selecionado ou não atendidos ({pendingProducts.length})
-            </h3>
-            <p className="text-xs opacity-70">
-              Certifique-se de alocar todos os itens necessários antes de despachar os pedidos de compra para os distribuidores.
-            </p>
-          </div>
-        )}
-
+        <QuotationPendingAlert isDarkMode={isDarkMode} pendingCount={pendingProducts.length} />
       </main>
 
-      {/* MENU DE COMANDOS */}
       <CommandMenu isOpen={isCmdOpen} onClose={() => setIsCmdOpen(false)} isDarkMode={isDarkMode} latestQuotationId={quotationId} />
-
     </div>
+  );
+}
+
+export default function QuotationResponsesPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params);
+  const quotationId = resolvedParams?.id;
+
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-xs text-slate-500">A carregar mapa comparativo...</div>}>
+      <QuotationResponsesContent id={quotationId} />
+    </Suspense>
   );
 }

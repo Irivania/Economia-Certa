@@ -68,15 +68,15 @@ export default function SupplierRegisterPage() {
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-[100px] pointer-events-none" />
 
-      {/* Contentor Principal Split-Screen Sofisticado com Animação de Entrada */}
-      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 bg-white/90 backdrop-blur-2xl rounded-[2.5rem] shadow-[0_20px_60px_rgba(15,23,42,0.08)] border border-slate-200 overflow-hidden relative z-10 animate-in fade-in zoom-in-95 duration-500">
+      {/* Contentor Principal Split-Screen Sofisticado */}
+      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 bg-white/90 backdrop-blur-2xl rounded-xl shadow-xs border border-slate-200 overflow-hidden relative z-10 animate-in fade-in zoom-in-95 duration-500">
         
         {/* Painel Esquerdo: Identidade & Branding */}
         <div className="lg:col-span-5 p-8 sm:p-12 bg-gradient-to-br from-indigo-900 via-indigo-950 to-slate-900 text-white flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-800 relative">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-indigo-500/20 via-transparent to-transparent pointer-events-none" />
           
-          <div className="space-y-5 relative z-10">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/20 text-indigo-200 text-[10px] font-mono font-bold uppercase tracking-widest shadow-sm backdrop-blur-md">
+          <div className="space-y-4 relative z-10">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-white/10 border border-white/20 text-indigo-200 text-[10px] font-mono font-bold uppercase tracking-widest shadow-xs backdrop-blur-md">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               Economia Certa B2B
             </div>
@@ -89,7 +89,7 @@ export default function SupplierRegisterPage() {
           </div>
 
           <div className="pt-8 relative z-10">
-            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2 backdrop-blur-md">
+            <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2 backdrop-blur-md">
               <div className="flex items-center gap-2 text-xs font-semibold text-emerald-300">
                 <span>🔒 Arquitetura Multimarcas</span>
               </div>
@@ -104,13 +104,13 @@ export default function SupplierRegisterPage() {
         <div className="lg:col-span-7 p-8 sm:p-12 flex flex-col justify-center space-y-5 bg-white">
           
           <div className="space-y-1">
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">Registo de Conta</h1>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">Registo de Conta</h1>
             <p className="text-xs text-slate-500 font-medium">Preencha os seus dados de acesso como representante comercial</p>
           </div>
 
           {error && (
-            <div className="bg-rose-50 border border-rose-100 text-rose-700 text-xs font-semibold p-3.5 rounded-2xl shadow-inner flex items-center gap-3">
-              <span className="text-base">⚠️</span>
+            <div className="bg-rose-50 border border-rose-100 text-rose-700 text-xs font-semibold p-3.5 rounded-lg shadow-xs flex items-center gap-3">
+              <span className="text-sm">⚠️</span>
               <span>{error}</span>
             </div>
           )}
@@ -124,7 +124,7 @@ export default function SupplierRegisterPage() {
                 value={representativeName}
                 onChange={(e) => setRepresentativeName(e.target.value)}
                 placeholder="Ex: Paulo Melo"
-                className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50/50 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-600/10 transition-all font-medium"
+                className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 bg-slate-50/50 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white transition-all font-medium shadow-xs"
               />
             </div>
 
@@ -137,7 +137,7 @@ export default function SupplierRegisterPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value.toLowerCase())}
                   placeholder="exemplo@distribuidora.com"
-                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50/50 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-600/10 transition-all font-medium lowercase"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 bg-slate-50/50 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white transition-all font-medium lowercase shadow-xs"
                 />
               </div>
 
@@ -148,7 +148,7 @@ export default function SupplierRegisterPage() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="(11) 99999-9999"
-                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50/50 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-600/10 transition-all font-mono"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 bg-slate-50/50 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white transition-all font-mono shadow-xs"
                 />
               </div>
             </div>
@@ -163,12 +163,12 @@ export default function SupplierRegisterPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-4 py-3 pr-12 rounded-2xl border border-slate-200 bg-slate-50/50 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-600/10 transition-all font-mono tracking-widest"
+                  className="w-full px-3.5 py-2.5 pr-10 rounded-lg border border-slate-200 bg-slate-50/50 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white transition-all font-mono tracking-widest shadow-xs"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer transition p-1"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer transition p-1"
                   title={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                 >
                   {showPassword ? (
@@ -188,7 +188,7 @@ export default function SupplierRegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3.5 rounded-2xl text-xs uppercase tracking-widest transition-all shadow-xl shadow-indigo-600/20 disabled:opacity-50 cursor-pointer active:scale-[0.98] flex items-center justify-center gap-2"
+              className="w-full mt-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg text-xs uppercase tracking-widest transition-all shadow-xs disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>

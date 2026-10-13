@@ -24,7 +24,7 @@ interface QuotationDetail {
   quotationId: string;
   title: string;
   companyName: string;
-  supplierName?: string | null; // Nome da distribuidora/marca correspondente a esta cotação
+  supplierName?: string | null;
   status?: string;
   isLocked?: boolean;
   observation?: string | null;
@@ -256,19 +256,19 @@ export default function SupplierQuotationResponsePage() {
   if (successSubmitted) {
     return (
       <div className={`min-h-screen flex flex-col items-center justify-center transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
-        <div className={`max-w-md w-full p-8 rounded-3xl shadow-2xl border text-center space-y-6 backdrop-blur-md ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200'}`}>
-          <div className="w-20 h-20 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center text-4xl mx-auto shadow-inner border border-emerald-500/25 animate-bounce">
+        <div className={`max-w-md w-full p-6 sm:p-8 rounded-xl shadow-xs border text-center space-y-5 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200/90'}`}>
+          <div className="w-16 h-16 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center text-2xl mx-auto shadow-xs border border-emerald-500/20">
             ✓
           </div>
-          <div className="space-y-2">
-            <h2 className="text-xl font-black tracking-tight">Proposta Enviada com Sucesso!</h2>
-            <p className="text-xs opacity-60 leading-relaxed">
+          <div className="space-y-1">
+            <h2 className="text-base md:text-lg font-bold tracking-tight">Proposta Enviada com Sucesso!</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
               A sua cotação foi registada e enviada com segurança para o lojista. Obrigado pela parceria!
             </p>
           </div>
           <button
             onClick={() => router.push('/portal/painel')}
-            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold py-3.5 rounded-2xl text-xs transition shadow-lg shadow-indigo-600/30 cursor-pointer"
+            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-lg text-xs transition shadow-xs cursor-pointer"
           >
             Voltar ao Painel Principal
           </button>
@@ -283,26 +283,25 @@ export default function SupplierQuotationResponsePage() {
         title="Portal do Fornecedor"
         representativeName={parsedSupplierSession.name || 'Representante'}
         representativeEmail={parsedSupplierSession.email || ''}
-        // Exibe estritamente a distribuidora da cotação no contexto, nunca o nome da pessoa
         activeBrand={quotation?.supplierName || 'DISTRIBUIDORA PARCEIRA'}
         onLogout={() => router.push('/portal/login')}
       />
 
-      <main className="max-w-[96%] xl:max-w-[1550px] mx-auto px-4 sm:px-6 mt-10 pb-24 space-y-8">
+      <main className="max-w-[96%] xl:max-w-[1550px] mx-auto px-4 sm:px-6 mt-6 pb-20 space-y-6">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-32 space-y-4">
-            <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-xs opacity-60 font-medium">A sincronizar itens da cotação...</p>
+          <div className="flex flex-col items-center justify-center py-32 space-y-3">
+            <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-xs text-slate-500 font-medium">A sincronizar itens da cotação...</p>
           </div>
         ) : !quotation ? (
-          <div className="text-center py-24 border border-dashed rounded-3xl opacity-60">
-            <p className="text-sm font-semibold">Cotação não encontrada ou expirada.</p>
+          <div className="text-center py-16 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
+            <p className="text-xs font-semibold text-slate-400">Cotação não encontrada ou expirada.</p>
           </div>
         ) : (
           <form onSubmit={handleSubmitResponse} className="space-y-6">
             
             {quotation.isLocked && (
-              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold text-center flex items-center justify-center gap-2 shadow-sm">
+              <div className="p-3.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold text-center flex items-center justify-center gap-2 shadow-xs">
                 <span>🔒</span>
                 <span>Esta proposta já foi enviada por este fornecedor e encontra-se bloqueada para edições.</span>
               </div>
@@ -336,9 +335,9 @@ export default function SupplierQuotationResponsePage() {
               />
             </div>
 
-            <div className={`p-8 rounded-3xl shadow-xl border backdrop-blur-md space-y-3 ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200/80'}`}>
-              <label className="block text-xs font-black uppercase tracking-wider opacity-80">
-                Observações Gerais da Proposta <span className="text-[10px] font-normal opacity-60">(Opcional)</span>
+            <div className={`p-6 sm:p-7 rounded-xl shadow-xs border space-y-3 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200/90'}`}>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                Observações Gerais da Proposta <span className="text-[10px] font-normal text-slate-400">(Opcional)</span>
               </label>
               <textarea
                 rows={3}
@@ -346,31 +345,31 @@ export default function SupplierQuotationResponsePage() {
                 placeholder="Ex: Condições de pagamento, prazo de entrega estimado, marcas alternativas disponíveis..."
                 value={observation}
                 onChange={(e) => setObservation(e.target.value)}
-                className={`w-full p-4 text-xs rounded-2xl border outline-none transition-all resize-none shadow-sm ${
+                className={`w-full p-3.5 text-xs rounded-lg border outline-none transition-all resize-none shadow-xs ${
                   isDarkMode 
-                    ? 'bg-slate-950 border-slate-800 text-white focus:border-indigo-500' 
-                    : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-600'
+                    ? 'bg-slate-950 border-slate-700 text-white focus:border-indigo-500' 
+                    : 'bg-slate-50/50 border-slate-200 text-slate-900 focus:border-indigo-600'
                 }`}
               />
             </div>
 
-            <div className={`p-6 rounded-3xl shadow-xl border flex justify-between items-center backdrop-blur-md ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200/80'}`}>
+            <div className={`p-5 sm:p-6 rounded-xl shadow-xs border flex justify-between items-center ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200/90'}`}>
               <button
                 type="button"
                 onClick={() => router.push('/portal/painel')}
-                className={`px-6 py-3 font-bold rounded-2xl text-xs border transition cursor-pointer ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200' : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700'}`}
+                className={`px-4 py-2.5 font-semibold rounded-lg text-xs border transition cursor-pointer shadow-xs ${isDarkMode ? 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-slate-200' : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700'}`}
               >
-                ← Voltar ao Painel
+                &larr; Voltar ao Painel
               </button>
 
               {!quotation.isLocked && (
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-extrabold px-9 py-3.5 rounded-2xl text-xs transition-all cursor-pointer shadow-xl shadow-indigo-600/30 flex items-center gap-2 disabled:opacity-50"
+                  className="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold px-5 py-2.5 rounded-lg text-xs transition-all cursor-pointer shadow-xs flex items-center gap-2 disabled:opacity-50"
                 >
                   <span>{submitting ? 'A enviar proposta...' : 'Enviar Proposta Completa'}</span>
-                  <span className="text-sm">→</span>
+                  <span>&rarr;</span>
                 </button>
               )}
             </div>
@@ -379,7 +378,7 @@ export default function SupplierQuotationResponsePage() {
       </main>
 
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 px-6 py-4 bg-emerald-600 text-white rounded-2xl shadow-2xl text-xs font-extrabold transition-all z-50 animate-bounce">
+        <div className="fixed bottom-6 right-6 px-4 py-3 bg-emerald-600 text-white rounded-xl shadow-lg text-xs font-bold transition-all z-50">
           {toastMessage}
         </div>
       )}

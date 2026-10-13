@@ -119,7 +119,6 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
       if (!quotationId) return;
 
       try {
-        // Utiliza o apiFetch para injetar automaticamente a sessão e o companyId
         const [quotationsRes, suppliersRes, productsRes] = await Promise.all([
           apiFetch('/api/quotations'),
           apiFetch('/api/suppliers'),
@@ -329,147 +328,150 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
         onOpenCmd={() => setIsCmdOpen(true)}
       />
 
-      <main className="max-w-7xl mx-auto px-6 sm:px-12 -mt-12 pb-20 relative z-20 space-y-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-20 relative z-20 space-y-6">
         
-        <div>
-          <Link href="/cotacoes" className="font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 px-4 py-2 rounded-xl shadow-md border border-slate-200 dark:border-slate-800 transition hover:text-indigo-600 dark:hover:text-indigo-400 inline-flex items-center gap-2 text-xs">
-            ← Voltar para cotações
-          </Link>
-        </div>
-
-        <header className={`rounded-3xl border p-8 shadow-2xl flex justify-between items-center transition-all ${
-          isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/80 text-slate-900'
+        <div className={`rounded-xl border p-6 sm:p-7 shadow-xs transition-all space-y-6 ${
+          isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
         }`}>
-          <div>
-            <span className="inline-flex rounded-full bg-amber-500/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-amber-500 border border-amber-500/20">
-              Edição de Cotação
-            </span>
-            <h1 className="text-xl md:text-2xl font-black tracking-tight mt-2">Modificar Solicitação e Produtos</h1>
-            <p className="text-xs opacity-60 mt-1 font-medium">Altere os dados gerais, adicione/remova produtos e ajuste quantidades.</p>
-          </div>
-        </header>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <QuotationBasicInfo
-            title={title}
-            setTitle={setTitle}
-            startDate={startDate}
-            setStartDate={setStartDate}
-            endDate={endDate}
-            setEndDate={setEndDate}
-            closingTime={closingTime}
-            setClosingTime={setClosingTime}
-            paymentTerms={paymentTerms}
-            setPaymentTerms={setPaymentTerms}
-          />
-
-          <QuotationItemsSection
-            items={quotationItems}
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            onUpdateQuantity={handleUpdateQuantity}
-            onUpdatePrice={handleUpdatePrice}
-            onRemoveItem={handleRemoveItem}
-            onOpenModal={() => setIsModalOpen(true)}
-          />
-
-          <div className={`rounded-2xl border p-5 ${
-            isDarkMode ? 'border-indigo-900/60 bg-indigo-950/20' : 'border-indigo-100 bg-indigo-50/60'
-          }`}>
-            <h2 className="text-sm font-black uppercase tracking-wider">Quantidade enviada aos representantes</h2>
-            <p className="mt-1 text-xs opacity-70">
-              Escolha se os representantes verão a quantidade solicitada ao responder.
-            </p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 ${
-                showQuantities ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-500/20'
-              }`}>
-                <input
-                  type="radio"
-                  name="quantity-visibility"
-                  checked={showQuantities}
-                  onChange={() => setShowQuantities(true)}
-                  className="mt-0.5 accent-emerald-600"
-                />
-                <span>
-                  <span className="block text-xs font-extrabold">Enviar com quantidade</span>
-                  <span className="mt-1 block text-[11px] opacity-70">O representante verá a quantidade de cada item.</span>
-                </span>
-              </label>
-              <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 ${
-                !showQuantities ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-500/20'
-              }`}>
-                <input
-                  type="radio"
-                  name="quantity-visibility"
-                  checked={!showQuantities}
-                  onChange={() => setShowQuantities(false)}
-                  className="mt-0.5 accent-indigo-600"
-                />
-                <span>
-                  <span className="block text-xs font-extrabold">Enviar sem quantidade</span>
-                  <span className="mt-1 block text-[11px] opacity-70">O representante informará os preços sem ver a quantidade.</span>
-                </span>
-              </label>
+          
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center pb-4 border-b border-slate-100 dark:border-slate-800 gap-4">
+            <div>
+              <span className="inline-flex rounded-md bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 border border-amber-500/20 mb-2">
+                Edição de Cotação
+              </span>
+              <h1 className="text-base md:text-lg font-bold tracking-tight">Modificar Solicitação e Produtos</h1>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">Altere os dados gerais, adicione/remova produtos e ajuste quantidades.</p>
             </div>
+
+            <Link href="/cotacoes" className="text-xs font-semibold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 px-3.5 py-2 rounded-lg shadow-xs border border-slate-200 dark:border-slate-800 transition hover:text-indigo-600 dark:hover:text-indigo-400 inline-flex items-center gap-1.5">
+              &larr; Voltar para cotações
+            </Link>
           </div>
 
-          <div className={`space-y-4 rounded-2xl border p-6 transition-all ${
-            isDarkMode ? 'bg-slate-950/50 border-slate-800' : 'bg-slate-50/60 border-slate-200/80'
-          }`}>
-            <div className="flex flex-col gap-2 border-b border-slate-500/10 pb-4 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-sm font-black uppercase tracking-wider">Fornecedores Participantes</h2>
-              <div className="flex items-center gap-3 text-xs font-bold">
-                <button
-                  type="button"
-                  onClick={handleSelectAllSuppliers}
-                  disabled={loadingSuppliers || suppliers.length === 0}
-                  className="text-emerald-600 hover:underline disabled:cursor-not-allowed disabled:opacity-40 dark:text-emerald-400"
-                >
-                  Marcar todos
-                </button>
-                <span className="opacity-30">|</span>
-                <button
-                  type="button"
-                  onClick={handleDeselectAllSuppliers}
-                  disabled={loadingSuppliers || suppliers.length === 0}
-                  className="opacity-75 hover:underline disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Desmarcar todos
-                </button>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <QuotationBasicInfo
+              title={title}
+              setTitle={setTitle}
+              startDate={startDate}
+              setStartDate={setStartDate}
+              endDate={endDate}
+              setEndDate={setEndDate}
+              closingTime={closingTime}
+              setClosingTime={setClosingTime}
+              paymentTerms={paymentTerms}
+              setPaymentTerms={setPaymentTerms}
+            />
+
+            <QuotationItemsSection
+              items={quotationItems}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              onUpdateQuantity={handleUpdateQuantity}
+              onUpdatePrice={handleUpdatePrice}
+              onRemoveItem={handleRemoveItem}
+              onOpenModal={() => setIsModalOpen(true)}
+            />
+
+            <div className={`rounded-xl border p-5 ${
+              isDarkMode ? 'border-indigo-900/60 bg-indigo-950/20' : 'border-indigo-100 bg-indigo-50/60'
+            }`}>
+              <h2 className="text-xs font-bold uppercase tracking-wider">Quantidade enviada aos representantes</h2>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Escolha se os representantes verão a quantidade solicitada ao responder.
+              </p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <label className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3.5 transition ${
+                  showQuantities ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-200 dark:border-slate-800'
+                }`}>
+                  <input
+                    type="radio"
+                    name="quantity-visibility"
+                    checked={showQuantities}
+                    onChange={() => setShowQuantities(true)}
+                    className="mt-0.5 accent-emerald-600"
+                  />
+                  <span>
+                    <span className="block text-xs font-bold">Enviar com quantidade</span>
+                    <span className="mt-0.5 block text-[11px] text-slate-500">O representante verá a quantidade de cada item.</span>
+                  </span>
+                </label>
+                <label className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3.5 transition ${
+                  !showQuantities ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-200 dark:border-slate-800'
+                }`}>
+                  <input
+                    type="radio"
+                    name="quantity-visibility"
+                    checked={!showQuantities}
+                    onChange={() => setShowQuantities(false)}
+                    className="mt-0.5 accent-indigo-600"
+                  />
+                  <span>
+                    <span className="block text-xs font-bold">Enviar sem quantidade</span>
+                    <span className="mt-0.5 block text-[11px] text-slate-500">O representante informará os preços sem ver a quantidade.</span>
+                  </span>
+                </label>
               </div>
             </div>
-            <QuotationSuppliersSection
-              suppliers={suppliers}
-              selectedSupplierIds={selectedSupplierIds}
-              onToggleSupplier={toggleSupplier}
-              loading={loadingSuppliers}
-            />
-          </div>
 
-          {error && <p role="alert" className="rounded-2xl bg-rose-500/10 border border-rose-500/20 px-4 py-3 text-xs font-semibold text-rose-500">{error}</p>}
+            <div className={`space-y-4 rounded-xl border p-5 transition-all ${
+              isDarkMode ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50/70 border-slate-200/90'
+            }`}>
+              <div className="flex flex-col gap-2 border-b border-slate-100 dark:border-slate-800 pb-3 sm:flex-row sm:items-center sm:justify-between">
+                <h2 className="text-xs font-bold uppercase tracking-wider">Fornecedores Participantes</h2>
+                <div className="flex items-center gap-3 text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={handleSelectAllSuppliers}
+                    disabled={loadingSuppliers || suppliers.length === 0}
+                    className="text-emerald-600 hover:underline disabled:cursor-not-allowed disabled:opacity-40 dark:text-emerald-400 cursor-pointer"
+                  >
+                    Marcar todos
+                  </button>
+                  <span className="opacity-30">|</span>
+                  <button
+                    type="button"
+                    onClick={handleDeselectAllSuppliers}
+                    disabled={loadingSuppliers || suppliers.length === 0}
+                    className="text-slate-500 hover:underline disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+                  >
+                    Desmarcar todos
+                  </button>
+                </div>
+              </div>
+              <QuotationSuppliersSection
+                suppliers={suppliers}
+                selectedSupplierIds={selectedSupplierIds}
+                onToggleSupplier={toggleSupplier}
+                loading={loadingSuppliers}
+              />
+            </div>
 
-          <div className="flex justify-end gap-3 pt-2">
-            <Link href="/cotacoes" className="rounded-2xl px-6 py-3 text-center text-xs font-bold text-slate-600 dark:text-slate-300 transition hover:bg-slate-100 dark:hover:bg-slate-800 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
-              Cancelar
-            </Link>
-            <button type="submit" disabled={submitting} className="rounded-2xl bg-amber-600 px-6 py-3 text-xs font-extrabold text-white shadow-xl shadow-amber-600/25 transition hover:bg-amber-500 disabled:opacity-50 cursor-pointer">
-              {submitting ? 'Salvando...' : 'Salvar Alterações'}
-            </button>
-          </div>
-        </form>
+            {error && <p role="alert" className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-3 text-xs font-semibold text-rose-500">{error}</p>}
 
-        <ProductSelectionModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          products={catalogProducts.map(p => ({
-            ...p,
-            brand: p.brand || undefined,
-            ean: p.ean || undefined,
-            imageUrl: p.imageUrl || undefined,
-          }))}
-          onAddSelectedProducts={handleAddSelectedProducts}
-        />
+            <div className="flex flex-col-reverse gap-2.5 border-t border-slate-100 dark:border-slate-800 pt-5 sm:flex-row sm:justify-end">
+              <Link href="/cotacoes" className="rounded-lg px-4 py-2.5 text-center text-xs font-semibold transition-all border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800">
+                Cancelar
+              </Link>
+              <button type="submit" disabled={submitting} className="rounded-lg bg-amber-600 hover:bg-amber-500 px-5 py-2.5 text-xs font-bold text-white shadow-xs transition-all disabled:opacity-50 cursor-pointer">
+                {submitting ? 'A salvar...' : 'Salvar Alterações'}
+              </button>
+            </div>
+          </form>
+
+          <ProductSelectionModal
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            products={catalogProducts.map(p => ({
+              ...p,
+              brand: p.brand || undefined,
+              ean: p.ean || undefined,
+              imageUrl: p.imageUrl || undefined,
+            }))}
+            onAddSelectedProducts={handleAddSelectedProducts}
+          />
+
+        </div>
+
       </main>
 
       <CommandMenu isOpen={isCmdOpen} onClose={() => setIsCmdOpen(false)} isDarkMode={isDarkMode} latestQuotationId={quotationId} />

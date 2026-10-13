@@ -17,60 +17,81 @@ export function DashboardMetrics({
   loading,
   isDarkMode,
 }: DashboardMetricsProps) {
-  const cardBg = isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/80 text-slate-900';
+  const cardBg = isDarkMode 
+    ? 'bg-slate-900/90 border-slate-800 text-slate-100 hover:border-slate-700 hover:bg-slate-900' 
+    : 'bg-white border-slate-200/90 text-slate-900 hover:border-slate-300 hover:shadow-md';
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
       {/* Card 1: Produtos */}
-      <div className={`${cardBg} rounded-2xl p-6 shadow-xl border flex flex-col justify-between transition-all group`}>
+      <div className={`${cardBg} rounded-xl p-5 shadow-xs border flex flex-col justify-between transition-all duration-200 group`}>
         <div>
           <div className="flex justify-between items-center">
             <span className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">Produtos Cadastrados</span>
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-500/10 px-2.5 py-0.5 rounded-md border border-emerald-500/15">
               +14% este mês
             </span>
           </div>
-          <div className="text-4xl font-black mt-3">{loading ? '...' : productCount}</div>
+          <div className="text-3xl font-extrabold tracking-tight mt-3 text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+            {loading ? '...' : productCount}
+          </div>
         </div>
-        <div className="mt-6 pt-4 border-t border-slate-500/20 flex items-center justify-between">
-          <span className="text-[11px] text-emerald-500 font-semibold bg-emerald-500/10 px-2.5 py-1 rounded-md">Ativo no Catálogo</span>
-          <Link href="/produtos" className="text-xs font-bold hover:underline">Ver catálogo &rarr;</Link>
+        <div className="mt-5 pt-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+          <span className="text-emerald-500 font-medium flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            Ativo no catálogo
+          </span>
+          <Link href="/produtos" className="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5">
+            Ver catálogo <span className="transition-transform group-hover:translate-x-0.5">&rarr;</span>
+          </Link>
         </div>
       </div>
 
       {/* Card 2: Cotações Abertas */}
-      <div className={`${cardBg} rounded-2xl p-6 shadow-xl border flex flex-col justify-between transition-all group`}>
+      <div className={`${cardBg} rounded-xl p-5 shadow-xs border flex flex-col justify-between transition-all duration-200 group`}>
         <div>
           <div className="flex justify-between items-center">
             <span className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">Cotações Abertas</span>
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-500 bg-amber-500/10 px-2.5 py-0.5 rounded-md border border-amber-500/15">
               Ativas hoje
             </span>
           </div>
-          <div className="text-4xl font-black mt-3">{loading ? '...' : quotationCount}</div>
+          <div className="text-3xl font-extrabold tracking-tight mt-3 text-slate-900 dark:text-white group-hover:text-amber-500 dark:group-hover:text-amber-400 transition-colors">
+            {loading ? '...' : quotationCount}
+          </div>
         </div>
-        <div className="mt-6 pt-4 border-t border-slate-500/20 flex items-center justify-between">
-          <span className="text-[11px] text-amber-500 font-semibold bg-amber-500/10 px-2.5 py-1 rounded-md">Aguardando Respostas</span>
-          <Link href="/cotacoes" className="text-xs font-bold hover:underline">Gerenciar &rarr;</Link>
+        <div className="mt-5 pt-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+          <span className="text-amber-500 font-medium flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+            Aguardando respostas
+          </span>
+          <Link href="/cotacoes" className="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5">
+            Gerenciar <span className="transition-transform group-hover:translate-x-0.5">&rarr;</span>
+          </Link>
         </div>
       </div>
 
-      {/* Card 3: Cotações Finalizadas / Prontas para Envio */}
-      <div className={`${cardBg} rounded-2xl p-6 shadow-xl border flex flex-col justify-between transition-all group`}>
+      {/* Card 3: Cotações Finalizadas */}
+      <div className={`${cardBg} rounded-xl p-5 shadow-xs border flex flex-col justify-between transition-all duration-200 group`}>
         <div>
           <div className="flex justify-between items-center">
             <span className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">Cotações Finalizadas</span>
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-500 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-500 bg-indigo-500/10 px-2.5 py-0.5 rounded-md border border-indigo-500/15">
               Prontas para Pedido
             </span>
           </div>
-          <div className="text-4xl font-black mt-3">{loading ? '...' : completedQuotationCount}</div>
+          <div className="text-3xl font-extrabold tracking-tight mt-3 text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+            {loading ? '...' : completedQuotationCount}
+          </div>
         </div>
-        <div className="mt-6 pt-4 border-t border-slate-500/20 flex items-center justify-between">
-          <span className="text-[11px] text-indigo-500 font-semibold bg-indigo-500/10 px-2.5 py-1 rounded-md">
-            Respostas Recebidas
+        <div className="mt-5 pt-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+          <span className="text-indigo-500 font-medium flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+            Respostas recebidas
           </span>
-          <Link href="/cotacoes" className="text-xs font-bold hover:underline">Comparar preços &rarr;</Link>
+          <Link href="/cotacoes" className="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5">
+            Comparar preços <span className="transition-transform group-hover:translate-x-0.5">&rarr;</span>
+          </Link>
         </div>
       </div>
     </div>

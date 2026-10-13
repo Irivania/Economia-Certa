@@ -111,44 +111,57 @@ export function AppHeader({ title, subtitle, onOpenCmd }: AppHeaderProps) {
   const themeStyles = colorMap[activeThemeKey] || colorMap['blue-light'];
 
   return (
-    <header className={`${themeStyles.header} pb-20 pt-10 px-6 sm:px-12 shadow-xl relative overflow-hidden border-b transition-colors duration-300`}>
+    <header className={`${themeStyles.header} pb-16 pt-8 px-4 sm:px-6 lg:px-8 shadow-md relative overflow-hidden border-b transition-colors duration-300`}>
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent pointer-events-none" />
       
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-semibold tracking-wider uppercase backdrop-blur-md ${themeStyles.badge}`}>
+        <div className="space-y-3 w-full md:w-auto">
+          {/* Informações de Contexto Organizadas */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-md border text-xs font-semibold tracking-wider uppercase backdrop-blur-md ${themeStyles.badge}`}>
               <span className={`w-2 h-2 rounded-full ${themeStyles.dot} animate-pulse`} />
               Loja • {companyName}
             </div>
 
             {userName && (
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/20 bg-black/30 backdrop-blur-md text-xs font-bold text-white uppercase tracking-wider">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-white/20 bg-black/20 backdrop-blur-md text-xs font-semibold text-white uppercase tracking-wider">
                 👤 {userName} {userRole && `• ${userRole}`}
               </div>
             )}
 
-            <div className="flex items-center gap-1.5 bg-black/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 text-xs">
-              <span className="text-white/80 font-medium mr-1">Temas:</span>
-              {(['emerald', 'emerald-light', 'blue', 'blue-light', 'purple', 'purple-light'] as ThemeColor[]).map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setThemeColor(c)}
-                  className={`w-3.5 h-3.5 rounded-full transition-transform ${
-                    c.includes('emerald') ? 'bg-emerald-500' : c.includes('blue') ? 'bg-blue-500' : 'bg-purple-500'
-                  } ${activeThemeKey === c ? 'scale-125 ring-2 ring-white' : 'opacity-70'}`}
-                />
-              ))}
+            {/* Controles Rápidos Compactos (Tema, Modo Escuro e Busca) */}
+            <div className="flex items-center gap-2 bg-black/25 backdrop-blur-md px-2.5 py-1 rounded-md border border-white/15 text-xs ml-auto sm:ml-0">
+              <div className="flex items-center gap-1.5">
+                {(['emerald', 'blue', 'purple'] as ThemeColor[]).map((baseColor) => {
+                  const isSelected = activeThemeKey.startsWith(baseColor);
+                  return (
+                    <button
+                      key={baseColor}
+                      onClick={() => setThemeColor(isSelected && activeThemeKey.includes('light') ? (baseColor as ThemeColor) : (`${baseColor}-light` as ThemeColor))}
+                      title="Alternar tonalidade do tema"
+                      className={`w-3.5 h-3.5 rounded-full transition-transform cursor-pointer ${
+                        baseColor === 'emerald' ? 'bg-emerald-500' : baseColor === 'blue' ? 'bg-blue-500' : 'bg-purple-500'
+                      } ${isSelected ? 'scale-110 ring-2 ring-white' : 'opacity-60 hover:opacity-100'}`}
+                    />
+                  );
+                })}
+              </div>
               
-              <span className="text-white/30 mx-1">|</span>
+              <span className="text-white/30">|</span>
               
-              <button onClick={toggleDarkMode} className="text-white hover:text-white transition-colors mr-1">
+              <button 
+                onClick={toggleDarkMode} 
+                title="Alternar Modo Escuro / Claro"
+                className="text-white/90 hover:text-white transition-colors cursor-pointer text-xs"
+              >
                 {isDarkMode ? '☀️' : '🌙'}
               </button>
 
+              <span className="text-white/30">|</span>
+
               <button
-                key="cmd-k-btn"
                 onClick={onOpenCmd}
+                title="Busca Rápida (Ctrl + K)"
                 className="bg-white/20 hover:bg-white/30 text-white px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider transition-colors border border-white/20 cursor-pointer"
               >
                 ⌘K
@@ -156,19 +169,21 @@ export function AppHeader({ title, subtitle, onOpenCmd }: AppHeaderProps) {
             </div>
           </div>
 
+          {/* Título e Subtítulo */}
           <div className="space-y-1">
-            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white flex items-center gap-3">
-              {title} <span className={`${themeStyles.accentText} font-light text-2xl`}>ERP</span>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2">
+              {title} <span className={`${themeStyles.accentText} font-light text-xl`}>ERP</span>
             </h1>
-            <p className="text-sm text-white/95 font-medium">{subtitle}</p>
+            <p className="text-xs sm:text-sm text-white/9ontal font-medium">{subtitle}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Link href="/" className="bg-white/10 hover:bg-white/20 text-white font-bold text-xs px-4 py-3 rounded-xl transition-all border border-white/20">
+        {/* Botões de Ação Global */}
+        <div className="flex items-center gap-2.5 w-full md:w-auto justify-start md:justify-end">
+          <Link href="/" className="bg-white/10 hover:bg-white/20 text-white font-semibold text-xs px-3.5 py-2.5 rounded-lg transition-all border border-white/20 whitespace-nowrap">
             &larr; Dashboard
           </Link>
-          <Link href="/cotacoes/nova" className={`${themeStyles.button} font-extrabold text-xs px-5 py-3 rounded-xl transition-all shadow-lg`}>
+          <Link href="/cotacoes/nova" className={`${themeStyles.button} font-bold text-xs px-4 py-2.5 rounded-lg transition-all shadow-md whitespace-nowrap`}>
             Nova Cotação
           </Link>
         </div>

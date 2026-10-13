@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/context/ThemeContext';
 import { AppHeader } from '@/components/AppHeader';
+import { CommandMenu } from '@/components/CommandMenu';
 import { ToastContainer } from '@/components/ToastContainer';
 import { UsersTable } from '@/components/users/UsersTable';
 import { UserModals } from '@/components/users/UserModals';
@@ -41,6 +42,7 @@ export default function UsersManagementPage() {
   const [users, setUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [isCmdOpen, setIsCmdOpen] = useState(false);
 
   // Modais
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -57,6 +59,21 @@ export default function UsersManagementPage() {
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editRole, setEditRole] = useState<'admin' | 'gerente' | 'supervisor' | 'geral'>('geral');
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      setIsCmdOpen((open) => !open);
+    }
+    if (e.key === 'Escape') {
+      setIsCmdOpen(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -181,7 +198,6 @@ export default function UsersManagementPage() {
     }
   };
 
-  // Função para redefinir a palavra-passe do utilizador em edição
   const handleResetPassword = async () => {
     if (!editingUser) return;
 
@@ -197,7 +213,6 @@ export default function UsersManagementPage() {
       setIsEditModalOpen(false);
       setEditingUser(null);
 
-      // Exibe o modal com a nova palavra-passe temporária gerada
       setCreatedUserData({
         name: updated.name,
         email: updated.email,
@@ -230,28 +245,31 @@ export default function UsersManagementPage() {
   return (
     <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
       <AppHeader
-        title="Gestão de Utilizadores & Permissões"
+        title="Economia Certa"
         subtitle="Controle centralizado de acessos corporativos da empresa."
-        onOpenCmd={() => {}}
+        onOpenCmd={() => setIsCmdOpen(true)}
       />
 
-      <main className="max-w-7xl mx-auto px-6 sm:px-12 mt-8 pb-20 space-y-8">
-        <div className={`p-6 rounded-2xl border shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-20 relative z-20 space-y-6">
+        <div className={`p-6 sm:p-7 rounded-xl border shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200/90'}`}>
           <div>
-            <h2 className="text-base font-black">Colaboradores Autorizados</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Gerencie quem pode aceder e alterar dados no ERP.</p>
+            <span className="inline-flex rounded-md bg-indigo-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 mb-2">
+              Gestão de Utilizadores
+            </span>
+            <h1 className="text-base md:text-lg font-bold tracking-tight">Colaboradores Autorizados</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Gerencie quem pode aceder e alterar dados no ERP.</p>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <Link
               href="/"
-              className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              className="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition shadow-xs"
             >
               &larr; Voltar ao Painel
             </Link>
             <button
               onClick={() => setIsModalOpen(true)}
-              className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition shadow-lg shadow-indigo-600/20 cursor-pointer"
+              className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-xs cursor-pointer"
             >
               + Novo Utilizador
             </button>
@@ -298,6 +316,7 @@ export default function UsersManagementPage() {
       />
 
       <ToastContainer toasts={toasts} isDarkMode={isDarkMode} />
+      <CommandMenu isOpen={isCmdOpen} onClose={() => setIsCmdOpen(false)} isDarkMode={isDarkMode} latestQuotationId="" />
     </div>
   );
 }

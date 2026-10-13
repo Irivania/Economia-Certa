@@ -93,7 +93,7 @@ export default function QuotationDetailsPage({ params }: { params: Promise<{ id:
 
   if (loading) {
     return (
-      <main className={`flex min-h-screen items-center justify-center text-sm ${isDarkMode ? 'bg-slate-950 text-slate-400' : 'bg-slate-50 text-slate-400'}`}>
+      <main className={`flex min-h-screen items-center justify-center text-xs font-medium ${isDarkMode ? 'bg-slate-950 text-slate-400' : 'bg-slate-50 text-slate-500'}`}>
         Carregando encaminhamento...
       </main>
     );
@@ -103,8 +103,8 @@ export default function QuotationDetailsPage({ params }: { params: Promise<{ id:
     return (
       <main className={`min-h-screen p-6 ${isDarkMode ? 'bg-slate-950' : 'bg-slate-50'}`}>
         <div className="mx-auto max-w-5xl space-y-4">
-          <Link href="/cotacoes" className="text-sm text-slate-500 hover:text-indigo-600">← Voltar para cotações</Link>
-          <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error || 'Cotação não encontrada.'}</p>
+          <Link href="/cotacoes" className="text-xs font-semibold text-slate-500 hover:text-indigo-600">← Voltar para cotações</Link>
+          <p className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-xs font-semibold text-rose-700">{error || 'Cotação não encontrada.'}</p>
         </div>
       </main>
     );
@@ -117,79 +117,80 @@ export default function QuotationDetailsPage({ params }: { params: Promise<{ id:
         subtitle="Painel gerencial inteligente e controle de compras em tempo real."
         onOpenCmd={() => setIsCmdOpen(true)}
       />
-      <main className="mx-auto max-w-7xl space-y-6 px-6 pb-20 sm:px-12">
-        <Link href="/cotacoes" className="inline-flex items-center gap-2 text-xs font-bold opacity-70 transition hover:opacity-100">
-          ← Voltar para cotações
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-20 relative z-20 space-y-6">
+        <Link href="/cotacoes" className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 px-3.5 py-2 rounded-lg shadow-xs border border-slate-200 dark:border-slate-800 transition hover:text-indigo-600 dark:hover:text-indigo-400">
+          &larr; Voltar para cotações
         </Link>
 
-        <header className={`rounded-3xl border p-8 shadow-2xl ${
-          isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200/80 bg-white'
+        <header className={`rounded-xl border p-6 sm:p-7 shadow-xs ${
+          isDarkMode ? 'border-slate-800 bg-slate-900 text-white' : 'border-slate-200/90 bg-white text-slate-900'
         }`}>
-          <span className="inline-flex rounded-full border border-indigo-500/20 bg-indigo-500/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+          <span className="inline-flex rounded-md border border-indigo-500/20 bg-indigo-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
             Encaminhamento de cotação
           </span>
-          <h1 className="mt-3 text-2xl font-black tracking-tight">{quotation.title}</h1>
-          <p className="mt-2 max-w-2xl text-xs font-medium opacity-60">
+          <h1 className="mt-2 text-lg md:text-xl font-bold tracking-tight">{quotation.title}</h1>
+          <p className="mt-1 max-w-2xl text-xs font-medium text-slate-500 dark:text-slate-400">
             Envie a cotação diretamente para cada distribuidora participante. Cada distribuidora recebe um vínculo independente.
           </p>
-          <div className="mt-5 flex flex-wrap gap-4 text-xs opacity-70">
-            <span>Início: <strong>{formatDate(quotation.startDate)}</strong></span>
-            <span>Término: <strong>{formatDate(quotation.endDate)}{quotation.closingTime ? ` às ${quotation.closingTime}` : ''}</strong></span>
+          <div className="mt-4 flex flex-wrap gap-4 text-xs text-slate-500 dark:text-slate-400">
+            <span>Início: <strong className="font-mono text-slate-700 dark:text-slate-200">{formatDate(quotation.startDate)}</strong></span>
+            <span>Término: <strong className="font-mono text-slate-700 dark:text-slate-200">{formatDate(quotation.endDate)}{quotation.closingTime ? ` às ${quotation.closingTime}` : ''}</strong></span>
           </div>
         </header>
 
-        <section className={`overflow-hidden rounded-3xl border shadow-xl ${
-          isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200/80 bg-white'
+        <section className={`overflow-hidden rounded-xl border shadow-xs ${
+          isDarkMode ? 'border-slate-800 bg-slate-900 text-white' : 'border-slate-200/90 bg-white text-slate-900'
         }`}>
-          <div className={`border-b p-6 ${isDarkMode ? 'border-slate-800 bg-slate-950/40' : 'border-slate-100 bg-slate-50/70'}`}>
-            <h2 className="text-sm font-black uppercase tracking-wider">Distribuidoras participantes ({tracking.length})</h2>
-            <p className="mt-1 text-xs opacity-60">O envio é feito uma única vez para cada distribuidora.</p>
+          <div className={`border-b p-5 ${isDarkMode ? 'border-slate-800 bg-slate-900/50' : 'border-slate-100 bg-slate-50/70'}`}>
+            <h2 className="text-xs font-bold uppercase tracking-wider">Distribuidoras participantes ({tracking.length})</h2>
+            <p className="mt-0.5 text-[11px] text-slate-500">O envio é feito uma única vez para cada distribuidora.</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left text-xs">
-              <thead className={`border-b uppercase tracking-wider ${isDarkMode ? 'border-slate-800 text-slate-400' : 'border-slate-100 text-slate-500'}`}>
+              <thead className={`border-b uppercase tracking-wider text-[11px] font-bold ${isDarkMode ? 'border-slate-800 text-slate-400 bg-slate-900/30' : 'border-slate-100 text-slate-500 bg-slate-50/60'}`}>
                 <tr>
-                  <th className="p-5 font-extrabold">Distribuidora</th>
-                  <th className="p-5 text-center font-extrabold">Status</th>
-                  <th className="p-5 text-center font-extrabold">Total oferecido</th>
-                  <th className="p-5 text-right font-extrabold">Ação</th>
+                  <th className="px-4 py-3">Distribuidora</th>
+                  <th className="px-4 py-3 text-center">Status</th>
+                  <th className="px-4 py-3 text-center">Total oferecido</th>
+                  <th className="px-4 py-3 text-right">Ação</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {tracking.length === 0 ? (
-                  <tr><td colSpan={4} className="p-8 text-center opacity-50">Nenhuma distribuidora vinculada.</td></tr>
-                ) : tracking.map((supplier) => {
+                  <tr><td colSpan={4} className="p-8 text-center text-slate-400">Nenhuma distribuidora vinculada.</td></tr>
+                ) : tracking.map((supplier, index) => {
+                  const uniqueKey = `${supplier.id}-${index}`;
                   const isSent = supplier.status === 'ENVIADO';
                   const isAnswered = supplier.status === 'RESPONDIDO';
                   return (
-                    <tr key={supplier.id} className={`border-b last:border-0 ${isDarkMode ? 'border-slate-800 hover:bg-slate-800/40' : 'border-slate-100 hover:bg-slate-50/80'}`}>
-                      <td className="p-5 font-bold">
+                    <tr key={uniqueKey} className={`transition-colors align-middle ${isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50/80'}`}>
+                      <td className="px-4 py-3 font-semibold">
                         <div>{supplier.name}</div>
-                        {supplier.phone && <div className="mt-1 text-[11px] font-normal opacity-50">Tel: {supplier.phone}</div>}
+                        {supplier.phone && <div className="mt-0.5 text-[11px] font-normal text-slate-400">Tel: {supplier.phone}</div>}
                       </td>
-                      <td className="p-5 text-center">
-                        <span className={`inline-block rounded-full px-2.5 py-1 text-xs font-medium ${
-                          isAnswered ? 'bg-emerald-50 text-emerald-700' : isSent ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'
+                      <td className="px-4 py-3 text-center">
+                        <span className={`inline-block rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                          isAnswered ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' : isSent ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
                         }`}>
                           {isAnswered ? 'Respondido' : isSent ? 'Enviado' : 'Pendente de envio'}
                         </span>
                       </td>
-                      <td className="p-5 text-center font-semibold">
+                      <td className="px-4 py-3 text-center font-mono font-semibold">
                         {supplier.totalOffered > 0 ? `R$ ${supplier.totalOffered.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}
                       </td>
-                      <td className="p-5 text-right">
+                      <td className="px-4 py-3 text-right">
                         {isAnswered ? (
-                          <span className="text-xs font-medium text-emerald-700">Cotação respondida</span>
+                          <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Cotação respondida</span>
                         ) : isSent ? (
-                          <span className="text-xs font-medium text-blue-700">✓ Cotação enviada ao representante</span>
+                          <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">✓ Cotação enviada ao representante</span>
                         ) : (
                           <button
                             type="button"
                             onClick={() => void sendDirectly(supplier.id)}
                             disabled={sendingId === supplier.id}
-                            className="inline-flex rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50"
+                            className="inline-flex rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-500 disabled:opacity-50 cursor-pointer"
                           >
-                            {sendingId === supplier.id ? 'Enviando...' : '📨 Enviar direto'}
+                            {sendingId === supplier.id ? 'A enviar...' : '📨 Enviar direto'}
                           </button>
                         )}
                       </td>

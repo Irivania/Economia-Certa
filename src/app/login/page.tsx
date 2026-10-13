@@ -127,14 +127,14 @@ export default function CompanyLoginPage() {
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-[100px] pointer-events-none" />
 
       {/* Contentor Principal */}
-      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 bg-white/90 backdrop-blur-2xl rounded-[2.5rem] shadow-[0_20px_60px_rgba(15,23,42,0.08)] border border-slate-200 overflow-hidden relative z-10 animate-in fade-in zoom-in-95 duration-500">
+      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 bg-white/90 backdrop-blur-2xl rounded-xl shadow-xs border border-slate-200 overflow-hidden relative z-10 animate-in fade-in zoom-in-95 duration-500">
         
         {/* Painel Esquerdo */}
         <div className="lg:col-span-5 p-8 sm:p-12 bg-gradient-to-br from-indigo-900 via-indigo-950 to-slate-900 text-white flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-800 relative">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-amber-500/20 via-transparent to-transparent pointer-events-none" />
 
-          <div className="space-y-5 relative z-10">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/20 text-amber-300 text-[10px] font-mono font-bold uppercase tracking-widest shadow-sm backdrop-blur-md">
+          <div className="space-y-4 relative z-10">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-white/10 border border-white/20 text-amber-300 text-[10px] font-mono font-bold uppercase tracking-widest shadow-xs backdrop-blur-md">
               <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
               Economia Certa ERP
             </div>
@@ -148,7 +148,7 @@ export default function CompanyLoginPage() {
           </div>
 
           <div className="pt-8 relative z-10">
-            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2 backdrop-blur-md">
+            <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2 backdrop-blur-md">
               <div className="flex items-center gap-2 text-xs font-semibold text-amber-300">
                 <span>⚡ Automação e Controle B2B</span>
               </div>
@@ -162,8 +162,8 @@ export default function CompanyLoginPage() {
 
         {/* Painel Direito */}
         <div className="lg:col-span-7 p-8 sm:p-12 flex flex-col justify-center space-y-6 bg-white">
-          <div className="space-y-1.5">
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
+          <div className="space-y-1">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
               Acesso Administrativo
             </h1>
             <p className="text-xs text-slate-500 font-medium">
@@ -172,8 +172,8 @@ export default function CompanyLoginPage() {
           </div>
 
           {error && (
-            <div className="bg-rose-50 border border-rose-100 text-rose-700 text-xs font-semibold p-4 rounded-2xl shadow-inner flex items-center gap-3">
-              <span className="text-base">⚠️</span>
+            <div className="bg-rose-50 border border-rose-100 text-rose-700 text-xs font-semibold p-3.5 rounded-lg shadow-xs flex items-center gap-3">
+              <span className="text-sm">⚠️</span>
               <span>{error}</span>
             </div>
           )}
@@ -186,7 +186,7 @@ export default function CompanyLoginPage() {
               )
             }
             disabled={loading}
-            className="w-full bg-white hover:bg-slate-50 text-slate-700 font-bold py-3.5 px-4 rounded-2xl text-xs uppercase tracking-wider transition-all border border-slate-200 shadow-sm flex items-center justify-center gap-3 cursor-pointer active:scale-[0.98] disabled:opacity-50"
+            className="w-full bg-white hover:bg-slate-50 text-slate-700 font-bold py-3 px-4 rounded-lg text-xs uppercase tracking-wider transition-all border border-slate-200 shadow-xs flex items-center justify-center gap-3 cursor-pointer active:scale-[0.98] disabled:opacity-50"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24">
               <path
@@ -229,7 +229,7 @@ export default function CompanyLoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="nome@empresa.com"
-                className="w-full px-4 py-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-600/10 transition-all shadow-inner font-medium"
+                className="w-full px-3.5 py-3 rounded-lg border border-slate-200 bg-slate-50/50 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white transition-all shadow-xs font-medium"
               />
             </div>
 
@@ -254,12 +254,12 @@ export default function CompanyLoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-4 py-3.5 pr-12 rounded-2xl border border-slate-200 bg-slate-50/50 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-600/10 transition-all shadow-inner font-mono tracking-widest"
+                  className="w-full px-3.5 py-3 pr-10 rounded-lg border border-slate-200 bg-slate-50/50 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white transition-all shadow-xs font-mono tracking-widest"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer transition p-1"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer transition p-1"
                 >
                   {showPassword ? (
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -278,7 +278,7 @@ export default function CompanyLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest transition-all shadow-xl shadow-indigo-600/20 disabled:opacity-50 cursor-pointer active:scale-[0.98] flex items-center justify-center gap-2"
+              className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-lg text-xs uppercase tracking-widest transition-all shadow-xs disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>
@@ -292,7 +292,7 @@ export default function CompanyLoginPage() {
           </form>
 
           {/* Links Inferiores */}
-          <div className="space-y-2 text-center pt-6 border-t border-slate-100">
+          <div className="space-y-2 text-center pt-5 border-t border-slate-100">
             <p className="text-xs text-slate-500 font-medium">
               Ainda não possui uma conta empresarial?{' '}
               <Link href="/register" className="text-indigo-600 font-bold hover:text-indigo-700 transition underline underline-offset-4">
@@ -309,7 +309,7 @@ export default function CompanyLoginPage() {
         </div>
       </div>
 
-      {/* 🔒 Modal Modularizado de Troca Obrigatória de Senha */}
+      {/* Modal de Troca Obrigatória de Senha */}
       <ChangePasswordModal
         isOpen={mustChangePassword}
         userId={tempUserId}
@@ -323,20 +323,20 @@ export default function CompanyLoginPage() {
       {/* Modal de Recuperação de Senha */}
       {isForgotOpen && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 space-y-6 border border-slate-200 text-slate-900">
-            <div className="flex justify-between items-center border-b pb-4 border-slate-100">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-5 border border-slate-200 text-slate-900">
+            <div className="flex justify-between items-center border-b pb-3 border-slate-100">
               <div>
-                <h3 className="text-sm font-black text-slate-900">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
                   Recuperação de Acesso
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-[11px] text-slate-500 mt-0.5">
                   Enviaremos um link de redefinição para o seu e-mail.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsForgotOpen(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold text-base cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 font-bold text-sm cursor-pointer"
               >
                 ✕
               </button>
@@ -344,7 +344,7 @@ export default function CompanyLoginPage() {
 
             <form onSubmit={handleForgotPassword} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase">
+                <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">
                   E-mail Corporativo
                 </label>
                 <input
@@ -353,22 +353,22 @@ export default function CompanyLoginPage() {
                   placeholder="nome@empresa.com"
                   value={forgotEmail}
                   onChange={(e) => setForgotEmail(e.target.value)}
-                  className="w-full px-4 py-3.5 text-xs rounded-2xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-indigo-600 focus:bg-white font-medium"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:outline-none focus:border-indigo-600 focus:bg-white font-medium shadow-xs"
                 />
               </div>
 
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-2.5 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsForgotOpen(false)}
-                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3.5 rounded-2xl text-xs transition cursor-pointer"
+                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 rounded-lg text-xs transition cursor-pointer shadow-xs"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={forgotSent}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-2xl text-xs transition cursor-pointer shadow-lg shadow-indigo-600/20 disabled:opacity-50"
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-lg text-xs transition cursor-pointer shadow-xs disabled:opacity-50"
                 >
                   {forgotSent ? 'A enviar...' : 'Enviar Instruções'}
                 </button>

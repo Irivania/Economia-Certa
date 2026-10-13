@@ -68,7 +68,6 @@ export default function SupplierPortalDashboard() {
   const [loading, setLoading] = useState(false);
   const [purchaseOrders, setPurchaseOrders] = useState<PortalPurchaseOrder[]>([]);
 
-  // Estado para rastrear qual loja específica está selecionada para gestão de cotações
   const [selectedStoreFilter, setSelectedStoreFilter] = useState<{ companyId: string; storeName: string } | null>(null);
 
   const [activeCompany, setActiveCompany] = useState<RepresentedCompany>({
@@ -164,7 +163,7 @@ export default function SupplierPortalDashboard() {
 
   if (!mounted || !supplier) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-xs font-bold text-slate-500 bg-slate-950">
+      <div className={`min-h-screen flex items-center justify-center text-xs font-bold ${isDarkMode ? 'bg-slate-950 text-slate-400' : 'bg-slate-50 text-slate-500'}`}>
         <div className="flex flex-col items-center gap-3">
           <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
           <span>A carregar painel...</span>
@@ -276,7 +275,7 @@ export default function SupplierPortalDashboard() {
     setPurchaseOrders((current) => current.map((order) => (
       order.id === orderId ? { ...order, status } : order
     )));
-    showToast('Cotação encerrada e registrada no histórico. O envio externo deve ser feito no sistema da empresa.');
+    showToast('Cotação encerrada e registrada no histórico.');
   };
 
   return (
@@ -285,21 +284,22 @@ export default function SupplierPortalDashboard() {
         title="Painel do Representante B2B"
         representativeName={supplier.name}
         representativeEmail={supplier.email}
-        // Exibe estritamente o nome da distribuidora ativa selecionada no contexto
         activeBrand={activeCompany?.tradeName || representedCompanies[0]?.tradeName || 'GERAL'}
         onLogout={handleLogout}
       />
 
-      <main className="max-w-7xl mx-auto px-6 sm:px-12 -mt-4 pb-20 relative z-20 space-y-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-20 relative z-20 space-y-6">
         
         {/* Bloco do ID Comercial */}
-        <div className={`p-5 rounded-[2rem] border shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 backdrop-blur-xl ${
-          isDarkMode ? 'bg-slate-900/90 border-indigo-500/30' : 'bg-white/95 border-indigo-200'
+        <div className={`p-5 sm:p-6 rounded-xl border shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+          isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200/90'
         }`}>
           <div className="space-y-1">
-            <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500">ID / Código Comercial B2B</span>
+            <span className="inline-flex rounded-md bg-indigo-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 mb-1">
+              ID Comercial B2B
+            </span>
             <p className="text-xs font-mono font-bold text-slate-900 dark:text-white select-all">{supplier.id}</p>
-            <p className="text-[11px] text-slate-500">Informe este código ou seu e-mail ({supplier.email}) ao lojista para conexões manuais.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Informe este código ou seu e-mail ({supplier.email}) ao lojista para conexões manuais.</p>
           </div>
           <button
             type="button"
@@ -307,7 +307,7 @@ export default function SupplierPortalDashboard() {
               navigator.clipboard.writeText(supplier.id);
               showToast('ID comercial copiado para a área de transferência!');
             }}
-            className="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black uppercase tracking-wider transition shadow-md shadow-indigo-600/30 cursor-pointer active:scale-95 shrink-0"
+            className="px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-xs cursor-pointer shrink-0"
           >
             📋 Copiar ID Comercial
           </button>
@@ -357,8 +357,8 @@ export default function SupplierPortalDashboard() {
 
         {/* Banner de Filtro Ativo por Loja */}
         {selectedStoreFilter && (
-          <div className={`p-4 rounded-2xl border flex items-center justify-between ${
-            isDarkMode ? 'bg-indigo-950/40 border-indigo-800/60 text-indigo-200' : 'bg-indigo-50 border-indigo-200 text-indigo-900'
+          <div className={`p-4 rounded-xl border flex items-center justify-between shadow-xs ${
+            isDarkMode ? 'bg-indigo-950/40 border-indigo-500/30 text-indigo-200' : 'bg-indigo-50 border-indigo-200 text-indigo-900'
           }`}>
             <div className="flex items-center gap-2 text-xs font-bold">
               <span>🎯 A gerir cotações filtradas para a loja:</span>
@@ -367,7 +367,7 @@ export default function SupplierPortalDashboard() {
             <button
               type="button"
               onClick={() => setSelectedStoreFilter(null)}
-              className="text-[10px] font-mono font-bold px-3 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition cursor-pointer"
+              className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition cursor-pointer shadow-xs"
             >
               ✕ Ver todas da marca
             </button>
@@ -380,10 +380,7 @@ export default function SupplierPortalDashboard() {
           quotations={quotations.filter((cot: QuotationSupplierResult & { supplierId?: string; supplierName?: string | null; companyId?: string; brandId?: string | null; brandName?: string | null; tradeName?: string; storeName?: string }) => {
             if (!activeCompany || activeCompany.id === 'default-empty') return true;
 
-            // Cada vínculo da cotação pertence a uma única distribuidora.
-            // Nunca exibir um vínculo de outra marca na marca ativa.
             if (cot.brandId) return cot.brandId === activeCompany.id;
-            // Compatibilidade somente com registros antigos sem marca.
             if (cot.supplierId && cot.supplierId !== activeCompany.supplierId) return false;
             if (!selectedStoreFilter) return true;
 
@@ -411,7 +408,7 @@ export default function SupplierPortalDashboard() {
       </main>
 
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 px-6 py-4 bg-emerald-600 text-white rounded-2xl shadow-2xl text-xs font-bold z-50 animate-in slide-in-from-bottom-5">
+        <div className="fixed bottom-6 right-6 px-4 py-3 bg-emerald-600 text-white rounded-xl shadow-lg text-xs font-bold z-50">
           {toastMessage}
         </div>
       )}

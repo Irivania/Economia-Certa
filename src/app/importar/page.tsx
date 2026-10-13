@@ -34,7 +34,6 @@ export default function ImportarPage() {
   useEffect(() => {
     async function loadProducts() {
       try {
-        // Utiliza o apiFetch para injetar a sessão e o companyId de forma automática
         const res = await apiFetch('/api/products');
         if (!res.ok) throw new Error('Erro ao carregar produtos.');
         const data = await res.json();
@@ -74,24 +73,24 @@ export default function ImportarPage() {
       />
 
       {/* CONTEÚDO PRINCIPAL */}
-      <main className="max-w-7xl mx-auto px-6 sm:px-12 -mt-12 pb-20 relative z-25 space-y-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-20 relative z-20 space-y-6">
         
         {/* Cartão Principal da Central de Importação */}
-        <div className={`rounded-3xl border p-8 shadow-2xl transition-all space-y-6 ${
-          isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/80 text-slate-900 shadow-slate-200/50'
+        <div className={`rounded-xl border p-6 sm:p-7 shadow-xs transition-all space-y-5 ${
+          isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
         }`}>
           
           {/* Navegação Secundária para o Catálogo */}
-          <div className="flex items-center justify-between text-xs pb-4 border-b border-slate-500/10">
+          <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
             <div>
-              <span className="inline-flex rounded-full bg-blue-500/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-blue-500 border border-blue-500/20 mb-2">
+              <span className="inline-flex rounded-md bg-indigo-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 mb-2">
                 Módulo de Sincronização
               </span>
-              <h1 className="text-xl md:text-2xl font-black tracking-tight">🔄 Central de Importação Inteligente</h1>
-              <p className="text-xs opacity-60 mt-1 font-medium">Cruzamento e cadastro rápido de produtos da empresa.</p>
+              <h1 className="text-base md:text-lg font-bold tracking-tight">Central de Importação Inteligente</h1>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">Cruzamento e cadastro rápido de produtos da empresa.</p>
             </div>
 
-            <Link href="/produtos" className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline transition flex items-center gap-1.5">
+            <Link href="/produtos" className="text-xs font-semibold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 px-3.5 py-2 rounded-lg shadow-xs border border-slate-200 dark:border-slate-800 transition hover:text-indigo-600 dark:hover:text-indigo-400 inline-flex items-center gap-1.5">
               &larr; Voltar para Catálogo
             </Link>
           </div>

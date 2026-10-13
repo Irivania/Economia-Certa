@@ -98,7 +98,6 @@ export default function Page() {
 
   const loadProductsAndSuppliers = useCallback(async () => {
     try {
-      // Utiliza o apiFetch para enviar a sessão corporativa e o companyId com segurança
       const [supRes, prodRes] = await Promise.all([
         apiFetch('/api/suppliers'),
         apiFetch('/api/products')
@@ -269,24 +268,21 @@ export default function Page() {
   return (
     <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
       
-      {/* HEADER GLOBAL UNIFICADO */}
       <AppHeader
         title="Economia Certa"
         subtitle="Painel gerencial inteligente e controle de compras em tempo real."
         onOpenCmd={() => setIsCmdOpen(true)}
       />
 
-      {/* CONTEÚDO PRINCIPAL */}
-      <main className="max-w-7xl mx-auto px-6 sm:px-12 -mt-12 pb-20 relative z-25 space-y-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-20 relative z-20 space-y-6">
         
-        {/* Cartão Principal */}
-        <div className={`rounded-3xl border p-8 shadow-2xl transition-all space-y-8 ${
-          isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/80 text-slate-900 shadow-slate-200/50'
+        <div className={`rounded-xl border p-6 sm:p-7 shadow-xs transition-all space-y-6 ${
+          isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
         }`}>
           
           <QuotationFormHeader onOpenModal={() => setIsCatalogModalOpen(true)} />
 
-          <form onSubmit={handleSubmit} className="space-y-8">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <QuotationBasicInfo
               title={title}
               setTitle={setTitle}
@@ -325,18 +321,18 @@ export default function Page() {
               onRemoveItem={handleRemoveItem}
             />
 
-            <div className={`rounded-2xl border p-5 ${
+            <div className={`rounded-xl border p-5 ${
               isDarkMode ? 'border-indigo-900/60 bg-indigo-950/20' : 'border-indigo-100 bg-indigo-50/60'
             }`}>
-              <h2 className="text-sm font-black uppercase tracking-wider">Quantidade enviada aos representantes</h2>
-              <p className="mt-1 text-xs opacity-70">
+              <h2 className="text-xs font-bold uppercase tracking-wider">Quantidade enviada aos representantes</h2>
+              <p className="mt-0.5 text-xs text-slate-500">
                 Escolha se os representantes verão a quantidade solicitada ao responder.
               </p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 ${
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <label className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3.5 transition ${
                   showQuantities
                     ? 'border-emerald-500 bg-emerald-500/10'
-                    : 'border-slate-500/20'
+                    : 'border-slate-200 dark:border-slate-800'
                 }`}>
                   <input
                     type="radio"
@@ -346,14 +342,14 @@ export default function Page() {
                     className="mt-0.5 accent-emerald-600"
                   />
                   <span>
-                    <span className="block text-xs font-extrabold">Enviar com quantidade</span>
-                    <span className="mt-1 block text-[11px] opacity-70">O representante verá a quantidade de cada item.</span>
+                    <span className="block text-xs font-bold">Enviar com quantidade</span>
+                    <span className="mt-0.5 block text-[11px] text-slate-500">O representante verá a quantidade de cada item.</span>
                   </span>
                 </label>
-                <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 ${
+                <label className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3.5 transition ${
                   !showQuantities
                     ? 'border-indigo-500 bg-indigo-500/10'
-                    : 'border-slate-500/20'
+                    : 'border-slate-200 dark:border-slate-800'
                 }`}>
                   <input
                     type="radio"
@@ -363,22 +359,22 @@ export default function Page() {
                     className="mt-0.5 accent-indigo-600"
                   />
                   <span>
-                    <span className="block text-xs font-extrabold">Enviar sem quantidade</span>
-                    <span className="mt-1 block text-[11px] opacity-70">O representante informará os preços sem ver a quantidade.</span>
+                    <span className="block text-xs font-bold">Enviar sem quantidade</span>
+                    <span className="mt-0.5 block text-[11px] text-slate-500">O representante informará os preços sem ver a quantidade.</span>
                   </span>
                 </label>
               </div>
             </div>
 
-            <div className={`space-y-4 rounded-2xl border p-6 transition-all ${
-              isDarkMode ? 'bg-slate-950/50 border-slate-800' : 'bg-slate-50/60 border-slate-200/80'
+            <div className={`space-y-4 rounded-xl border p-5 transition-all ${
+              isDarkMode ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50/70 border-slate-200/90'
             }`}>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-500/10 pb-4">
-                <h2 className="text-sm font-black uppercase tracking-wider">Distribuidores / Fornecedores Convidados</h2>
-                <div className="flex items-center gap-3 text-xs font-bold">
-                  <button type="button" onClick={handleSelectAllSuppliers} className="text-emerald-600 dark:text-emerald-400 hover:underline">Marcar todos</button>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+                <h2 className="text-xs font-bold uppercase tracking-wider">Distribuidores / Fornecedores Convidados</h2>
+                <div className="flex items-center gap-3 text-xs font-semibold">
+                  <button type="button" onClick={handleSelectAllSuppliers} className="text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer">Marcar todos</button>
                   <span className="opacity-30">|</span>
-                  <button type="button" onClick={handleDeselectAllSuppliers} className="opacity-75 hover:opacity-100 hover:underline">Desmarcar todos</button>
+                  <button type="button" onClick={handleDeselectAllSuppliers} className="text-slate-500 hover:underline cursor-pointer">Desmarcar todos</button>
                 </div>
               </div>
 
@@ -390,12 +386,12 @@ export default function Page() {
               />
             </div>
 
-            {error && <p role="alert" className="rounded-xl bg-rose-500/10 border border-rose-500/20 px-4 py-3 text-xs font-bold text-rose-500">{error}</p>}
+            {error && <p role="alert" className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-3 text-xs font-semibold text-rose-500">{error}</p>}
 
-            <div className="flex flex-col-reverse gap-3 border-t border-slate-500/10 pt-6 sm:flex-row sm:justify-end">
-              <Link href="/cotacoes" className="rounded-2xl px-6 py-3 text-center text-xs font-bold transition-all border border-slate-500/20 hover:bg-slate-500/10">Cancelar</Link>
-              <button type="submit" disabled={submitting || loadingSuppliers || suppliers.length === 0} className="rounded-2xl bg-emerald-600 hover:bg-emerald-500 px-7 py-3 text-xs font-extrabold text-white shadow-lg shadow-emerald-600/25 transition-all disabled:opacity-50 cursor-pointer">
-                {submitting ? 'Criando...' : 'Criar cotação'}
+            <div className="flex flex-col-reverse gap-2.5 border-t border-slate-100 dark:border-slate-800 pt-5 sm:flex-row sm:justify-end">
+              <Link href="/cotacoes" className="rounded-lg px-4 py-2.5 text-center text-xs font-semibold transition-all border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800">Cancelar</Link>
+              <button type="submit" disabled={submitting || loadingSuppliers || suppliers.length === 0} className="rounded-lg bg-emerald-600 hover:bg-emerald-500 px-5 py-2.5 text-xs font-bold text-white shadow-xs transition-all disabled:opacity-50 cursor-pointer">
+                {submitting ? 'A criar...' : 'Criar cotação'}
               </button>
             </div>
           </form>
@@ -416,7 +412,6 @@ export default function Page() {
 
       </main>
 
-      {/* MENU DE COMANDOS */}
       <CommandMenu isOpen={isCmdOpen} onClose={() => setIsCmdOpen(false)} isDarkMode={isDarkMode} latestQuotationId="" />
 
     </div>

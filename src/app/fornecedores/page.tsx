@@ -25,12 +25,12 @@ export default function SuppliersPage() {
   } = useSuppliers(companyId);
 
   const themeButtonStyles = {
-    emerald: 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/25',
-    'emerald-light': 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/25',
-    blue: 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/25',
-    'blue-light': 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/25',
-    purple: 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/25',
-    'purple-light': 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/25',
+    emerald: 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/20',
+    'emerald-light': 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20',
+    blue: 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/20',
+    'blue-light': 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/20',
+    purple: 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/20',
+    'purple-light': 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/20',
   }[themeColor];
 
   if (!mounted) return <div className="min-h-screen bg-slate-50" />;
@@ -43,9 +43,9 @@ export default function SuppliersPage() {
         onOpenCmd={() => setIsCmdOpen(true)}
       />
 
-      <main className="max-w-7xl mx-auto px-6 sm:px-12 -mt-12 pb-20 relative z-20 space-y-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-20 relative z-20 space-y-6">
         {fetchingCnpj && (
-          <div className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold animate-pulse text-center shadow-lg">
+          <div className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-semibold animate-pulse text-center shadow-xs">
             🔍 A consultar dados do CNPJ na Receita Federal...
           </div>
         )}
@@ -60,11 +60,11 @@ export default function SuppliersPage() {
           onReset={resetForm} isDarkMode={isDarkMode} themeButtonStyles={themeButtonStyles}
         />
 
-        <div className={`p-8 rounded-3xl shadow-2xl border space-y-6 ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200/80'}`}>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-5 border-slate-500/10">
+        <div className={`p-6 sm:p-7 rounded-xl shadow-xs border space-y-5 ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200/90'}`}>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4 border-slate-100 dark:border-slate-800">
             <div>
-              <h2 className="text-base font-black tracking-tight">Diretório de Fornecedores e Conexões B2B</h2>
-              <p className="text-xs opacity-60 mt-0.5">Conecte a Melo Perfumaria aos canais digitais dos representantes.</p>
+              <h2 className="text-sm font-bold tracking-tight">Diretório de Fornecedores e Conexões B2B</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Conecte a Melo Perfumaria aos canais digitais dos representantes.</p>
             </div>
             
             <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -73,21 +73,25 @@ export default function SuppliersPage() {
                 placeholder="Pesquisar fornecedor ou CNPJ..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className={`px-4 py-2 text-xs border rounded-xl outline-none w-full sm:w-64 ${isDarkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                className={`px-3.5 py-2 text-xs border rounded-lg outline-none w-full sm:w-64 transition-all ${
+                  isDarkMode 
+                    ? 'bg-slate-950/85 border-slate-800 text-slate-100 focus:border-indigo-500' 
+                    : 'bg-white border-slate-200 text-slate-900 focus:border-indigo-600'
+                }`}
               />
-              <span className="text-xs font-mono font-bold opacity-70 bg-slate-500/10 px-3 py-2 rounded-xl whitespace-nowrap">
+              <span className="text-xs font-mono font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2.5 py-2 rounded-lg whitespace-nowrap">
                 {filteredSuppliers.length} ativos
               </span>
             </div>
           </div>
 
           {loading ? (
-            <p className="text-center py-16 opacity-60 text-xs font-medium">A carregar diretório de parceiros...</p>
+            <p className="text-center py-12 text-xs text-slate-500 font-medium">A carregar diretório de parceiros...</p>
           ) : error ? (
-            <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-2xl text-xs font-semibold">{error}</div>
+            <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-lg text-xs font-semibold">{error}</div>
           ) : filteredSuppliers.length === 0 ? (
-            <div className="text-center py-16 border-2 border-dashed border-slate-500/20 rounded-3xl">
-              <p className="opacity-60 text-xs font-medium">Nenhum fornecedor encontrado com os critérios informados.</p>
+            <div className="text-center py-12 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
+              <p className="text-xs text-slate-500 font-medium">Nenhum fornecedor encontrado com os critérios informados.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -118,7 +122,7 @@ export default function SuppliersPage() {
       </main>
 
       {toastMessage && (
-        <div className="fixed bottom-5 right-5 px-5 py-3 bg-emerald-600 text-white rounded-2xl shadow-2xl text-xs font-bold transition-all z-50">
+        <div className="fixed bottom-5 right-5 px-4 py-2.5 bg-emerald-600 text-white rounded-lg shadow-xl text-xs font-semibold transition-all z-50">
           {toastMessage}
         </div>
       )}

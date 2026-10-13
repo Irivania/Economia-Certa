@@ -41,9 +41,7 @@ function ProductsContent() {
   const [error, setError] = useState<string | null>(null);
   const [isCmdOpen, setIsCmdOpen] = useState(false);
 
-  // Modo de Cadastro: 'minimal' (Rápido) ou 'complete' (Fiscal & Custos)
   const [formMode, setFormMode] = useState<'minimal' | 'complete'>('minimal');
-
   const [isFromImport] = useState(() => !!searchParams.get('description'));
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -87,7 +85,6 @@ function ProductsContent() {
 
   const refreshProducts = useCallback(async () => {
     try {
-      // Utiliza o apiFetch para enviar a sessão e o companyId de forma segura
       const res = await apiFetch('/api/products');
       if (!res.ok) throw new Error('Erro ao carregar produtos.');
       const data = await res.json();
@@ -264,53 +261,53 @@ function ProductsContent() {
         onOpenCmd={() => setIsCmdOpen(true)}
       />
 
-      <main className="max-w-7xl mx-auto px-6 sm:px-12 -mt-12 pb-20 relative z-20 space-y-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-20 relative z-20 space-y-6">
         
         {returnTo && (
-          <div className="bg-indigo-500/10 border border-indigo-500/30 p-4 rounded-2xl flex items-center justify-between">
-            <span className="text-xs font-bold text-indigo-400">
+          <div className="bg-indigo-500/10 border border-indigo-500/30 p-4 rounded-lg flex items-center justify-between">
+            <span className="text-xs font-semibold text-indigo-400">
               ⚡ Você veio da criação de uma cotação. Cadastre o item e retorne para continuar!
             </span>
             <Link
               href={returnTo}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow-md"
+              className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs px-3.5 py-2 rounded-lg transition shadow-xs"
             >
               &larr; Voltar para Nova Cotação
             </Link>
           </div>
         )}
 
-        <div className={`p-8 rounded-3xl shadow-2xl border space-y-6 ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200/80'}`}>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-5 border-slate-500/10">
+        <div className={`p-6 sm:p-7 rounded-xl shadow-xs border space-y-5 ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200/90'}`}>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4 border-slate-100 dark:border-slate-800">
             <div>
-              <h2 className="text-base font-black tracking-tight">
+              <h2 className="text-sm font-bold tracking-tight">
                 {editingId ? 'Editar Produto' : 'Cadastrar Novo Produto'}
               </h2>
-              <p className="text-xs opacity-60 mt-0.5">Selecione o modo de preenchimento ideal para a sua operação.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Selecione o modo de preenchimento ideal para a sua operação.</p>
             </div>
 
-            <div className="flex items-center p-1 bg-slate-500/10 rounded-2xl border border-slate-500/20">
+            <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
               <button
                 type="button"
                 onClick={() => setFormMode('minimal')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                   formMode === 'minimal'
-                    ? 'bg-indigo-600 text-white shadow-lg'
-                    : 'opacity-60 hover:opacity-100'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                ⚡ Cadastro Rápido (Mínimo)
+                ⚡ Rápido
               </button>
               <button
                 type="button"
                 onClick={() => setFormMode('complete')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                   formMode === 'complete'
-                    ? 'bg-indigo-600 text-white shadow-lg'
-                    : 'opacity-60 hover:opacity-100'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                📋 Cadastro Completo (Fiscal & Custos)
+                📋 Completo (Fiscal & Custos)
               </button>
             </div>
           </div>
@@ -356,7 +353,7 @@ function ProductsContent() {
           />
         </div>
 
-        <div className={`p-8 rounded-3xl shadow-2xl border space-y-6 ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200/80'}`}>
+        <div className={`p-6 sm:p-7 rounded-xl shadow-xs border space-y-5 ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200/90'}`}>
           <ProductTable
             products={products}
             brands={brands}
@@ -374,7 +371,7 @@ function ProductsContent() {
       </main>
 
       {toastMessage && (
-        <div className="fixed bottom-5 right-5 px-5 py-3 bg-emerald-600 text-white rounded-2xl shadow-2xl text-xs font-bold transition-all z-50">
+        <div className="fixed bottom-5 right-5 px-4 py-2.5 bg-emerald-600 text-white rounded-lg shadow-xl text-xs font-semibold transition-all z-50">
           {toastMessage}
         </div>
       )}
@@ -392,7 +389,7 @@ function ProductsContent() {
 
 export default function ProductsPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">A carregar...</div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-xs text-slate-500">A carregar catálogo...</div>}>
       <ProductsContent />
     </Suspense>
   );

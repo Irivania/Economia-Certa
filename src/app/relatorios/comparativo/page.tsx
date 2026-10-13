@@ -153,32 +153,32 @@ export default function Page() {
       />
 
       {/* CONTEÚDO PRINCIPAL */}
-      <main className="max-w-7xl mx-auto px-6 sm:px-12 -mt-12 pb-20 relative z-25 space-y-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-20 relative z-20 space-y-6">
         
         {/* Cartão Principal do Relatório */}
-        <div className={`rounded-3xl border p-8 shadow-2xl transition-all space-y-6 ${
-          isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/80 text-slate-900 shadow-slate-200/50'
+        <div className={`rounded-xl border p-6 sm:p-7 shadow-xs transition-all space-y-5 ${
+          isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
         }`}>
           
           {/* Cabeçalho do Cartão e Navegação */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center pb-6 border-b border-slate-500/10 gap-4">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center pb-4 border-b border-slate-100 dark:border-slate-800 gap-4">
             <div>
-              <span className="inline-flex rounded-full bg-indigo-500/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-indigo-500 border border-indigo-500/20 mb-2">
+              <span className="inline-flex rounded-md bg-indigo-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-500 border border-indigo-500/20 mb-2">
                 Inteligência Analítica
               </span>
-              <h1 className="text-xl md:text-2xl font-black tracking-tight">📈 Relatório Comparativo de Preços</h1>
-              <p className="text-xs opacity-60 mt-1 font-medium">Análise lado a lado de preços por fornecedor baseada na cotação selecionada.</p>
+              <h1 className="text-base md:text-lg font-bold tracking-tight">📈 Relatório Comparativo de Preços</h1>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">Análise lado a lado de preços por fornecedor baseada na cotação selecionada.</p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <Link href="/" className="text-xs font-bold opacity-70 hover:opacity-100 transition flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <Link href="/" className="text-xs font-semibold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 px-3.5 py-2 rounded-lg shadow-xs border border-slate-200 dark:border-slate-800 transition hover:text-indigo-600 dark:hover:text-indigo-400">
                 &larr; Voltar ao Dashboard
               </Link>
-              <Link href="/cotacoes" className="rounded-2xl bg-slate-500/10 hover:bg-slate-500/20 px-4 py-2.5 text-xs font-bold transition-all">
+              <Link href="/cotacoes" className="rounded-lg bg-slate-100 dark:bg-slate-800 px-3.5 py-2 text-xs font-bold transition-all hover:bg-slate-200 dark:hover:bg-slate-700">
                 Gerenciar Cotações &rarr;
               </Link>
               {selectedQuotationId && (
-                <Link href={`/cotacoes/pedidos/${selectedQuotationId}`} className="rounded-2xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2.5 text-xs font-extrabold text-white shadow-lg shadow-emerald-600/25 transition-all">
+                <Link href={`/cotacoes/pedidos/${selectedQuotationId}`} className="rounded-lg bg-emerald-600 hover:bg-emerald-500 px-3.5 py-2 text-xs font-bold text-white shadow-xs transition-all">
                   📦 Ver Pedidos
                 </Link>
               )}
@@ -186,18 +186,18 @@ export default function Page() {
           </div>
 
           {/* Seletor de Cotação */}
-          <div className={`p-6 rounded-2xl border flex flex-col sm:flex-row items-center gap-4 transition-all ${
-            isDarkMode ? 'bg-slate-950/50 border-slate-800' : 'bg-slate-50 border-slate-200/80'
+          <div className={`p-5 rounded-xl border flex flex-col sm:flex-row items-center gap-4 transition-all ${
+            isDarkMode ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50/70 border-slate-200/90'
           }`}>
             <div className="w-full sm:w-1/3">
-              <label className="block text-[10px] font-black uppercase tracking-wider opacity-60 mb-1.5">
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
                 Selecione a Cotação
               </label>
               <select
                 value={selectedQuotationId}
                 onChange={(e) => setSelectedQuotationId(e.target.value)}
                 disabled={loadingQuotations}
-                className={`w-full rounded-xl border px-3 py-2 text-xs font-bold outline-none transition-all ${
+                className={`w-full rounded-lg border px-3 py-2 text-xs font-semibold outline-none transition-all ${
                   isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-800'
                 }`}
               >
@@ -216,40 +216,40 @@ export default function Page() {
             </div>
 
             <div className="w-full sm:w-2/3 flex items-end">
-              <p className="text-xs opacity-60 font-medium">
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                 💡 O relatório cruza automaticamente os valores respondidos por cada distribuidora nesta cotação.
               </p>
             </div>
           </div>
 
           {/* Tabela de Comparação */}
-          <div className="overflow-hidden rounded-2xl border border-slate-500/10 shadow-sm">
+          <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
             {loadingDetails ? (
-              <div className="p-16 text-center text-xs opacity-50 font-medium">Carregando dados comparativos...</div>
+              <div className="p-12 text-center text-xs text-slate-500 font-medium">Carregando dados comparativos...</div>
             ) : productsList.length === 0 ? (
-              <div className="p-16 text-center text-xs opacity-50 font-medium">
+              <div className="p-12 text-center text-xs text-slate-500 font-medium">
                 Nenhum dado encontrado para esta cotação.
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-left text-xs">
                   <thead>
-                    <tr className={`border-b uppercase tracking-wider text-[11px] font-extrabold ${
-                      isDarkMode ? 'border-slate-800 text-slate-400 bg-slate-950/30' : 'border-slate-200 text-slate-500 bg-slate-50/80'
+                    <tr className={`border-b uppercase tracking-wider text-[11px] font-bold ${
+                      isDarkMode ? 'border-slate-800 text-slate-400 bg-slate-900/30' : 'border-slate-100 text-slate-500 bg-slate-50/60'
                     }`}>
-                      <th className="p-4 font-extrabold min-w-[220px]">Produto</th>
-                      <th className="p-4 text-center font-extrabold">Qtd</th>
-                      {suppliers.map((sup) => (
-                        <th key={sup.supplierId} className="p-4 text-center font-extrabold border-l border-slate-500/10 min-w-[160px]">
+                      <th className="px-4 py-3 font-bold min-w-[220px]">Produto</th>
+                      <th className="px-4 py-3 text-center font-bold">Qtd</th>
+                      {suppliers.map((sup, index) => (
+                        <th key={`${sup.supplierId}-${index}`} className="px-4 py-3 text-center font-bold border-l border-slate-200 dark:border-slate-800 min-w-[160px]">
                           {sup.name || 'Fornecedor'}
                         </th>
                       ))}
-                      <th className="p-4 text-center font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-l border-slate-500/10 min-w-[180px]">
+                      <th className="px-4 py-3 text-center font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-l border-slate-200 dark:border-slate-800 min-w-[180px]">
                         Melhor Preço
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-500/10">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {productsList.map((prod) => {
                       let menorPreco = Infinity;
                       let melhorFornecedor = '';
@@ -263,34 +263,34 @@ export default function Page() {
                       });
 
                       return (
-                        <tr key={prod.productId} className={`transition-colors ${isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50/80'}`}>
-                          <td className="p-4 font-bold text-sm tracking-tight">{prod.description}</td>
-                          <td className="p-4 text-center font-mono font-bold opacity-80">{prod.requestedQuantity}</td>
+                        <tr key={prod.productId} className={`transition-colors align-middle ${isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50/80'}`}>
+                          <td className="px-4 py-3 font-semibold text-xs tracking-tight">{prod.description}</td>
+                          <td className="px-4 py-3 text-center font-mono font-bold text-slate-700 dark:text-slate-300">{prod.requestedQuantity}</td>
 
-                          {suppliers.map((sup) => {
+                          {suppliers.map((sup, index) => {
                             const resp = prod.responses[sup.supplierId];
                             const isBest = resp && !resp.outOfStock && resp.price > 0 && resp.price === menorPreco;
 
                             return (
                               <td
-                                key={sup.supplierId}
-                                className={`p-4 text-center border-l border-slate-500/10 transition-all ${
-                                  isBest ? (isDarkMode ? 'bg-emerald-950/40 font-black text-emerald-400' : 'bg-emerald-50/60 font-black text-emerald-800') : 'opacity-80'
+                                key={`${sup.supplierId}-${index}`}
+                                className={`px-4 py-3 text-center border-l border-slate-200 dark:border-slate-800 transition-all ${
+                                  isBest ? (isDarkMode ? 'bg-emerald-950/40 font-bold text-emerald-400' : 'bg-emerald-50/60 font-bold text-emerald-800') : 'text-slate-600 dark:text-slate-400'
                                 }`}
                               >
                                 {!resp ? (
-                                  <span className="opacity-40 italic text-[11px]">Sem resposta</span>
+                                  <span className="text-slate-400 italic text-[11px]">Sem resposta</span>
                                 ) : resp.outOfStock ? (
-                                  <span className="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                                  <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-500 border border-rose-500/20">
                                     Não tem
                                   </span>
                                 ) : resp.price === 0 ? (
-                                  <span className="opacity-40">—</span>
+                                  <span className="text-slate-400">—</span>
                                 ) : (
                                   <div>
                                     <span className="font-mono font-semibold">{formatCurrency(resp.price)}</span>
                                     {isBest && (
-                                      <div className="text-[9px] text-emerald-600 dark:text-emerald-400 font-black uppercase tracking-wider mt-0.5">🏆 Menor Preço</div>
+                                      <div className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider mt-0.5">🏆 Menor Preço</div>
                                     )}
                                   </div>
                                 )}
@@ -298,7 +298,7 @@ export default function Page() {
                             );
                           })}
 
-                          <td className="p-4 text-center font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-l border-slate-500/10">
+                          <td className="px-4 py-3 text-center font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-l border-slate-200 dark:border-slate-800">
                             {menorPreco !== Infinity ? `${formatCurrency(menorPreco)} (${melhorFornecedor})` : '-'}
                           </td>
                         </tr>
