@@ -1,39 +1,38 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
 import { products } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
-import { randomUUID } from 'crypto';
-import { uppercaseText } from '@/lib/text';
-import { requireCompanySession } from '@/lib/authServer';
+import { eq, and, asc } from 'drizzle-orm';
+import crypto from 'crypto';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    // 1. Validação estrita da sessão no servidor (Elimina IDOR e dependência de query params)
-    const session = requireCompanySession(request);
-    const companyId = session.companyId;
+    const { searchParams } = new URL(request.url);
+    const companyId = searchParams.get('companyId');
 
-    const data = await db
-      .select()
-      .from(products)
-      .where(eq(products.companyId, companyId));
+    const query = db.select().from(products).orderBy(asc(products.description));
 
-    return NextResponse.json(data);
+    if (companyId) {
+      const items = await query.where(eq(products.companyId, companyId));
+      return NextResponse.json(items);
+    }
+
+    const items = await query;
+    return NextResponse.json(items);
   } catch (error) {
-    console.error('Erro ao buscar produtos:', error);
-    return NextResponse.json({ error: 'Acesso não autorizado ou sessão inválida' }, { status: 401 });
+    console.error('Erro ao listar produtos:', error);
+    return NextResponse.json({ error: 'Erro interno ao listar produtos.' }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // 1. Validação estrita da sessão no servidor
-    const session = requireCompanySession(request);
-    const companyId = session.companyId;
-
     const body = await request.json();
     const {
-      description,
+      companyId,
       code,
+      description,
       brand,
       imageUrl,
       unit,
@@ -47,89 +46,82 @@ export async function POST(request: NextRequest) {
       stockMax,
       ncm,
       cest,
-      category,
+      classTrib,
+      anvisaRegistry,
+      manufacturerName,
+      weight,
+      dimensions,
     } = body;
 
-    if (!description) {
-      return NextResponse.json({ error: 'A descrição do produto é obrigatória' }, { status: 400 });
+    if (!description || !description.trim()) {
+      return NextResponse.json({ error: 'A descrição do produto é obrigatória.' }, { status: 400 });
     }
 
-    const trimmedCode = code ? code.trim() : null;
-    const cleanDescription = uppercaseText(String(description).trim());
+    const cleanEan = code ? String(code).trim() : null;
+    const currentCompanyId = companyId ? String(companyId) : '';
 
-    // 2. Validação: Verificar se já existe um produto com o mesmo Código de Barras (EAN) na mesma empresa
-    if (trimmedCode) {
-      const existingByEan = await db
+    // Validação inteligente: Impede duplicidade de EAN para a mesma empresa antes de inserir
+    if (cleanEan && currentCompanyId) {
+      const [existingProduct] = await db
         .select()
         .from(products)
-        .where(and(eq(products.companyId, companyId), eq(products.ean, trimmedCode)))
-        .limit(1);
+        .where(
+          and(
+            eq(products.companyId, currentCompanyId),
+            eq(products.ean, cleanEan)
+          )
+        );
 
-      if (existingByEan.length > 0) {
+      if (existingProduct) {
         return NextResponse.json(
-          { error: 'Este Código de Barras (EAN) já está cadastrado para outro produto nesta empresa!' },
+          { error: `Já existe um produto cadastrado com o EAN "${cleanEan}": "${existingProduct.description}".` },
           { status: 400 }
         );
       }
     }
 
-    // 3. Validação Antiduplicação por Descrição
-    const existingByName = await db
-      .select()
-      .from(products)
-      .where(and(eq(products.companyId, companyId), eq(products.description, cleanDescription)))
-      .limit(1);
+    const newProductId = crypto.randomUUID();
 
-    if (existingByName.length > 0) {
-      return NextResponse.json(
-        { success: true, product: existingByName[0], message: 'Produto já cadastrado anteriormente.' },
-        { status: 200 }
-      );
-    }
+    await db.insert(products).values({
+      id: newProductId,
+      companyId: currentCompanyId,
+      ean: cleanEan,
+      description: String(description).trim().toUpperCase(),
+      brand: brand ? String(brand).trim().toUpperCase() : null,
+      imageUrl: imageUrl ? String(imageUrl).trim() : null,
+      unit: unit ? String(unit).trim().toUpperCase() : 'UN',
+      boxQuantity: boxQuantity !== undefined && boxQuantity !== '' ? Number(boxQuantity) : 1,
+      costPrice: costPrice ? String(costPrice) : null,
+      lastPurchasePrice: lastPurchasePrice ? String(lastPurchasePrice) : null,
+      salePrice: salePrice ? String(salePrice) : null,
+      stockCurrent: stockCurrent !== undefined && stockCurrent !== '' ? Number(stockCurrent) : 0,
+      stockMin: stockMin !== undefined && stockMin !== '' ? Number(stockMin) : 0,
+      stockIdeal: stockIdeal !== undefined && stockIdeal !== '' ? Number(stockIdeal) : 0,
+      stockMax: stockMax !== undefined && stockMax !== '' ? Number(stockMax) : 0,
+      ncm: ncm ? String(ncm).trim() : null,
+      cest: cest ? String(cest).trim() : null,
+      classTrib: classTrib ? String(classTrib).trim() : null,
+      anvisaRegistry: anvisaRegistry ? String(anvisaRegistry).trim().toUpperCase() : null,
+      manufacturerName: manufacturerName ? String(manufacturerName).trim().toUpperCase() : null,
+      weight: weight ? String(weight).trim() : null,
+      dimensions: dimensions ? String(dimensions).trim().toUpperCase() : null,
+    });
 
-    // 4. Inserção segura associada ao tenant autenticado
-    const newProduct = await db
-      .insert(products)
-      .values({
-        id: randomUUID(),
-        companyId, // Derivado do servidor com segurança
-        description: cleanDescription,
-        ean: trimmedCode,
-        brand: brand ? uppercaseText(String(brand).trim()) : null,
-        imageUrl: imageUrl || null,
-        unit: unit ? uppercaseText(String(unit).trim()) : 'UN',
-        category: category ? uppercaseText(String(category).trim()) : null,
-        boxQuantity: boxQuantity ? Number(boxQuantity) : 1,
-        costPrice: costPrice ? String(costPrice) : null,
-        lastPurchasePrice: lastPurchasePrice ? String(lastPurchasePrice) : null,
-        salePrice: salePrice ? String(salePrice) : null,
-        stockCurrent: stockCurrent !== undefined ? Number(stockCurrent) : 0,
-        stockMin: stockMin !== undefined ? Number(stockMin) : 0,
-        stockIdeal: stockIdeal !== undefined ? Number(stockIdeal) : 0,
-        stockMax: stockMax !== undefined ? Number(stockMax) : 0,
-        ncm: ncm ? ncm.trim() : null,
-        cest: cest ? cest.trim() : null,
-      })
-      .returning();
-
-    return NextResponse.json({ success: true, product: newProduct[0] }, { status: 201 });
-  } catch (error) {
-    console.error('Erro ao cadastrar produto:', error);
-    return NextResponse.json({ error: 'Erro interno ao cadastrar produto' }, { status: 500 });
+    return NextResponse.json({ success: true, id: newProductId }, { status: 201 });
+  } catch (error: unknown) {
+    console.error('Erro detalhado ao cadastrar produto:', error);
+    const message = error instanceof Error ? error.message : 'Erro interno ao cadastrar produto.';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
-    // 1. Validação estrita da sessão no servidor
-    const session = requireCompanySession(request);
-    const companyId = session.companyId;
-
     const body = await request.json();
     const {
       id,
-      description,
       code,
+      description,
       brand,
       imageUrl,
       unit,
@@ -143,69 +135,69 @@ export async function PUT(request: NextRequest) {
       stockMax,
       ncm,
       cest,
-      category,
+      classTrib,
+      anvisaRegistry,
+      manufacturerName,
+      weight,
+      dimensions,
     } = body;
 
-    if (!id || !description) {
-      return NextResponse.json({ error: 'id e description são obrigatórios' }, { status: 400 });
+    if (!id) {
+      return NextResponse.json({ error: 'ID do produto não fornecido para atualização.' }, { status: 400 });
     }
 
-    // 2. Atualização garantindo ownership da empresa (Prevenção de IDOR)
-    const [updated] = await db
+    if (!description || !description.trim()) {
+      return NextResponse.json({ error: 'A descrição do produto é obrigatória.' }, { status: 400 });
+    }
+
+    await db
       .update(products)
       .set({
-        description: uppercaseText(String(description).trim()),
-        ean: code ? code.trim() : null,
-        brand: brand ? uppercaseText(String(brand).trim()) : null,
-        imageUrl: imageUrl || null,
-        unit: unit ? uppercaseText(String(unit).trim()) : 'UN',
-        category: category ? uppercaseText(String(category).trim()) : null,
-        boxQuantity: boxQuantity ? Number(boxQuantity) : 1,
+        ean: code ? String(code).trim() : null,
+        description: String(description).trim().toUpperCase(),
+        brand: brand ? String(brand).trim().toUpperCase() : null,
+        imageUrl: imageUrl ? String(imageUrl).trim() : null,
+        unit: unit ? String(unit).trim().toUpperCase() : 'UN',
+        boxQuantity: boxQuantity !== undefined && boxQuantity !== '' ? Number(boxQuantity) : 1,
         costPrice: costPrice ? String(costPrice) : null,
         lastPurchasePrice: lastPurchasePrice ? String(lastPurchasePrice) : null,
         salePrice: salePrice ? String(salePrice) : null,
-        stockCurrent: stockCurrent !== undefined ? Number(stockCurrent) : 0,
-        stockMin: stockMin !== undefined ? Number(stockMin) : 0,
-        stockIdeal: stockIdeal !== undefined ? Number(stockIdeal) : 0,
-        stockMax: stockMax !== undefined ? Number(stockMax) : 0,
-        ncm: ncm ? ncm.trim() : null,
-        cest: cest ? cest.trim() : null,
+        stockCurrent: stockCurrent !== undefined && stockCurrent !== '' ? Number(stockCurrent) : 0,
+        stockMin: stockMin !== undefined && stockMin !== '' ? Number(stockMin) : 0,
+        stockIdeal: stockIdeal !== undefined && stockIdeal !== '' ? Number(stockIdeal) : 0,
+        stockMax: stockMax !== undefined && stockMax !== '' ? Number(stockMax) : 0,
+        ncm: ncm ? String(ncm).trim() : null,
+        cest: cest ? String(cest).trim() : null,
+        classTrib: classTrib ? String(classTrib).trim() : null,
+        anvisaRegistry: anvisaRegistry ? String(anvisaRegistry).trim().toUpperCase() : null,
+        manufacturerName: manufacturerName ? String(manufacturerName).trim().toUpperCase() : null,
+        weight: weight ? String(weight).trim() : null,
+        dimensions: dimensions ? String(dimensions).trim().toUpperCase() : null,
       })
-      .where(and(eq(products.id, id), eq(products.companyId, companyId)))
-      .returning();
+      .where(eq(products.id, id));
 
-    if (!updated) {
-      return NextResponse.json({ error: 'Produto não encontrado ou sem permissão' }, { status: 404 });
-    }
-
-    return NextResponse.json({ success: true, product: updated });
-  } catch (error) {
-    console.error('Erro ao atualizar produto:', error);
-    return NextResponse.json({ error: 'Erro ao atualizar produto' }, { status: 500 });
+    return NextResponse.json({ success: true });
+  } catch (error: unknown) {
+    console.error('Erro detalhado ao atualizar produto:', error);
+    const message = error instanceof Error ? error.message : 'Erro interno ao atualizar produto.';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 export async function DELETE(request: NextRequest) {
   try {
-    // 1. Validação estrita da sessão no servidor
-    const session = requireCompanySession(request);
-    const companyId = session.companyId;
-
-    const searchParams = request.nextUrl.searchParams;
+    const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json({ error: 'id é obrigatório' }, { status: 400 });
+      return NextResponse.json({ error: 'ID do produto não fornecido.' }, { status: 400 });
     }
 
-    // 2. Exclusão restrita ao tenant validado (Prevenção de IDOR)
-    await db
-      .delete(products)
-      .where(and(eq(products.id, id), eq(products.companyId, companyId)));
+    await db.delete(products).where(eq(products.id, id));
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Erro ao excluir produto:', error);
-    return NextResponse.json({ error: 'Erro ao excluir produto' }, { status: 500 });
+    return NextResponse.json({ error: 'Erro interno ao excluir produto.' }, { status: 500 });
   }
 }

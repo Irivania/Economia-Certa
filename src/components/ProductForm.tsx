@@ -3,7 +3,10 @@
 import { useState } from 'react';
 import { ProductTaxSection } from '@/components/ProductTaxSection';
 import { ProductStockSection } from '@/components/ProductStockSection';
-import { uppercaseText } from '@/lib/text';
+import { ProductBasicSection } from '@/components/product-form/ProductBasicSection';
+import { ProductPricingSection } from '@/components/product-form/ProductPricingSection';
+import { ProductRegulatorySection } from '@/components/product-form/ProductRegulatorySection';
+import { apiFetch } from '@/lib/apiClient';
 
 interface ProductFormProps {
   editingId: string | null;
@@ -37,6 +40,16 @@ interface ProductFormProps {
   setNcm: (val: string) => void;
   cest: string;
   setCest: (val: string) => void;
+  classTrib: string;
+  setClassTrib: (val: string) => void;
+  anvisaRegistry: string;
+  setAnvisaRegistry: (val: string) => void;
+  manufacturerName: string;
+  setManufacturerName: (val: string) => void;
+  weight: string;
+  setWeight: (val: string) => void;
+  dimensions: string;
+  setDimensions: (val: string) => void;
   submitting: boolean;
   onSubmit: (e: React.FormEvent) => void;
   onCancelEdit: () => void;
@@ -49,10 +62,7 @@ function formatarMoedaInput(valorStr: string): string {
   const apenasDigitos = valorStr.replace(/\D/g, '');
   if (!apenasDigitos) return '';
   const numero = Number(apenasDigitos) / 100;
-  return numero.toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  return numero.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function parseMoedaParaFloat(valorStr: string): number {
@@ -79,6 +89,11 @@ export function ProductForm({
   stockMax, setStockMax,
   ncm, setNcm,
   cest, setCest,
+  classTrib, setClassTrib,
+  anvisaRegistry, setAnvisaRegistry,
+  manufacturerName, setManufacturerName,
+  weight, setWeight,
+  dimensions, setDimensions,
   submitting,
   onSubmit,
   onCancelEdit,
@@ -88,6 +103,25 @@ export function ProductForm({
 }: ProductFormProps) {
   const [margin, setMargin] = useState<string>('');
   const [isNewBrandMode, setIsNewBrandMode] = useState(false);
+
+  const handleEanBlur = async () => {
+    if (!ean || ean.trim().length < 8) return;
+    try {
+      const res = await apiFetch(`/api/products/lookup?ean=${ean.trim()}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && (data.source === 'local' || data.source === 'external_simulation')) {
+        if (!description && data.description) setDescription(data.description);
+        if (!brand && data.brand) setBrand(data.brand);
+        if (!ncm && data.ncm) setNcm(data.ncm);
+        if (!cest && data.cest) setCest(data.cest);
+        if (!classTrib && data.classTrib) setClassTrib(data.classTrib);
+        if (!imageUrl && data.imageUrl) setImageUrl(data.imageUrl);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar dados automáticos do EAN:', err);
+    }
+  };
 
   const handlePriceChange = (type: 'cost' | 'margin' | 'sale', val: string) => {
     let formattedVal = val;
@@ -131,7 +165,7 @@ export function ProductForm({
     <form onSubmit={onSubmit} className="mb-10 p-6 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-6 transition-all">
       <div className="flex justify-between items-center mb-2">
         <h2 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-          {editingId ? 'Editar Produto' : formMode === 'minimal' ? '⚡ Cadastro Rápido (Mínimo)' : '📋 Cadastro Completo (Fiscal & Custos)'}
+          {editingId ? 'Editar Produto' : formMode === 'minimal' ? '⚡ Cadastro Rápido (Mínimo)' : '📋 Cadastro Completo (Fiscal, Custos, ANVISA & Logística)'}
         </h2>
         {editingId && (
           <button type="button" onClick={onCancelEdit} className="text-xs text-rose-600 hover:underline font-semibold cursor-pointer">
@@ -140,239 +174,61 @@ export function ProductForm({
         )}
       </div>
 
-      {/* Seção 1: Informações Básicas */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 ${formMode === 'complete' ? 'md:col-span-3' : 'md:col-span-4'}`}>
-          <div className="md:col-span-3">
-            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Descrição do Produto *</label>
-            <input
-              type="text"
-              placeholder="Ex: Perfume Kaiak Tradicional 100ml"
-              value={description}
-              onChange={(e) => setDescription(uppercaseText(e.target.value))}
-              className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-950 text-slate-900 dark:text-white uppercase"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Código de Barras (EAN)</label>
-            <input
-              type="text"
-              placeholder="Ex: 7891011121314"
-              value={ean}
-              onChange={(e) => setEan(e.target.value)}
-              className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
-            />
-          </div>
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400">Marca</label>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsNewBrandMode(!isNewBrandMode);
-                  setBrand('');
-                }}
-                className="text-[11px] text-indigo-500 hover:underline font-semibold cursor-pointer"
-              >
-                {isNewBrandMode ? '← Selecionar existente' : '+ Nova Marca'}
-              </button>
-            </div>
-            
-            {isNewBrandMode || brandsList.length === 0 ? (
-              <input
-                type="text"
-                placeholder="Digite a nova marca"
-                value={brand}
-                onChange={(e) => setBrand(uppercaseText(e.target.value))}
-                className="w-full px-3 py-2 text-xs border border-indigo-300 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/30 uppercase font-medium text-indigo-900 dark:text-indigo-200"
-                autoFocus
-              />
-            ) : (
-              <select
-                value={brand}
-                onChange={(e) => setBrand(uppercaseText(e.target.value))}
-                className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-950 text-slate-900 dark:text-white uppercase"
-              >
-                <option value="">Selecione a marca...</option>
-                {brandsList.map((b) => (
-                  <option key={b} value={b}>{b}</option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          {/* Campos exclusivos do modo completo nesta linha */}
-          {formMode === 'complete' ? (
-            <>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Unidade / Embalagem</label>
-                <select
-                  value={unit}
-                  onChange={(e) => setUnit(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
-                >
-                  <option value="UN">Unidade (UN)</option>
-                  <option value="CX C/ 06">Caixa c/ 06</option>
-                  <option value="CX C/ 12">Caixa c/ 12</option>
-                  <option value="CX C/ 24">Caixa c/ 24</option>
-                  <option value="PCT">Pacote (PCT)</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Qtd. Itens por Caixa</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={boxQuantity}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value);
-                    setBoxQuantity(isNaN(val) ? 1 : Math.max(1, val));
-                  }}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
-                />
-              </div>
-            </>
-          ) : (
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Estoque Atual *</label>
-              <input
-                type="number"
-                min="0"
-                placeholder="0"
-                value={stockCurrent}
-                onChange={(e) => setStockCurrent(e.target.value === '' ? '' : Number(e.target.value))}
-                className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-950 text-slate-900 dark:text-white font-mono"
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Bloco de Imagem (Aparece no completo) */}
-        {formMode === 'complete' && (
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">URL da Imagem</label>
-            <input
-              type="text"
-              placeholder="https://..."
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-950 text-slate-900 dark:text-white mb-2"
-            />
-            <div className="w-14 h-14 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex items-center justify-center overflow-hidden mx-auto">
-              {imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-[10px] text-slate-400">Sem Foto</span>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
+      <ProductBasicSection
+        description={description} setDescription={setDescription}
+        ean={ean} setEan={setEan} onEanBlur={handleEanBlur}
+        brand={brand} setBrand={setBrand} brandsList={brandsList}
+        isNewBrandMode={isNewBrandMode} setIsNewBrandMode={setIsNewBrandMode}
+        imageUrl={imageUrl} setImageUrl={setImageUrl}
+        unit={unit} setUnit={setUnit}
+        boxQuantity={boxQuantity} setBoxQuantity={setBoxQuantity}
+        stockCurrent={stockCurrent} setStockCurrent={setStockCurrent}
+        formMode={formMode}
+      />
 
       <hr className="border-slate-200 dark:border-slate-800" />
 
-      {/* Seção 2: Preços e Margem (No modo minimal, simplificado; no completo, completo) */}
-      <div>
-        <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wider">
-          {formMode === 'minimal' ? 'Preço de Venda' : 'Preços, Custos e Margem'}
-        </h3>
-        
-        {formMode === 'minimal' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-xl">
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Preço de Venda (R$) *</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="0,00"
-                value={salePrice}
-                onChange={(e) => handlePriceChange('sale', e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-800 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 font-bold text-emerald-800 dark:text-emerald-200"
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Preço de Custo Atual (R$)</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="0,00"
-                value={costPrice}
-                onChange={(e) => handlePriceChange('cost', e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Valor Última Compra (R$)</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="0,00"
-                value={lastPurchasePrice}
-                onChange={(e) => handleLastPurchaseChange(e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Margem de Lucro (%)</label>
-              <input
-                type="number"
-                step="0.01"
-                placeholder="Ex: 100"
-                value={margin}
-                onChange={(e) => handlePriceChange('margin', e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-800 rounded-xl bg-amber-50 dark:bg-amber-950/30 font-semibold text-amber-800 dark:text-amber-200"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Preço de Venda (R$)</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="0,00"
-                value={salePrice}
-                onChange={(e) => handlePriceChange('sale', e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-800 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 font-semibold text-emerald-800 dark:text-emerald-200"
-              />
-            </div>
-          </div>
-        )}
-      </div>
+      <ProductPricingSection
+        costPrice={costPrice}
+        lastPurchasePrice={lastPurchasePrice}
+        salePrice={salePrice}
+        margin={margin}
+        onPriceChange={handlePriceChange}
+        onLastPurchaseChange={handleLastPurchaseChange}
+        formMode={formMode}
+      />
 
-      {/* Seções extras apenas exibidas no Modo Completo */}
       {formMode === 'complete' && (
         <>
           <hr className="border-slate-200 dark:border-slate-800" />
           <ProductStockSection
-            stockCurrent={stockCurrent} 
-            setStockCurrent={setStockCurrent}
-            stockMin={stockMin} 
-            setStockMin={setStockMin}
-            stockIdeal={stockIdeal} 
-            setStockIdeal={setStockIdeal}
-            stockMax={stockMax} 
-            setStockMax={setStockMax}
+            stockCurrent={stockCurrent} setStockCurrent={setStockCurrent}
+            stockMin={stockMin} setStockMin={setStockMin}
+            stockIdeal={stockIdeal} setStockIdeal={setStockIdeal}
+            stockMax={stockMax} setStockMax={setStockMax}
           />
           <hr className="border-slate-200 dark:border-slate-800" />
-          <ProductTaxSection ncm={ncm} setNcm={setNcm} cest={cest} setCest={setCest} />
+          <ProductTaxSection 
+            ncm={ncm} setNcm={setNcm} 
+            cest={cest} setCest={setCest} 
+            classTrib={classTrib} setClassTrib={setClassTrib}
+          />
+          <hr className="border-slate-200 dark:border-slate-800" />
+          <ProductRegulatorySection
+            anvisaRegistry={anvisaRegistry} setAnvisaRegistry={setAnvisaRegistry}
+            manufacturerName={manufacturerName} setManufacturerName={setManufacturerName}
+            weight={weight} setWeight={setWeight}
+            dimensions={dimensions} setDimensions={setDimensions}
+          />
         </>
       )}
 
       <div className="flex justify-between items-center pt-2">
         {isFromImport ? (
-          <a
-            href="/importar"
-            className="text-xs font-bold text-indigo-500 hover:underline bg-indigo-500/10 px-4 py-2.5 rounded-xl border border-indigo-500/20 transition-colors flex items-center gap-1.5"
-          >
+          <a href="/importar" className="text-xs font-bold text-indigo-500 hover:underline bg-indigo-500/10 px-4 py-2.5 rounded-xl border border-indigo-500/20 transition-colors flex items-center gap-1.5">
             &larr; Voltar para Central de Importação
           </a>
-        ) : (
-          <span />
-        )}
+        ) : <span />}
 
         <button
           type="submit"

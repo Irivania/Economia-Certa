@@ -76,6 +76,12 @@ export const products = pgTable(
     stockMax: integer("stock_max").default(0).notNull(),
     ncm: text("ncm"),
     cest: text("cest"),
+    // Campos regulatórios, fiscais (Reforma Tributária) e logísticos adicionados
+    classTrib: text("class_trib"),
+    anvisaRegistry: text("anvisa_registry"),
+    manufacturerName: text("manufacturer_name"),
+    weight: text("weight"),
+    dimensions: text("dimensions"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => {
@@ -154,7 +160,7 @@ export const quotationSuppliers = pgTable("quotation_suppliers", {
   token: text("token")
     .notNull()
     .$defaultFn(() => crypto.randomUUID()),
-  status: text("status").default("PENDING").notNull(), // 'PENDING' ou 'responded'
+  status: text("status").default("PENDING").notNull(),
   totalOffered: numeric("total_offered", { precision: 10, scale: 2 }),
   observation: text("observation"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -169,7 +175,6 @@ export const quotationItems = pgTable("quotation_items", {
   requestedQuantity: numeric("requested_quantity").notNull(),
 });
 
-// Tabela para isolar preços e respostas por fornecedor individualmente
 export const quotationSupplierItems = pgTable("quotation_supplier_items", {
   id: text("id")
     .primaryKey()
@@ -248,7 +253,7 @@ export const auditLogs = pgTable("audit_logs", {
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
   companyId: text("company_id"),
-  userId: text("user_id"), // 🔒 Rastreabilidade exata do colaborador que realizou a ação
+  userId: text("user_id"),
   quotationId: text("quotation_id"),
   supplierId: text("supplier_id"),
   action: text("action").notNull(),

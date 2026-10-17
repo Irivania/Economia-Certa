@@ -28,6 +28,11 @@ interface Product {
   stockMax: number;
   ncm?: string | null;
   cest?: string | null;
+  classTrib?: string | null;
+  anvisaRegistry?: string | null;
+  manufacturerName?: string | null;
+  weight?: string | null;
+  dimensions?: string | null;
 }
 
 function ProductsContent() {
@@ -71,6 +76,13 @@ function ProductsContent() {
 
   const [ncm, setNcm] = useState('');
   const [cest, setCest] = useState('');
+  const [classTrib, setClassTrib] = useState('');
+
+  // Estados Regulatórios, ANVISA e Logística
+  const [anvisaRegistry, setAnvisaRegistry] = useState('');
+  const [manufacturerName, setManufacturerName] = useState('');
+  const [weight, setWeight] = useState('');
+  const [dimensions, setDimensions] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -168,6 +180,11 @@ function ProductsContent() {
         stockMax: formMode === 'complete' && stockMax !== '' ? Number(stockMax) : 0,
         ncm: formMode === 'complete' ? ncm : null,
         cest: formMode === 'complete' ? cest : null,
+        classTrib: formMode === 'complete' ? classTrib : null,
+        anvisaRegistry: formMode === 'complete' ? anvisaRegistry : null,
+        manufacturerName: formMode === 'complete' ? manufacturerName : null,
+        weight: formMode === 'complete' ? weight : null,
+        dimensions: formMode === 'complete' ? dimensions : null,
       };
 
       const res = await apiFetch(url, {
@@ -209,6 +226,11 @@ function ProductsContent() {
     setStockMax(prod.stockMax ?? '');
     setNcm(prod.ncm || '');
     setCest(prod.cest || '');
+    setClassTrib(prod.classTrib || '');
+    setAnvisaRegistry(prod.anvisaRegistry || '');
+    setManufacturerName(prod.manufacturerName || '');
+    setWeight(prod.weight || '');
+    setDimensions(prod.dimensions || '');
     setFormMode('complete');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -248,6 +270,11 @@ function ProductsContent() {
     setStockMax('');
     setNcm('');
     setCest('');
+    setClassTrib('');
+    setAnvisaRegistry('');
+    setManufacturerName('');
+    setWeight('');
+    setDimensions('');
   };
 
   if (!mounted) return <div className="min-h-screen bg-slate-50" />;
@@ -257,7 +284,7 @@ function ProductsContent() {
       
       <AppHeader
         title="Catálogo & Gestão de Produtos"
-        subtitle="Controle de itens, custos, estoque e tributos da empresa."
+        subtitle="Controle de itens, custos, estoque, tributos, ANVISA e logística."
         onOpenCmd={() => setIsCmdOpen(true)}
       />
 
@@ -307,7 +334,7 @@ function ProductsContent() {
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                📋 Completo (Fiscal & Custos)
+                📋 Completo (Fiscal, Custos, ANVISA & Logística)
               </button>
             </div>
           </div>
@@ -345,6 +372,16 @@ function ProductsContent() {
             setNcm={setNcm}
             cest={cest}
             setCest={setCest}
+            classTrib={classTrib}
+            setClassTrib={setClassTrib}
+            anvisaRegistry={anvisaRegistry}
+            setAnvisaRegistry={setAnvisaRegistry}
+            manufacturerName={manufacturerName}
+            setManufacturerName={setManufacturerName}
+            weight={weight}
+            setWeight={setWeight}
+            dimensions={dimensions}
+            setDimensions={setDimensions}
             submitting={submitting}
             onSubmit={handleSubmit}
             onCancelEdit={resetForm}
