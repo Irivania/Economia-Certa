@@ -40,6 +40,8 @@ export function DashboardQuickAccess({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        
+        {/* Gestão de Fornecedores */}
         {canManageSuppliers ? (
           <Link href="/fornecedores" className={cardClass}>
             <div>
@@ -62,6 +64,7 @@ export function DashboardQuickAccess({
           </div>
         )}
 
+        {/* Comparador de Preços */}
         <Link href={latestQuotationId ? `/cotacoes/respostas/${latestQuotationId}` : '/cotacoes'} className={cardClass}>
           <div>
             <div className="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3 text-base group-hover:scale-110 group-hover:bg-indigo-500/20 transition-all">📊</div>
@@ -73,6 +76,7 @@ export function DashboardQuickAccess({
           </span>
         </Link>
 
+        {/* Pedidos para Distribuidores */}
         <Link href={latestQuotationId ? `/cotacoes/pedidos/${latestQuotationId}` : '/cotacoes'} className={cardClass}>
           <div>
             <div className="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3 text-base group-hover:scale-110 group-hover:bg-indigo-500/20 transition-all">📦</div>
@@ -84,6 +88,7 @@ export function DashboardQuickAccess({
           </span>
         </Link>
 
+        {/* Catálogo de Produtos */}
         <Link href="/produtos" className={cardClass}>
           <div>
             <div className="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3 text-base group-hover:scale-110 group-hover:bg-indigo-500/20 transition-all">🏷️</div>
@@ -95,6 +100,22 @@ export function DashboardQuickAccess({
           </span>
         </Link>
 
+        {/* Entrada de Notas Fiscais (XML) */}
+        <Link href="/notas/entrada" className={cardClass}>
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-base group-hover:scale-110 group-hover:bg-emerald-500/20 transition-all">📄</div>
+              <span className="px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">Novo</span>
+            </div>
+            <h3 className="text-xs sm:text-sm font-semibold">Entrada de Notas (XML)</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Dê entrada em mercadorias e atualize o estoque via NF-e.</p>
+          </div>
+          <span className="text-[11px] font-semibold mt-4 text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+            Acessar módulo <span className="transition-transform group-hover:translate-x-1">&rarr;</span>
+          </span>
+        </Link>
+
+        {/* Central de Importação */}
         {canImportData ? (
           <Link href="/importar" className={cardClass}>
             <div>
@@ -117,6 +138,7 @@ export function DashboardQuickAccess({
           </div>
         )}
 
+        {/* Relatório Comparativo (Mantido na Grelha) */}
         <Link href="/relatorios/comparativo" className={cardClass}>
           <div>
             <div className="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3 text-base group-hover:scale-110 group-hover:bg-indigo-500/20 transition-all">📈</div>
@@ -127,6 +149,7 @@ export function DashboardQuickAccess({
             Acessar módulo <span className="transition-transform group-hover:translate-x-1">&rarr;</span>
           </span>
         </Link>
+
       </div>
     </section>
   );
