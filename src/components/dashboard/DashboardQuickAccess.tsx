@@ -41,16 +41,16 @@ export function DashboardQuickAccess({
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Navegue rapidamente pelos principais módulos operacionais da sua empresa.</p>
         </div>
         <span className="text-[11px] font-mono font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-md">
-          v3.5 Pro
+          v3.6 Pro
         </span>
       </div>
 
-      {/* OS 3 PILARES ESTRATÉGICOS EM DESTAQUE NO TOPO */}
+      {/* OS PILARES ESTRATÉGICOS EM DESTAQUE NO TOPO */}
       <div>
         <div className="text-[11px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-3">
           ⭐ Pilares Executivos Principais
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           
           {/* 1. PDV & Balcão de Vendas */}
           <Link href="/pdv" className={featuredCardClass}>
@@ -60,29 +60,44 @@ export function DashboardQuickAccess({
                 <span className="px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">Essencial</span>
               </div>
               <h3 className="text-sm font-extrabold">PDV & Balcão de Vendas</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Terminal de atendimento rápido, caixa e baixa em tempo real.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Terminal de atendimento rápido e baixa em tempo real.</p>
             </div>
             <span className="text-xs font-bold mt-5 text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
               Acessar Terminal <span className="transition-transform group-hover:translate-x-1">&rarr;</span>
             </span>
           </Link>
 
-          {/* 2. Comparador de Preços / Cotações */}
+          {/* 2. Fechamento de Caixa (NOVO EM DESTAQUE) */}
+          <Link href="/pdv/caixa" className={featuredCardClass}>
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-xl shadow-md group-hover:scale-110 transition-all">💵</div>
+                <span className="px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">Operacional</span>
+              </div>
+              <h3 className="text-sm font-extrabold">Fechamento de Caixa</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Abertura, sangrias, suprimentos e fecho cego de turno.</p>
+            </div>
+            <span className="text-xs font-bold mt-5 text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+              Gerenciar Caixa <span className="transition-transform group-hover:translate-x-1">&rarr;</span>
+            </span>
+          </Link>
+
+          {/* 3. Comparador de Preços / Cotações */}
           <Link href={latestQuotationId ? `/cotacoes/respostas/${latestQuotationId}` : '/cotacoes'} className={featuredCardClass}>
             <div>
               <div className="flex items-center justify-between mb-3">
-                <div className="w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-xl shadow-md group-hover:scale-110 transition-all">📊</div>
-                <span className="px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">Compras</span>
+                <div className="w-12 h-12 rounded-xl bg-cyan-600 text-white flex items-center justify-center text-xl shadow-md group-hover:scale-110 transition-all">📊</div>
+                <span className="px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">Compras</span>
               </div>
               <h3 className="text-sm font-extrabold">Comparador de Preços</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Cruze cotações via WhatsApp e descubra o melhor fornecedor.</p>
             </div>
-            <span className="text-xs font-bold mt-5 text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+            <span className="text-xs font-bold mt-5 text-cyan-600 dark:text-cyan-400 flex items-center gap-1">
               Acessar Módulo <span className="transition-transform group-hover:translate-x-1">&rarr;</span>
             </span>
           </Link>
 
-          {/* 3. Contas a Pagar & Boletos (Financeiro) */}
+          {/* 4. Contas a Pagar & Boletos (Financeiro) */}
           <Link href="/financeiro/pagar" className={featuredCardClass}>
             <div>
               <div className="flex items-center justify-between mb-3">

@@ -107,6 +107,10 @@ export function AppHeader({ title, subtitle, onOpenCmd }: AppHeaderProps) {
   const userName = session.name || '';
   const userRole = session.role ? String(session.role).toUpperCase() : '';
 
+  // Verificar se o utilizador logado é operador de caixa (geral ou operador)
+  const roleLower = String(session.role || '').toLowerCase();
+  const isOperator = roleLower === 'geral' || roleLower === 'operador';
+
   const activeThemeKey: ThemeColor = mounted && themeColor ? themeColor : 'blue-light';
   const themeStyles = colorMap[activeThemeKey] || colorMap['blue-light'];
 
@@ -174,18 +178,27 @@ export function AppHeader({ title, subtitle, onOpenCmd }: AppHeaderProps) {
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2">
               {title} <span className={`${themeStyles.accentText} font-light text-xl`}>ERP</span>
             </h1>
-            <p className="text-xs sm:text-sm text-white/9ontal font-medium">{subtitle}</p>
+            <p className="text-xs sm:text-sm text-white/90 font-medium">{subtitle}</p>
           </div>
         </div>
 
-        {/* Botões de Ação Global */}
+        {/* Botões de Ação Global (Ocultos para Operador) ou Badge Elegante de Caixa */}
         <div className="flex items-center gap-2.5 w-full md:w-auto justify-start md:justify-end">
-          <Link href="/" className="bg-white/10 hover:bg-white/20 text-white font-semibold text-xs px-3.5 py-2.5 rounded-lg transition-all border border-white/20 whitespace-nowrap">
-            &larr; Dashboard
-          </Link>
-          <Link href="/cotacoes/nova" className={`${themeStyles.button} font-bold text-xs px-4 py-2.5 rounded-lg transition-all shadow-md whitespace-nowrap`}>
-            Nova Cotação
-          </Link>
+          {isOperator ? (
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/15 backdrop-blur-md border border-white/25 text-white text-xs font-black uppercase tracking-wider shadow-md">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+              ⚡ Terminal de Caixa Exclusivo
+            </div>
+          ) : (
+            <>
+              <Link href="/" className="bg-white/10 hover:bg-white/20 text-white font-semibold text-xs px-3.5 py-2.5 rounded-lg transition-all border border-white/20 whitespace-nowrap">
+                &larr; Dashboard
+              </Link>
+              <Link href="/cotacoes/nova" className={`${themeStyles.button} font-bold text-xs px-4 py-2.5 rounded-lg transition-all shadow-md whitespace-nowrap`}>
+                Nova Cotação
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>

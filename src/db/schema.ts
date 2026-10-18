@@ -313,6 +313,20 @@ export const cashRegisters = pgTable("cash_registers", {
   closedAt: timestamp("closed_at"),
 });
 
+// Transações de Caixa (Sangrias, Suprimentos e Fundo de Troco)
+export const cashRegisterTransactions = pgTable("cash_register_transactions", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  companyId: text("company_id").notNull(),
+  cashRegisterId: text("cash_register_id").notNull(),
+  type: text("type").notNull(), // 'OPENING', 'SUPPLY', 'BLEED', 'CLOSING'
+  amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
+  reason: text("reason"),
+  operatorName: text("operator_name").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Vendas do PDV (Presencial, Self-Checkout ou Convênio)
 export const sales = pgTable("sales", {
   id: text("id")

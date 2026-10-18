@@ -1,5 +1,9 @@
 'use client';
 
+import { useState } from 'react';
+import { Search } from 'lucide-react';
+import { PDVPartnerSearchModal } from '@/components/pdv/PDVPartnerSearchModal';
+
 interface PartnerItem {
   id: string;
   type: 'EMPLOYEE' | 'COMPANY_PARTNER';
@@ -40,6 +44,12 @@ export function PDVCheckoutPanel({
   onCheckout,
   isDarkMode,
 }: PDVCheckoutPanelProps) {
+  // Estado para controlar a abertura do modal de busca rápida de parceiros
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+
+  // Encontrar o nome do parceiro atualmente selecionado para exibir no botão
+  const selectedPartner = partners.find((p) => p.id === selectedPartnerId);
+
   return (
     <div className={`p-6 rounded-3xl border shadow-xl flex flex-col justify-between space-y-4 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
       <div className="space-y-3 pt-3 border-t border-slate-500/10">
@@ -60,26 +70,36 @@ export function PDVCheckoutPanel({
 
         {paymentMethod === 'CONVENIO' && (
           <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 space-y-2">
-            <label className="block text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-              Selecione o Funcionário ou Empresa Parceira:
-            </label>
-            <select
-              value={selectedPartnerId}
-              onChange={(e) => setSelectedPartnerId(e.target.value)}
-              className="w-full px-3 py-2 text-xs border rounded-xl bg-white dark:bg-slate-950 font-bold font-mono"
-            >
-              <option value="">-- Escolher Convênio --</option>
-              {partners.map((p) => {
-                const debt = Number(p.currentBalance || 0);
-                const limit = Number(p.creditLimit || 0);
-                const available = limit - debt;
-                return (
-                  <option key={p.id} value={p.id}>
-                    {p.type === 'EMPLOYEE' ? '👤' : '🏢'} {p.name} (Disp: R$ {available.toFixed(2)})
-                  </option>
-                );
-              })}
-            </select>
+            <div className="flex justify-between items-center">
+              <label className="block text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                Funcionário ou Empresa Parceira:
+              </label>
+              <button
+                type="button"
+                onClick={() => setIsSearchModalOpen(true)}
+                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-extrabold flex items-center gap-1 transition cursor-pointer shadow-sm"
+              >
+                <Search className="w-3 h-3" /> {selectedPartner ? 'Alterar' : 'Buscar Convênio 🔍'}
+              </button>
+            </div>
+
+            {/* Exibe o convênio selecionado ou botão para escolher */}
+            <div className="w-full px-3 py-2 text-xs border rounded-xl bg-white dark:bg-slate-950 font-bold font-mono flex justify-between items-center">
+              <span className="truncate">
+                {selectedPartner ? (
+                  <>
+                    {selectedPartner.type === 'EMPLOYEE' ? '👤' : '🏢'} {selectedPartner.name}
+                  </>
+                ) : (
+                  <span className="opacity-45 font-sans">Nenhum convênio selecionado...</span>
+                )}
+              </span>
+              {selectedPartner && (
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-sans font-bold">
+                  Selecionado ✓
+                </span>
+              )}
+            </div>
           </div>
         )}
 
@@ -112,6 +132,15 @@ export function PDVCheckoutPanel({
           {loading ? 'Processando...' : 'Finalizar Venda & Imprimir 🚀'}
         </button>
       </div>
+
+      {/* Modal de Busca Rápida de Convênios */}
+      <PDVPartnerSearchModal
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+        partners={partners}
+        onSelectPartner={(partnerId) => setSelectedPartnerId(partnerId)}
+        isDarkMode={isDarkMode}
+      />
     </div>
   );
 }

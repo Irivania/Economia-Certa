@@ -62,6 +62,14 @@ export default function DashboardPage() {
     return 'admin';
   });
 
+  // Redirecionamento automático de Segurança: Operador vai direto para o PDV
+  useEffect(() => {
+    const roleLower = String(userRole || '').toLowerCase();
+    if (roleLower === 'geral' || roleLower === 'operador') {
+      router.replace('/pdv');
+    }
+  }, [userRole, router]);
+
   const [userName] = useState<string>(() => {
     if (typeof window === 'undefined') return 'Melo Perfumaria';
     try {

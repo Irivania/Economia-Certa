@@ -84,7 +84,10 @@ export default function UsersManagementPage() {
       }
 
       const parsed = JSON.parse(sessionData);
-      if (parsed.role && parsed.role !== 'admin') {
+      const userRole = String(parsed.role || '').toLowerCase();
+
+      // Garantir acesso exclusivo a administradores (independente de maiúsculas/minúsculas)
+      if (userRole && userRole !== 'admin') {
         alert('Acesso restrito a Administradores.');
         router.push('/');
         return;
@@ -150,6 +153,7 @@ export default function UsersManagementPage() {
     }
   };
 
+  // Botão direto para Bloquear / Desbloquear acesso do operador manualmente
   const handleToggleStatus = async (user: UserItem) => {
     const newActiveState = !user.active;
     try {
@@ -162,9 +166,9 @@ export default function UsersManagementPage() {
 
       const updated = await res.json();
       setUsers((prev) => prev.map((u) => (u.id === updated.id ? { ...u, active: updated.active, status: updated.status } : u)));
-      addToast('Estado Atualizado', `O acesso foi ${newActiveState ? 'ativado' : 'pausado'}.`, 'info');
+      addToast('Estado Atualizado', `O acesso de ${user.name} foi ${newActiveState ? 'ativado com sucesso' : 'bloqueado'}.`, newActiveState ? 'success' : 'warning');
     } catch {
-      alert('Não foi possível alterar o estado.');
+      alert('Não foi possível alterar o estado do utilizador.');
     }
   };
 
@@ -254,10 +258,10 @@ export default function UsersManagementPage() {
         <div className={`p-6 sm:p-7 rounded-xl border shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200/90'}`}>
           <div>
             <span className="inline-flex rounded-md bg-indigo-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 mb-2">
-              Gestão de Utilizadores
+              Gestão de Utilizadores & RBAC
             </span>
             <h1 className="text-base md:text-lg font-bold tracking-tight">Colaboradores Autorizados</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Gerencie quem pode aceder e alterar dados no ERP.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Analise acessos, altere níveis de permissão e bloqueie ou ative operadores manualmente.</p>
           </div>
           
           <div className="flex items-center gap-2.5">
@@ -276,6 +280,7 @@ export default function UsersManagementPage() {
           </div>
         </div>
 
+        {/* Tabela com botões de Análise, Edição, Reativação e Bloqueio Manual */}
         <UsersTable
           users={users}
           loading={loading}
