@@ -32,9 +32,13 @@ export function DashboardMetrics({
               +14% este mês
             </span>
           </div>
-          <div className="text-3xl font-extrabold tracking-tight mt-3 text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-            {loading ? '...' : productCount}
-          </div>
+          {loading ? (
+            <div className="h-9 w-24 bg-slate-500/15 animate-pulse rounded-lg mt-3" />
+          ) : (
+            <div className="text-3xl font-extrabold tracking-tight mt-3 text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+              {productCount}
+            </div>
+          )}
         </div>
         <div className="mt-5 pt-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
           <span className="text-emerald-500 font-medium flex items-center gap-1.5">
@@ -56,9 +60,13 @@ export function DashboardMetrics({
               Ativas hoje
             </span>
           </div>
-          <div className="text-3xl font-extrabold tracking-tight mt-3 text-slate-900 dark:text-white group-hover:text-amber-500 dark:group-hover:text-amber-400 transition-colors">
-            {loading ? '...' : quotationCount}
-          </div>
+          {loading ? (
+            <div className="h-9 w-24 bg-slate-500/15 animate-pulse rounded-lg mt-3" />
+          ) : (
+            <div className="text-3xl font-extrabold tracking-tight mt-3 text-slate-900 dark:text-white group-hover:text-amber-500 dark:group-hover:text-amber-400 transition-colors">
+              {quotationCount}
+            </div>
+          )}
         </div>
         <div className="mt-5 pt-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
           <span className="text-amber-500 font-medium flex items-center gap-1.5">
@@ -80,9 +88,13 @@ export function DashboardMetrics({
               Prontas para Pedido
             </span>
           </div>
-          <div className="text-3xl font-extrabold tracking-tight mt-3 text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-            {loading ? '...' : completedQuotationCount}
-          </div>
+          {loading ? (
+            <div className="h-9 w-24 bg-slate-500/15 animate-pulse rounded-lg mt-3" />
+          ) : (
+            <div className="text-3xl font-extrabold tracking-tight mt-3 text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+              {completedQuotationCount}
+            </div>
+          )}
         </div>
         <div className="mt-5 pt-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
           <span className="text-indigo-500 font-medium flex items-center gap-1.5">

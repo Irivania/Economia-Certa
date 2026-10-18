@@ -76,7 +76,7 @@ export const products = pgTable(
     stockMax: integer("stock_max").default(0).notNull(),
     ncm: text("ncm"),
     cest: text("cest"),
-    // Campos regulatórios, fiscais (Reforma Tributária) e logísticos adicionados
+    // Campos regulatórios, fiscais (Reforma Tributária) e logísticos
     classTrib: text("class_trib"),
     anvisaRegistry: text("anvisa_registry"),
     manufacturerName: text("manufacturer_name"),
@@ -259,5 +259,111 @@ export const auditLogs = pgTable("audit_logs", {
   action: text("action").notNull(),
   details: text("details"),
   ipAddress: text("ip_address"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Tabela para Gestão de Contas a Pagar e Boletos
+export const accountsPayable = pgTable("accounts_payable", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  companyId: text("company_id").notNull(),
+  supplierName: text("supplier_name").notNull(),
+  invoiceNumber: text("invoice_number"),
+  installmentNumber: integer("installment_number").default(1).notNull(),
+  amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+  dueDate: date("due_date").notNull(),
+  status: text("status").default("PENDING").notNull(), // 'PENDING' ou 'PAID'
+  paidAt: timestamp("paid_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Tabela para Histórico de Rastreabilidade e Auditoria de Custos por Produto
+export const productCostHistory = pgTable("product_cost_history", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  companyId: text("company_id").notNull(),
+  productId: text("product_id").notNull(),
+  supplierName: text("supplier_name").notNull(),
+  invoiceNumber: text("invoice_number"),
+  unitCost: numeric("unit_cost", { precision: 10, scale: 2 }).notNull(),
+  quantity: numeric("quantity").notNull(),
+  purchasedBy: text("purchased_by").default("Sistema / Loja").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ==========================================
+// MÓDULO PDV & SELF-CHECKOUT
+// ==========================================
+
+// Turnos de Caixa (Abertura, Fechamento e Sangria)
+export const cashRegisters = pgTable("cash_registers", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  companyId: text("company_id").notNull(),
+  userId: text("user_id").notNull(),
+  operatorName: text("operator_name").notNull(),
+  openingAmount: numeric("opening_amount", { precision: 10, scale: 2 }).notNull(),
+  closingAmount: numeric("closing_amount", { precision: 10, scale: 2 }),
+  differenceAmount: numeric("difference_amount", { precision: 10, scale: 2 }),
+  status: text("status").default("OPEN").notNull(),
+  openedAt: timestamp("opened_at").defaultNow().notNull(),
+  closedAt: timestamp("closed_at"),
+});
+
+// Vendas do PDV (Presencial, Self-Checkout ou Convênio)
+export const sales = pgTable("sales", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  companyId: text("company_id").notNull(),
+  cashRegisterId: text("cash_register_id"),
+  mode: text("mode").default("CASHIER").notNull(), // 'CASHIER' ou 'SELF_CHECKOUT'
+  operatorName: text("operator_name").default("Operador de Caixa").notNull(),
+  customerName: text("customer_name"),
+  partnerId: text("partner_id"), // Vinculado a funcionários ou empresas parceiras (Convênio)
+  subtotal: numeric("subtotal", { precision: 10, scale: 2 }).notNull(),
+  discount: numeric("discount", { precision: 10, scale: 2 }).default("0").notNull(),
+  total: numeric("total", { precision: 10, scale: 2 }).notNull(),
+  paymentMethod: text("payment_method").notNull(), // 'CASH', 'CREDIT_CARD', 'DEBIT_CARD', 'PIX', 'CONVENIO'
+  status: text("status").default("COMPLETED").notNull(), // 'COMPLETED', 'CANCELLED', 'SUSPECTED_FRAUD'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Itens da Venda
+export const saleItems = pgTable("sale_items", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  saleId: text("sale_id").notNull(),
+  productId: text("product_id").notNull(),
+  description: text("description").notNull(),
+  quantity: numeric("quantity").notNull(),
+  unitPrice: numeric("unit_price", { precision: 10, scale: 2 }).notNull(),
+  subtotal: numeric("subtotal", { precision: 10, scale: 2 }).notNull(),
+});
+
+// ==========================================
+// MÓDULO DE CONVÊNIOS E FUNCIONÁRIOS
+// ==========================================
+
+// Cadastro de Funcionários e Empresas Parceiras (Desconto em Folha / Crediário Mensal)
+export const partners = pgTable("partners", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  companyId: text("company_id").notNull(),
+  type: text("type").default("EMPLOYEE").notNull(), // 'EMPLOYEE' (Funcionário) ou 'COMPANY_PARTNER' (Empresa Conveniada)
+  name: text("name").notNull(),
+  document: text("document"), // CPF ou CNPJ
+  phone: text("phone"),
+  email: text("email"),
+  creditLimit: numeric("credit_limit", { precision: 10, scale: 2 }).default("500.00").notNull(), // Limite de crédito mensal
+  currentBalance: numeric("current_balance", { precision: 10, scale: 2 }).default("0.00").notNull(), // Saldo devedor atual
+  discountPercentage: numeric("discount_percentage", { precision: 5, scale: 2 }).default("0.00").notNull(), // Desconto fixo pré-programado (Ex: 10.00)
+  companyPartnerId: text("company_partner_id"), // Vincula o funcionário à Empresa Parceira mãe
+  active: boolean("active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
-import { products } from '@/db/schema';
+import { products, productCostHistory } from '@/db/schema';
 import { eq, and, asc } from 'drizzle-orm';
 import crypto from 'crypto';
 
@@ -51,6 +51,9 @@ export async function POST(request: NextRequest) {
       manufacturerName,
       weight,
       dimensions,
+      supplierName,     // Opcional: Para o histórico de custo
+      invoiceNumber,    // Opcional: Número da nota fiscal
+      purchasedBy,      // Nome do usuário responsável pela compra
     } = body;
 
     if (!description || !description.trim()) {
@@ -60,7 +63,6 @@ export async function POST(request: NextRequest) {
     const cleanEan = code ? String(code).trim() : null;
     const currentCompanyId = companyId ? String(companyId) : '';
 
-    // Validação inteligente: Impede duplicidade de EAN para a mesma empresa antes de inserir
     if (cleanEan && currentCompanyId) {
       const [existingProduct] = await db
         .select()
@@ -107,6 +109,20 @@ export async function POST(request: NextRequest) {
       dimensions: dimensions ? String(dimensions).trim().toUpperCase() : null,
     });
 
+    // Se houver preço de custo e quantidade, regista automaticamente no Histórico de Custos (Auditoria)
+    if (costPrice && Number(costPrice) > 0) {
+      await db.insert(productCostHistory).values({
+        id: crypto.randomUUID(),
+        companyId: currentCompanyId,
+        productId: newProductId,
+        supplierName: supplierName ? String(supplierName).trim().toUpperCase() : (manufacturerName ? String(manufacturerName).trim().toUpperCase() : 'FORNECEDOR GERAL'),
+        invoiceNumber: invoiceNumber ? String(invoiceNumber).trim() : null,
+        unitCost: String(costPrice),
+        quantity: stockCurrent !== undefined && stockCurrent !== '' ? String(stockCurrent) : '1',
+        purchasedBy: purchasedBy ? String(purchasedBy).trim() : 'Gestor / Loja',
+      });
+    }
+
     return NextResponse.json({ success: true, id: newProductId }, { status: 201 });
   } catch (error: unknown) {
     console.error('Erro detalhado ao cadastrar produto:', error);
@@ -120,6 +136,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const {
       id,
+      companyId,
       code,
       description,
       brand,
@@ -140,6 +157,9 @@ export async function PUT(request: NextRequest) {
       manufacturerName,
       weight,
       dimensions,
+      supplierName,
+      invoiceNumber,
+      purchasedBy,
     } = body;
 
     if (!id) {
@@ -149,6 +169,9 @@ export async function PUT(request: NextRequest) {
     if (!description || !description.trim()) {
       return NextResponse.json({ error: 'A descrição do produto é obrigatória.' }, { status: 400 });
     }
+
+    // Busca o produto anterior para comparar se o custo mudou ou se houve nova entrada
+    const [oldProduct] = await db.select().from(products).where(eq(products.id, id));
 
     await db
       .update(products)
@@ -175,6 +198,20 @@ export async function PUT(request: NextRequest) {
         dimensions: dimensions ? String(dimensions).trim().toUpperCase() : null,
       })
       .where(eq(products.id, id));
+
+    // Se o custo foi alterado ou informado na edição, regista no Histórico de Auditoria
+    if (costPrice && oldProduct && Number(costPrice) !== Number(oldProduct.costPrice || 0)) {
+      await db.insert(productCostHistory).values({
+        id: crypto.randomUUID(),
+        companyId: companyId ? String(companyId) : oldProduct.companyId,
+        productId: id,
+        supplierName: supplierName ? String(supplierName).trim().toUpperCase() : 'ATUALIZAÇÃO DE CUSTO',
+        invoiceNumber: invoiceNumber ? String(invoiceNumber).trim() : null,
+        unitCost: String(costPrice),
+        quantity: '1',
+        purchasedBy: purchasedBy ? String(purchasedBy).trim() : 'Gestor / Loja',
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {

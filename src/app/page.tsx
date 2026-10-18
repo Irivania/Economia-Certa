@@ -9,6 +9,7 @@ import { ToastContainer } from '@/components/ToastContainer';
 import { CommandMenu } from '@/components/CommandMenu';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { DashboardMetrics } from '@/components/dashboard/DashboardMetrics';
+import { CashFlowWidget } from '@/components/dashboard/CashFlowWidget';
 import { DashboardQuickAccess } from '@/components/dashboard/DashboardQuickAccess';
 import { RoleSelectionModal } from '@/components/dashboard/RoleSelectionModal';
 import { getCompanyId } from '@/lib/companySession';
@@ -265,6 +266,9 @@ export default function DashboardPage() {
           loading={loading}
           isDarkMode={isDarkMode}
         />
+
+        {/* Widget Executivo de Projeção de Fluxo de Caixa */}
+        <CashFlowWidget isDarkMode={isDarkMode} />
 
         <DashboardQuickAccess
           canManageSuppliers={canManageSuppliers}
