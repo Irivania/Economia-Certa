@@ -45,12 +45,12 @@ export function DashboardQuickAccess({
         </span>
       </div>
 
-      {/* OS PILARES ESTRATÉGICOS EM DESTAQUE NO TOPO */}
+      {/* OS PILARES ESTRATÉGICOS EM DESTAQUE NO TOPO (EXATAMENTE 5 COLUNAS) */}
       <div>
         <div className="text-[11px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-3">
           ⭐ Pilares Executivos Principais
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           
           {/* 1. PDV & Balcão de Vendas */}
           <Link href="/pdv" className={featuredCardClass}>
@@ -67,7 +67,7 @@ export function DashboardQuickAccess({
             </span>
           </Link>
 
-          {/* 2. Fechamento de Caixa (NOVO EM DESTAQUE) */}
+          {/* 2. Fechamento de Caixa */}
           <Link href="/pdv/caixa" className={featuredCardClass}>
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -82,32 +82,47 @@ export function DashboardQuickAccess({
             </span>
           </Link>
 
-          {/* 3. Comparador de Preços / Cotações */}
-          <Link href={latestQuotationId ? `/cotacoes/respostas/${latestQuotationId}` : '/cotacoes'} className={featuredCardClass}>
+          {/* 3. Lucratividade & DRE (Tag Gerencial) */}
+          <Link href="/relatorios/lucratividade" className={featuredCardClass}>
             <div>
               <div className="flex items-center justify-between mb-3">
-                <div className="w-12 h-12 rounded-xl bg-cyan-600 text-white flex items-center justify-center text-xl shadow-md group-hover:scale-110 transition-all">📊</div>
-                <span className="px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">Compras</span>
+                <div className="w-12 h-12 rounded-xl bg-teal-600 text-white flex items-center justify-center text-xl shadow-md group-hover:scale-110 transition-all">📊</div>
+                <span className="px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20">Gerencial</span>
               </div>
-              <h3 className="text-sm font-extrabold">Comparador de Preços</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Cruze cotações via WhatsApp e descubra o melhor fornecedor.</p>
+              <h3 className="text-sm font-extrabold">Lucratividade & DRE</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Faturamento, CPV, impostos e lucro líquido em tempo real.</p>
             </div>
-            <span className="text-xs font-bold mt-5 text-cyan-600 dark:text-cyan-400 flex items-center gap-1">
-              Acessar Módulo <span className="transition-transform group-hover:translate-x-1">&rarr;</span>
+            <span className="text-xs font-bold mt-5 text-teal-600 dark:text-teal-400 flex items-center gap-1">
+              Ver Relatório <span className="transition-transform group-hover:translate-x-1">&rarr;</span>
             </span>
           </Link>
 
-          {/* 4. Contas a Pagar & Boletos (Financeiro) */}
+          {/* 4. Contas a Pagar */}
           <Link href="/financeiro/pagar" className={featuredCardClass}>
             <div>
               <div className="flex items-center justify-between mb-3">
                 <div className="w-12 h-12 rounded-xl bg-amber-600 text-white flex items-center justify-center text-xl shadow-md group-hover:scale-110 transition-all">💳</div>
                 <span className="px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">Financeiro</span>
               </div>
-              <h3 className="text-sm font-extrabold">Contas a Pagar & Boletos</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Controle de vencimentos, boletos e fluxo de caixa.</p>
+              <h3 className="text-sm font-extrabold">Contas a Pagar</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Controle de vencimentos, boletos e contas de fornecedores.</p>
             </div>
             <span className="text-xs font-bold mt-5 text-amber-600 dark:text-amber-400 flex items-center gap-1">
+              Acessar Módulo <span className="transition-transform group-hover:translate-x-1">&rarr;</span>
+            </span>
+          </Link>
+
+          {/* 5. Contas a Receber (Tesouraria Dual) */}
+          <Link href="/financeiro/receber" className={featuredCardClass}>
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-xl shadow-md group-hover:scale-110 transition-all">💰</div>
+                <span className="px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">Tesouraria</span>
+              </div>
+              <h3 className="text-sm font-extrabold">Contas a Receber</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Gestão de faturas de convênios, títulos e recebíveis.</p>
+            </div>
+            <span className="text-xs font-bold mt-5 text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
               Acessar Módulo <span className="transition-transform group-hover:translate-x-1">&rarr;</span>
             </span>
           </Link>
@@ -121,6 +136,18 @@ export function DashboardQuickAccess({
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           
+          {/* Comparador de Preços */}
+          <Link href={latestQuotationId ? `/cotacoes/respostas/${latestQuotationId}` : '/cotacoes'} className={cardClass}>
+            <div>
+              <div className="w-10 h-10 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center mb-3 text-base group-hover:scale-110 transition-all">📈</div>
+              <h3 className="text-xs sm:text-sm font-semibold">Comparador de Preços</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Cruze cotações via WhatsApp e escolha fornecedores.</p>
+            </div>
+            <span className="text-[11px] font-semibold mt-4 text-cyan-600 dark:text-cyan-400 flex items-center gap-1">
+              Acessar <span className="transition-transform group-hover:translate-x-0.5">&rarr;</span>
+            </span>
+          </Link>
+
           {/* Convênios & Funcionários */}
           <Link href="/financeiro/convenios" className={cardClass}>
             <div>
@@ -226,18 +253,6 @@ export function DashboardQuickAccess({
               <span className="text-[11px] font-semibold mt-4 text-rose-500">Bloqueado</span>
             </div>
           )}
-
-          {/* Relatório Comparativo */}
-          <Link href="/relatorios/comparativo" className={cardClass}>
-            <div>
-              <div className="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3 text-base group-hover:scale-110 transition-all">📈</div>
-              <h3 className="text-xs sm:text-sm font-semibold">Relatório Comparativo</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Análise de preços por fornecedor.</p>
-            </div>
-            <span className="text-[11px] font-semibold mt-4 text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
-              Acessar <span className="transition-transform group-hover:translate-x-0.5">&rarr;</span>
-            </span>
-          </Link>
 
         </div>
       </div>

@@ -278,6 +278,21 @@ export const accountsPayable = pgTable("accounts_payable", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Tabela para Gestão de Contas a Receber e Faturas de Convênio
+export const accountsReceivable = pgTable("accounts_receivable", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  companyId: text("company_id").notNull(),
+  customerName: text("customer_name").notNull(), // Nome do Cliente ou Empresa Conveniada
+  invoiceNumber: text("invoice_number"),
+  amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+  dueDate: date("due_date").notNull(),
+  status: text("status").default("PENDING").notNull(), // 'PENDING' ou 'RECEIVED'
+  receivedAt: timestamp("received_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Tabela para Histórico de Rastreabilidade e Auditoria de Custos por Produto
 export const productCostHistory = pgTable("product_cost_history", {
   id: text("id")
