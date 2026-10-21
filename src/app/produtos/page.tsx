@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useTheme } from '@/context/ThemeContext';
 import { AppHeader } from '@/components/AppHeader';
 import { CommandMenu } from '@/components/CommandMenu';
@@ -36,6 +36,7 @@ interface Product {
 }
 
 function ProductsContent() {
+  const router = useRouter();
   const { isDarkMode, mounted } = useTheme();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get('returnTo');
@@ -78,7 +79,6 @@ function ProductsContent() {
   const [cest, setCest] = useState('');
   const [classTrib, setClassTrib] = useState('');
 
-  // Estados Regulatórios, ANVISA e Logística
   const [anvisaRegistry, setAnvisaRegistry] = useState('');
   const [manufacturerName, setManufacturerName] = useState('');
   const [weight, setWeight] = useState('');
@@ -200,6 +200,13 @@ function ProductsContent() {
       resetForm();
       showToast(editingId ? 'Produto atualizado com sucesso!' : 'Produto cadastrado com sucesso!');
       await refreshProducts();
+
+      // Redirecionar automaticamente de volta para a nota manual ou cotação se o parâmetro returnTo existir
+      if (returnTo && !editingId) {
+        setTimeout(() => {
+          router.push(returnTo);
+        }, 1200);
+      }
     } catch (err: unknown) {
       console.error(err);
       const message = err instanceof Error ? err.message : 'Erro ao salvar produto.';
@@ -293,13 +300,13 @@ function ProductsContent() {
         {returnTo && (
           <div className="bg-indigo-500/10 border border-indigo-500/30 p-4 rounded-lg flex items-center justify-between">
             <span className="text-xs font-semibold text-indigo-400">
-              ⚡ Você veio da criação de uma cotação. Cadastre o item e retorne para continuar!
+              ⚡ Você foi redirecionado para cadastrar um produto em falta. Conclua o cadastro abaixo e será retornado automaticamente!
             </span>
             <Link
               href={returnTo}
               className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs px-3.5 py-2 rounded-lg transition shadow-xs"
             >
-              &larr; Voltar para Nova Cotação
+              &larr; Voltar de onde veio
             </Link>
           </div>
         )}
