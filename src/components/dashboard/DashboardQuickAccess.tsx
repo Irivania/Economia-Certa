@@ -34,7 +34,7 @@ export function DashboardQuickAccess({
   }`;
 
   return (
-    <section className={`${isDarkMode ? 'bg-slate-900/90 border-slate-800 text-slate-100' : 'bg-white border-slate-200/90 text-slate-900'} rounded-xl p-6 sm:p-7 shadow-xs border space-y-6`}>
+    <section className={`${isDarkMode ? 'bg-slate-900/90 border-slate-800 text-slate-100' : 'bg-white border-slate-200/90 text-slate-900'} rounded-xl p-6 sm:p-7 shadow-xs border space-y-8`}>
       <div className="border-b border-slate-100 dark:border-slate-800 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <div>
           <h2 className="text-sm font-bold tracking-tight">Acessos Rápidos do Sistema</h2>
@@ -45,14 +45,14 @@ export function DashboardQuickAccess({
         </span>
       </div>
 
-      {/* OS PILARES ESTRATÉGICOS EM DESTAQUE NO TOPO (EXATAMENTE 5 COLUNAS) */}
+      {/* 1. PILARES EXECUTIVOS PRINCIPAIS (5 Colunas) */}
       <div>
         <div className="text-[11px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-3">
           ⭐ Pilares Executivos Principais
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           
-          {/* 1. PDV & Balcão de Vendas */}
+          {/* PDV & Balcão de Vendas */}
           <Link href="/pdv" className={featuredCardClass}>
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -67,7 +67,7 @@ export function DashboardQuickAccess({
             </span>
           </Link>
 
-          {/* 2. Fechamento de Caixa */}
+          {/* Fechamento de Caixa */}
           <Link href="/pdv/caixa" className={featuredCardClass}>
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -82,7 +82,7 @@ export function DashboardQuickAccess({
             </span>
           </Link>
 
-          {/* 3. Lucratividade & DRE (Tag Gerencial) */}
+          {/* Lucratividade & DRE */}
           <Link href="/relatorios/lucratividade" className={featuredCardClass}>
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -97,7 +97,7 @@ export function DashboardQuickAccess({
             </span>
           </Link>
 
-          {/* 4. Contas a Pagar */}
+          {/* Contas a Pagar */}
           <Link href="/financeiro/pagar" className={featuredCardClass}>
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -112,7 +112,7 @@ export function DashboardQuickAccess({
             </span>
           </Link>
 
-          {/* 5. Contas a Receber (Tesouraria Dual) */}
+          {/* Contas a Receber */}
           <Link href="/financeiro/receber" className={featuredCardClass}>
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -130,9 +130,44 @@ export function DashboardQuickAccess({
         </div>
       </div>
 
-      <div className="border-t border-slate-200 dark:border-slate-800 pt-4">
+      {/* 2. MÓDULOS FISCAIS & CONTÁBEIS */}
+      <div className="border-t border-slate-200 dark:border-slate-800 pt-5">
         <div className="text-[11px] font-black uppercase tracking-wider text-slate-400 mb-3">
-          Demais Módulos Operacionais
+          📑 Gestão Fiscal & Contábil
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
+          
+          {/* Portal do Contador */}
+          <Link href="/contabilidade" className={cardClass}>
+            <div>
+              <div className="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3 text-base group-hover:scale-110 transition-all">📑</div>
+              <h3 className="text-xs sm:text-sm font-semibold">Portal do Contador & Link Seguro</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Exportação mensal de dados, apuração fiscal e partilha segura com o escritório contábil.</p>
+            </div>
+            <span className="text-[11px] font-semibold mt-4 text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+              Acessar Portal <span className="transition-transform group-hover:translate-x-0.5">&rarr;</span>
+            </span>
+          </Link>
+
+          {/* Entrada de Notas Fiscais (XML) */}
+          <Link href="/notas/entrada" className={cardClass}>
+            <div>
+              <div className="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-3 text-base group-hover:scale-110 transition-all">📄</div>
+              <h3 className="text-xs sm:text-sm font-semibold">Entrada de Notas (XML)</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Dê entrada em mercadorias via NF-e e atualize custos automaticamente.</p>
+            </div>
+            <span className="text-[11px] font-semibold mt-4 text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+              Acessar Módulo <span className="transition-transform group-hover:translate-x-0.5">&rarr;</span>
+            </span>
+          </Link>
+
+        </div>
+      </div>
+
+      {/* 3. OPERAÇÕES & COMPRAS */}
+      <div className="border-t border-slate-200 dark:border-slate-800 pt-5">
+        <div className="text-[11px] font-black uppercase tracking-wider text-slate-400 mb-3">
+          📦 Operações & Compras (Cotações)
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           
@@ -141,57 +176,21 @@ export function DashboardQuickAccess({
             <div>
               <div className="w-10 h-10 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center mb-3 text-base group-hover:scale-110 transition-all">📈</div>
               <h3 className="text-xs sm:text-sm font-semibold">Comparador de Preços</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Cruze cotações via WhatsApp e escolha fornecedores.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Cruze cotações via WhatsApp e escolha melhores fornecedores.</p>
             </div>
             <span className="text-[11px] font-semibold mt-4 text-cyan-600 dark:text-cyan-400 flex items-center gap-1">
               Acessar <span className="transition-transform group-hover:translate-x-0.5">&rarr;</span>
             </span>
           </Link>
 
-          {/* Convênios & Funcionários */}
-          <Link href="/financeiro/convenios" className={cardClass}>
+          {/* Pedidos para Distribuidores */}
+          <Link href={latestQuotationId ? `/cotacoes/pedidos/${latestQuotationId}` : '/cotacoes'} className={cardClass}>
             <div>
-              <div className="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-3 text-base group-hover:scale-110 transition-all">🤝</div>
-              <h3 className="text-xs sm:text-sm font-semibold">Convênios & Funcionários</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Desconto em folha e limites de crédito.</p>
-            </div>
-            <span className="text-[11px] font-semibold mt-4 text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-              Gerenciar <span className="transition-transform group-hover:translate-x-0.5">&rarr;</span>
-            </span>
-          </Link>
-
-          {/* Catálogo de Produtos */}
-          <Link href="/produtos" className={cardClass}>
-            <div>
-              <div className="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3 text-base group-hover:scale-110 transition-all">🏷️</div>
-              <h3 className="text-xs sm:text-sm font-semibold">Catálogo de Produtos</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Visualize itens e estoques cadastrados.</p>
+              <div className="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3 text-base group-hover:scale-110 transition-all">📦</div>
+              <h3 className="text-xs sm:text-sm font-semibold">Pedidos WhatsApp</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Visualize e envie pedidos consolidados.</p>
             </div>
             <span className="text-[11px] font-semibold mt-4 text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
-              Acessar <span className="transition-transform group-hover:translate-x-0.5">&rarr;</span>
-            </span>
-          </Link>
-
-          {/* Entrada de Notas Fiscais */}
-          <Link href="/notas/entrada" className={cardClass}>
-            <div>
-              <div className="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-3 text-base group-hover:scale-110 transition-all">📄</div>
-              <h3 className="text-xs sm:text-sm font-semibold">Entrada de Notas (XML)</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Dê entrada em mercadorias via NF-e.</p>
-            </div>
-            <span className="text-[11px] font-semibold mt-4 text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-              Acessar <span className="transition-transform group-hover:translate-x-0.5">&rarr;</span>
-            </span>
-          </Link>
-
-          {/* Inteligência de Margens */}
-          <Link href="/relatorios/margens" className={cardClass}>
-            <div>
-              <div className="w-10 h-10 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3 text-base group-hover:scale-110 transition-all">💎</div>
-              <h3 className="text-xs sm:text-sm font-semibold">Inteligência de Margens</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Auditoria de custo vs preço de venda.</p>
-            </div>
-            <span className="text-[11px] font-semibold mt-4 text-purple-600 dark:text-purple-400 flex items-center gap-1">
               Acessar <span className="transition-transform group-hover:translate-x-0.5">&rarr;</span>
             </span>
           </Link>
@@ -219,18 +218,6 @@ export function DashboardQuickAccess({
             </div>
           )}
 
-          {/* Pedidos para Distribuidores */}
-          <Link href={latestQuotationId ? `/cotacoes/pedidos/${latestQuotationId}` : '/cotacoes'} className={cardClass}>
-            <div>
-              <div className="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3 text-base group-hover:scale-110 transition-all">📦</div>
-              <h3 className="text-xs sm:text-sm font-semibold">Pedidos WhatsApp</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Visualize e envie pedidos gerados.</p>
-            </div>
-            <span className="text-[11px] font-semibold mt-4 text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
-              Acessar <span className="transition-transform group-hover:translate-x-0.5">&rarr;</span>
-            </span>
-          </Link>
-
           {/* Central de Importação */}
           {canImportData ? (
             <Link href="/importar" className={cardClass}>
@@ -253,6 +240,52 @@ export function DashboardQuickAccess({
               <span className="text-[11px] font-semibold mt-4 text-rose-500">Bloqueado</span>
             </div>
           )}
+
+        </div>
+      </div>
+
+      {/* 4. GESTÃO INTERNA & RELATÓRIOS */}
+      <div className="border-t border-slate-200 dark:border-slate-800 pt-5">
+        <div className="text-[11px] font-black uppercase tracking-wider text-slate-400 mb-3">
+          💎 Gestão Interna & Inteligência
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          
+          {/* Convênios & Funcionários */}
+          <Link href="/financeiro/convenios" className={cardClass}>
+            <div>
+              <div className="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-3 text-base group-hover:scale-110 transition-all">🤝</div>
+              <h3 className="text-xs sm:text-sm font-semibold">Convênios & Funcionários</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Desconto em folha e limites de crédito.</p>
+            </div>
+            <span className="text-[11px] font-semibold mt-4 text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+              Gerenciar <span className="transition-transform group-hover:translate-x-0.5">&rarr;</span>
+            </span>
+          </Link>
+
+          {/* Catálogo de Produtos */}
+          <Link href="/produtos" className={cardClass}>
+            <div>
+              <div className="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3 text-base group-hover:scale-110 transition-all">🏷️</div>
+              <h3 className="text-xs sm:text-sm font-semibold">Catálogo de Produtos</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Visualize itens, stock atual e preços.</p>
+            </div>
+            <span className="text-[11px] font-semibold mt-4 text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+              Acessar <span className="transition-transform group-hover:translate-x-0.5">&rarr;</span>
+            </span>
+          </Link>
+
+          {/* Inteligência de Margens */}
+          <Link href="/relatorios/margens" className={cardClass}>
+            <div>
+              <div className="w-10 h-10 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3 text-base group-hover:scale-110 transition-all">💎</div>
+              <h3 className="text-xs sm:text-sm font-semibold">Inteligência de Margens</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Auditoria de custo vs preço de venda.</p>
+            </div>
+            <span className="text-[11px] font-semibold mt-4 text-purple-600 dark:text-purple-400 flex items-center gap-1">
+              Acessar <span className="transition-transform group-hover:translate-x-0.5">&rarr;</span>
+            </span>
+          </Link>
 
         </div>
       </div>
