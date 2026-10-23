@@ -96,11 +96,11 @@ export async function POST(request: NextRequest) {
         subtotal: String(itemSubtotal.toFixed(2)),
       });
 
-      // Baixa de estoque apenas se a venda não estiver bloqueada por suspeita de fraude
+      // Baixa de estoque permitindo valores negativos caso ultrapasse o saldo atual
       if (!isSuspectedFraud) {
         const [prod] = await db.select().from(products).where(eq(products.id, item.productId));
         if (prod) {
-          const newStock = Math.max(0, prod.stockCurrent - q);
+          const newStock = prod.stockCurrent - q;
           await db
             .update(products)
             .set({ stockCurrent: newStock })
