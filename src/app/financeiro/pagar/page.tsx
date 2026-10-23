@@ -6,6 +6,9 @@ import { useTheme } from '@/context/ThemeContext';
 import { AppHeader } from '@/components/AppHeader';
 import { getCompanyId } from '@/lib/companySession';
 import { apiFetch } from '@/lib/apiClient';
+import { FinanceStatsCards } from '@/components/financeiro/FinanceStatsCards';
+import { FinancePayableFilterBar } from '@/components/financeiro/FinancePayableFilterBar';
+import { FinancePayableModal } from '@/components/financeiro/FinancePayableModal';
 
 interface TitlePayable {
   id: string;
@@ -24,7 +27,18 @@ export default function FinancePayablePage() {
 
   const [titles, setTitles] = useState<TitlePayable[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterPeriod, setFilterPeriod] = useState<'all' | 'week' | 'month' | 'overdue'>('all');
+  
+  // Configurar por defeito o mês atual (do dia 1º até ao último dia do mês)
+  const todayObj = new Date();
+  const year = todayObj.getFullYear();
+  const month = todayObj.getMonth();
+
+  const firstDayOfMonth = new Date(year, month, 1).toISOString().split('T')[0];
+  const lastDayOfMonth = new Date(year, month + 1, 0).toISOString().split('T')[0];
+
+  const [startDate, setStartDate] = useState(firstDayOfMonth);
+  const [endDate, setEndDate] = useState(lastDayOfMonth);
+  const [activePreset, setActivePreset] = useState<'all' | 'today' | 'week' | 'month' | 'overdue'>('month');
   
   // Modal de Adicionar Título Manual
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -129,7 +143,6 @@ export default function FinancePayablePage() {
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // Função para Disparar Alerta via WhatsApp (Filtra Vence Hoje e Vencidos)
   const handleSendWhatsAppAlert = () => {
     const criticalTitles = titles.filter((t) => {
       const due = t.dueDate.split('T')[0];
@@ -158,22 +171,38 @@ export default function FinancePayablePage() {
     window.open(`https://api.whatsapp.com/send?text=${encoded}`, '_blank');
   };
 
+  const setPresetFilter = (preset: 'all' | 'today' | 'week' | 'month' | 'overdue') => {
+    setActivePreset(preset);
+    const now = new Date();
+    const yr = now.getFullYear();
+    const mth = now.getMonth();
+
+    if (preset === 'today') {
+      const dt = now.toISOString().split('T')[0];
+      setStartDate(dt);
+      setEndDate(dt);
+    } else if (preset === 'week') {
+      const firstDay = new Date(now.setDate(now.getDate() - now.getDay()));
+      const lastDay = new Date(now.setDate(now.getDate() + 6));
+      setStartDate(firstDay.toISOString().split('T')[0]);
+      setEndDate(lastDay.toISOString().split('T')[0]);
+    } else if (preset === 'month') {
+      const firstDay = new Date(yr, mth, 1);
+      const lastDay = new Date(yr, mth + 1, 0);
+      setStartDate(firstDay.toISOString().split('T')[0]);
+      setEndDate(lastDay.toISOString().split('T')[0]);
+    } else if (preset === 'all') {
+      setStartDate(`${yr}-01-01`);
+      setEndDate(`${yr + 1}-12-31`);
+    }
+  };
+
   const filteredTitles = titles.filter((t) => {
     const due = t.dueDate.split('T')[0];
-    if (filterPeriod === 'overdue') {
+    if (activePreset === 'overdue') {
       return t.status === 'PENDING' && due < todayStr;
     }
-    if (filterPeriod === 'week') {
-      const diffTime = new Date(due).getTime() - new Date(todayStr).getTime();
-      const diffDays = diffTime / (1000 * 3600 * 24);
-      return t.status === 'PENDING' && diffDays >= 0 && diffDays <= 7;
-    }
-    if (filterPeriod === 'month') {
-      const dueMonth = due.substring(0, 7);
-      const currentMonth = todayStr.substring(0, 7);
-      return t.status === 'PENDING' && dueMonth === currentMonth;
-    }
-    return true;
+    return due >= startDate && due <= endDate;
   });
 
   const totalPendente = titles
@@ -219,63 +248,32 @@ export default function FinancePayablePage() {
           </div>
         </div>
 
-        {/* KPIs Financeiros */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className={`p-6 rounded-3xl border shadow-xl ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-            <span className="text-xs uppercase font-extrabold opacity-60">Total a Pagar (Pendente)</span>
-            <div className="text-2xl font-black font-mono mt-1 text-amber-600 dark:text-amber-400">
-              R$ {totalPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </div>
-            <p className="text-[11px] opacity-50 mt-1">Soma de todos os boletos em aberto.</p>
-          </div>
+        <FinanceStatsCards
+          totalPendente={totalPendente}
+          totalVencido={totalVencido}
+          isDarkMode={isDarkMode}
+        />
 
-          <div className={`p-6 rounded-3xl border shadow-xl ${totalVencido > 0 ? (isDarkMode ? 'bg-rose-950/30 border-rose-900/60' : 'bg-rose-50 border-rose-200') : (isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200')}`}>
-            <span className="text-xs uppercase font-extrabold opacity-60">Títulos Vencidos</span>
-            <div className="text-2xl font-black font-mono mt-1 text-rose-600 dark:text-rose-400">
-              R$ {totalVencido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </div>
-            <p className="text-[11px] opacity-50 mt-1">Requer atenção imediata para evitar juros.</p>
-          </div>
-        </div>
-
-        {/* Filtros de Período */}
-        <div className={`p-6 rounded-3xl border shadow-xl flex flex-wrap items-center gap-2 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-          <button
-            type="button"
-            onClick={() => setFilterPeriod('all')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${filterPeriod === 'all' ? 'bg-indigo-600 text-white' : 'bg-slate-500/10 opacity-70'}`}
-          >
-            Todos os Títulos ({titles.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterPeriod('week')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${filterPeriod === 'week' ? 'bg-indigo-600 text-white' : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'}`}
-          >
-            📅 Vence nesta Semana
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterPeriod('month')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${filterPeriod === 'month' ? 'bg-indigo-600 text-white' : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'}`}
-          >
-            🗓️ Deste Mês
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterPeriod('overdue')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${filterPeriod === 'overdue' ? 'bg-rose-600 text-white' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'}`}
-          >
-            🚨 Vencidos
-          </button>
-        </div>
+        <FinancePayableFilterBar
+          startDate={startDate}
+          setStartDate={setStartDate}
+          endDate={endDate}
+          setEndDate={setEndDate}
+          onApplyFilter={() => {
+            setActivePreset('all');
+          }}
+          activePreset={activePreset}
+          setPresetFilter={setPresetFilter}
+          totalCount={titles.length}
+          isDarkMode={isDarkMode}
+        />
 
         {/* Tabela de Contas a Pagar */}
         <div className={`p-8 rounded-3xl border shadow-xl ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
           {loading ? (
             <p className="text-center py-12 text-xs opacity-50">Carregando títulos financeiros...</p>
           ) : filteredTitles.length === 0 ? (
-            <p className="text-center py-12 text-xs opacity-50">Nenhum título encontrado para o filtro selecionado.</p>
+            <p className="text-center py-12 text-xs opacity-50">Nenhum título encontrado para o período selecionado.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
@@ -299,7 +297,11 @@ export default function FinancePayablePage() {
                       <tr key={t.id} className="hover:bg-slate-500/5 transition">
                         <td className="p-3 font-sans font-bold">{t.supplierName}</td>
                         <td className="p-3 text-center">
-                          {t.invoiceNumber ? `NF ${t.invoiceNumber}` : 'Avulso'} (P. {t.installmentNumber})
+                          {t.invoiceNumber ? (
+                            t.invoiceNumber.includes('/') 
+                              ? `NF ${t.invoiceNumber.split('/')[0]} / Parcela Nº ${t.invoiceNumber.split('/')[1]}`
+                              : `NF ${t.invoiceNumber.replace(' - ', ' / ')}`
+                          ) : 'Avulso'}
                         </td>
                         <td className={`p-3 text-center font-bold ${isOverdue ? 'text-rose-600 dark:text-rose-400' : isDueToday ? 'text-amber-600 dark:text-amber-400' : ''}`}>
                           {new Date(t.dueDate).toLocaleDateString('pt-BR')}
@@ -349,71 +351,20 @@ export default function FinancePayablePage() {
         </div>
       </main>
 
-      {/* Modal de Registo Manual de Título */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className={`w-full max-w-lg p-8 rounded-3xl border shadow-2xl space-y-6 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-            <div className="flex justify-between items-center border-b pb-3 border-slate-500/10">
-              <h3 className="text-sm font-black uppercase tracking-wider">Registar Novo Boleto / Título</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-xs opacity-50 hover:opacity-100 font-bold cursor-pointer">✕ Fechar</button>
-            </div>
-
-            <form onSubmit={handleCreateManual} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold mb-1">Fornecedor / Distribuidora *</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Armazéns Martins"
-                  value={newSupplier}
-                  onChange={(e) => setNewSupplier(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border rounded-xl bg-white dark:bg-slate-950 uppercase"
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold mb-1">Nº da Nota / Documento</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: 98765"
-                    value={newInvoice}
-                    onChange={(e) => setNewInvoice(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border rounded-xl bg-white dark:bg-slate-950 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold mb-1">Valor da Parcela (R$) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0,00"
-                    value={newAmount}
-                    onChange={(e) => setNewAmount(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border rounded-xl bg-white dark:bg-slate-950 font-mono font-bold text-emerald-600"
-                    required
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold mb-1">Data de Vencimento *</label>
-                <input
-                  type="date"
-                  value={newDueDate}
-                  onChange={(e) => setNewDueDate(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border rounded-xl bg-white dark:bg-slate-950 font-mono"
-                  required
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-500/10">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-500/10 cursor-pointer">Cancelar</button>
-                <button type="submit" className="px-6 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md cursor-pointer">Guardar Título</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <FinancePayableModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleCreateManual}
+        newSupplier={newSupplier}
+        setNewSupplier={setNewSupplier}
+        newInvoice={newInvoice}
+        setNewInvoice={setNewInvoice}
+        newAmount={newAmount}
+        setNewAmount={setNewAmount}
+        newDueDate={newDueDate}
+        setNewDueDate={setNewDueDate}
+        isDarkMode={isDarkMode}
+      />
     </div>
   );
 }
