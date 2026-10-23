@@ -1,16 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { PDVPaymentModal } from './PDVPaymentModal';
+import { PDVPaymentModal, PaymentSplit } from './PDVPaymentModal';
 
 interface PartnerItem {
   id: string;
   name: string;
-}
-
-interface PaymentSplit {
-  method: 'CASH' | 'PIX' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'CONVENIO';
-  amount: number;
 }
 
 interface PDVCheckoutPanelProps {
@@ -23,6 +18,7 @@ interface PDVCheckoutPanelProps {
   loading: boolean;
   onCheckout: (splits?: PaymentSplit[], change?: number) => void;
   isDarkMode: boolean;
+  onNotify?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
 }
 
 export function PDVCheckoutPanel({
@@ -35,6 +31,7 @@ export function PDVCheckoutPanel({
   loading,
   onCheckout,
   isDarkMode,
+  onNotify,
 }: PDVCheckoutPanelProps) {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
@@ -113,13 +110,16 @@ export function PDVCheckoutPanel({
 
       {/* Modal de Pagamento Misto & Troco (Com atalho F10 para concluir) */}
       <PDVPaymentModal
+        key={isPaymentModalOpen ? 'open' : 'closed'}
         isOpen={isPaymentModalOpen}
         onClose={() => setIsPaymentModalOpen(false)}
         totalCart={totalCart}
         onConfirmPayment={(splits, change) => {
+          setIsPaymentModalOpen(false);
           onCheckout(splits, change);
         }}
         isDarkMode={isDarkMode}
+        onNotify={onNotify}
       />
 
     </div>

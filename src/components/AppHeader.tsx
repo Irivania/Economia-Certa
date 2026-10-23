@@ -107,7 +107,6 @@ export function AppHeader({ title, subtitle, onOpenCmd }: AppHeaderProps) {
   const userName = session.name || '';
   const userRole = session.role ? String(session.role).toUpperCase() : '';
 
-  // Verificar se o utilizador logado é operador de caixa (geral ou operador)
   const roleLower = String(session.role || '').toLowerCase();
   const isOperator = roleLower === 'geral' || roleLower === 'operador';
 
@@ -115,26 +114,26 @@ export function AppHeader({ title, subtitle, onOpenCmd }: AppHeaderProps) {
   const themeStyles = colorMap[activeThemeKey] || colorMap['blue-light'];
 
   return (
-    <header className={`${themeStyles.header} pb-16 pt-8 px-4 sm:px-6 lg:px-8 shadow-md relative overflow-hidden border-b transition-colors duration-300`}>
+    <header className={`${themeStyles.header} py-3.5 px-4 sm:px-6 lg:px-8 shadow-md relative overflow-hidden border-b transition-colors duration-300 shrink-0`}>
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent pointer-events-none" />
       
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
-        <div className="space-y-3 w-full md:w-auto">
+      <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-3 relative z-10">
+        <div className="space-y-1.5 w-full md:w-auto">
           {/* Informações de Contexto Organizadas */}
           <div className="flex flex-wrap items-center gap-2">
-            <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-md border text-xs font-semibold tracking-wider uppercase backdrop-blur-md ${themeStyles.badge}`}>
-              <span className={`w-2 h-2 rounded-full ${themeStyles.dot} animate-pulse`} />
+            <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px] font-semibold tracking-wider uppercase backdrop-blur-md ${themeStyles.badge}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${themeStyles.dot} animate-pulse`} />
               Loja • {companyName}
             </div>
 
             {userName && (
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-white/20 bg-black/20 backdrop-blur-md text-xs font-semibold text-white uppercase tracking-wider">
+              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-white/20 bg-black/20 backdrop-blur-md text-[11px] font-semibold text-white uppercase tracking-wider">
                 👤 {userName} {userRole && `• ${userRole}`}
               </div>
             )}
 
             {/* Controles Rápidos Compactos (Tema, Modo Escuro e Busca) */}
-            <div className="flex items-center gap-2 bg-black/25 backdrop-blur-md px-2.5 py-1 rounded-md border border-white/15 text-xs ml-auto sm:ml-0">
+            <div className="flex items-center gap-2 bg-black/25 backdrop-blur-md px-2 py-0.5 rounded-md border border-white/15 text-xs ml-auto sm:ml-0">
               <div className="flex items-center gap-1.5">
                 {(['emerald', 'blue', 'purple'] as ThemeColor[]).map((baseColor) => {
                   const isSelected = activeThemeKey.startsWith(baseColor);
@@ -143,7 +142,7 @@ export function AppHeader({ title, subtitle, onOpenCmd }: AppHeaderProps) {
                       key={baseColor}
                       onClick={() => setThemeColor(isSelected && activeThemeKey.includes('light') ? (baseColor as ThemeColor) : (`${baseColor}-light` as ThemeColor))}
                       title="Alternar tonalidade do tema"
-                      className={`w-3.5 h-3.5 rounded-full transition-transform cursor-pointer ${
+                      className={`w-3 h-3 rounded-full transition-transform cursor-pointer ${
                         baseColor === 'emerald' ? 'bg-emerald-500' : baseColor === 'blue' ? 'bg-blue-500' : 'bg-purple-500'
                       } ${isSelected ? 'scale-110 ring-2 ring-white' : 'opacity-60 hover:opacity-100'}`}
                     />
@@ -156,7 +155,7 @@ export function AppHeader({ title, subtitle, onOpenCmd }: AppHeaderProps) {
               <button 
                 onClick={toggleDarkMode} 
                 title="Alternar Modo Escuro / Claro"
-                className="text-white/90 hover:text-white transition-colors cursor-pointer text-xs"
+                className="text-white/90 hover:text-white transition-colors cursor-pointer text-[11px]"
               >
                 {isDarkMode ? '☀️' : '🌙'}
               </button>
@@ -166,7 +165,7 @@ export function AppHeader({ title, subtitle, onOpenCmd }: AppHeaderProps) {
               <button
                 onClick={onOpenCmd}
                 title="Busca Rápida (Ctrl + K)"
-                className="bg-white/20 hover:bg-white/30 text-white px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider transition-colors border border-white/20 cursor-pointer"
+                className="bg-white/20 hover:bg-white/30 text-white px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider transition-colors border border-white/20 cursor-pointer"
               >
                 ⌘K
               </button>
@@ -174,27 +173,27 @@ export function AppHeader({ title, subtitle, onOpenCmd }: AppHeaderProps) {
           </div>
 
           {/* Título e Subtítulo */}
-          <div className="space-y-1">
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2">
-              {title} <span className={`${themeStyles.accentText} font-light text-xl`}>ERP</span>
+          <div className="flex items-baseline gap-2">
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white flex items-center gap-1.5">
+              {title} <span className={`${themeStyles.accentText} font-light text-base`}>ERP</span>
             </h1>
-            <p className="text-xs sm:text-sm text-white/90 font-medium">{subtitle}</p>
+            <span className="text-xs text-white/80 font-medium hidden sm:inline">• {subtitle}</span>
           </div>
         </div>
 
         {/* Botões de Ação Global (Ocultos para Operador) ou Badge Elegante de Caixa */}
-        <div className="flex items-center gap-2.5 w-full md:w-auto justify-start md:justify-end">
+        <div className="flex items-center gap-2 w-full md:w-auto justify-start md:justify-end">
           {isOperator ? (
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/15 backdrop-blur-md border border-white/25 text-white text-xs font-black uppercase tracking-wider shadow-md">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/15 backdrop-blur-md border border-white/25 text-white text-xs font-black uppercase tracking-wider shadow-md">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               ⚡ Terminal de Caixa Exclusivo
             </div>
           ) : (
             <>
-              <Link href="/" className="bg-white/10 hover:bg-white/20 text-white font-semibold text-xs px-3.5 py-2.5 rounded-lg transition-all border border-white/20 whitespace-nowrap">
+              <Link href="/" className="bg-white/10 hover:bg-white/20 text-white font-semibold text-xs px-3 py-1.5 rounded-lg transition-all border border-white/20 whitespace-nowrap">
                 &larr; Dashboard
               </Link>
-              <Link href="/cotacoes/nova" className={`${themeStyles.button} font-bold text-xs px-4 py-2.5 rounded-lg transition-all shadow-md whitespace-nowrap`}>
+              <Link href="/cotacoes/nova" className={`${themeStyles.button} font-bold text-xs px-3.5 py-1.5 rounded-lg transition-all shadow-md whitespace-nowrap`}>
                 Nova Cotação
               </Link>
             </>

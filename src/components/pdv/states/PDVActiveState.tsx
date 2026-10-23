@@ -13,31 +13,43 @@ interface PDVActiveStateProps {
 
 export const PDVActiveState = React.memo(function PDVActiveState({ pdv, isDarkMode }: PDVActiveStateProps) {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <PDVProductSearch
-        searchTerm={pdv.searchTerm}
-        setSearchTerm={pdv.setSearchTerm}
-        filteredProducts={pdv.filteredProducts}
-        onSelectProduct={pdv.handleAddToCart}
-        inputRef={pdv.searchInputRef}
-        onKeyDown={pdv.handleKeyDown}
-        isDarkMode={isDarkMode}
-        isOperator={pdv.isOperator}
-      />
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-full items-start overflow-hidden pb-1">
+      
+      {/* Coluna Esquerda (7 Colunas): Busca de Produtos + Carrinho Maximizado e Limpo */}
+      <div className="lg:col-span-7 flex flex-col space-y-3 h-full overflow-hidden">
+        
+        {/* Componente de Busca / Lançamento de Produtos (Sem blocos poluentes) */}
+        <div className={`p-4 rounded-3xl border shadow-lg shrink-0 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+          <PDVProductSearch
+            searchTerm={pdv.searchTerm}
+            setSearchTerm={pdv.setSearchTerm}
+            filteredProducts={pdv.filteredProducts}
+            onSelectProduct={pdv.handleAddToCart}
+            inputRef={pdv.searchInputRef}
+            onKeyDown={pdv.handleKeyDown}
+            isDarkMode={isDarkMode}
+            isOperator={pdv.isOperator}
+          />
+        </div>
 
-      <div className={`p-6 rounded-3xl border shadow-xl flex flex-col justify-between space-y-4 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-        <PDVCartList
-          cart={pdv.cart}
-          onRequestAction={pdv.requestManagerAction}
-          editingProductId={pdv.editingProductId}
-          editPrice={pdv.editPrice}
-          setEditPrice={pdv.setEditPrice}
-          editQty={pdv.editQty}
-          setEditQty={pdv.setEditQty}
-          onSaveEdit={pdv.handleSaveItemEdit}
-          onCancelEdit={() => pdv.setEditingProductId(null)}
-        />
+        {/* Lista do Carrinho Maximizada (Ocupa todo o espaço livre com scroll interno elegante) */}
+        <div className={`p-4 rounded-3xl border shadow-lg flex-1 overflow-y-auto flex flex-col ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+          <PDVCartList
+            cart={pdv.cart}
+            onRequestAction={pdv.requestManagerAction}
+            editingProductId={pdv.editingProductId}
+            editPrice={pdv.editPrice}
+            setEditPrice={pdv.setEditPrice}
+            editQty={pdv.editQty}
+            setEditQty={pdv.setEditQty}
+            onSaveEdit={pdv.handleSaveItemEdit}
+            onCancelEdit={() => pdv.setEditingProductId(null)}
+          />
+        </div>
+      </div>
 
+      {/* Coluna Direita (5 Colunas): Painel de Checkout / F9 */}
+      <div className="lg:col-span-5 flex flex-col h-full">
         <PDVCheckoutPanel
           partners={pdv.partners}
           selectedPartnerId={pdv.selectedPartnerId}
@@ -50,6 +62,7 @@ export const PDVActiveState = React.memo(function PDVActiveState({ pdv, isDarkMo
           isDarkMode={isDarkMode}
         />
       </div>
+
     </div>
   );
 });

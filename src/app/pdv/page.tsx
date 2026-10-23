@@ -58,36 +58,38 @@ export default function PDVPage() {
   }
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
-      <AppHeader
-        title={PDV_TEXTS.title}
-        subtitle={PDV_TEXTS.subtitle}
-        onOpenCmd={() => {}}
-      />
+    <div className={`h-screen w-screen overflow-hidden flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+      <div className="shrink-0">
+        <AppHeader
+          title={PDV_TEXTS.title}
+          subtitle={PDV_TEXTS.subtitle}
+          onOpenCmd={() => {}}
+        />
+      </div>
 
-      <main className="max-w-7xl mx-auto px-6 -mt-8 pb-20 relative z-20 space-y-6">
-        <div className="flex justify-between items-center">
+      <main className="max-w-7xl w-full mx-auto px-6 py-3 flex-1 flex flex-col justify-start relative z-20 space-y-3 overflow-hidden">
+        <div className="flex justify-between items-center shrink-0">
           {!pdv.isOperator ? (
             <Link
               href="/"
               aria-label={PDV_TEXTS.ariaBackHome}
-              className="font-bold text-xs bg-white dark:bg-slate-900 px-4 py-2 rounded-xl shadow-md border border-slate-200 dark:border-slate-800 inline-flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="font-bold text-xs bg-white dark:bg-slate-900 px-3.5 py-1.5 rounded-xl shadow-md border border-slate-200 dark:border-slate-800 inline-flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               &larr; {PDV_TEXTS.backHome}
             </Link>
           ) : (
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white/15 backdrop-blur-md border border-white/25 text-white text-xs font-black uppercase tracking-wider shadow-md" role="status">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-white/15 backdrop-blur-md border border-white/25 text-white text-xs font-black uppercase tracking-wider shadow-md" role="status">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
               ⚡ {PDV_TEXTS.terminalLabel}
             </div>
           )}
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={handleOpenShortcuts}
               aria-label={PDV_TEXTS.ariaShortcuts}
-              className="font-black text-xs bg-white text-indigo-700 hover:bg-slate-100 px-4 py-2.5 rounded-xl border border-white/40 shadow-md inline-flex items-center gap-1.5 transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="font-black text-xs bg-white text-indigo-700 hover:bg-slate-100 px-3 py-1.5 rounded-xl border border-white/40 shadow-md inline-flex items-center gap-1.5 transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               ⌨️ {PDV_TEXTS.shortcutsGuide}
             </button>
@@ -95,20 +97,22 @@ export default function PDVPage() {
             <Link
               href="/pdv/caixa"
               aria-label={PDV_TEXTS.ariaShift}
-              className="font-black text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl shadow-md inline-flex items-center gap-1.5 transition focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              className="font-black text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-xl shadow-md inline-flex items-center gap-1.5 transition focus:outline-none focus:ring-2 focus:ring-emerald-400"
             >
               <Coffee className="w-3.5 h-3.5" aria-hidden="true" /> {PDV_TEXTS.shiftManagement} 💵
             </Link>
           </div>
         </div>
 
-        {!pdv.isRegisterOpen ? (
-          <PDVClosedState isDarkMode={isDarkMode} />
-        ) : pdv.isPaused ? (
-          <PDVPausedState isDarkMode={isDarkMode} />
-        ) : (
-          <PDVActiveState pdv={pdv} isDarkMode={isDarkMode} />
-        )}
+        <div className="flex-1 flex flex-col overflow-hidden pb-2">
+          {!pdv.isRegisterOpen ? (
+            <PDVClosedState isDarkMode={isDarkMode} />
+          ) : pdv.isPaused ? (
+            <PDVPausedState isDarkMode={isDarkMode} />
+          ) : (
+            <PDVActiveState pdv={pdv} isDarkMode={isDarkMode} />
+          )}
+        </div>
       </main>
 
       <ManagerAuthModal

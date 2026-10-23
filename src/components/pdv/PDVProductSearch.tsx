@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 interface ProductItem {
   id: string;
@@ -33,6 +33,17 @@ export function PDVProductSearch({
   isOperator = false,
 }: PDVProductSearchProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  // Auto-scroll para garantir que o item selecionado por teclado fique sempre visível
+  useEffect(() => {
+    if (itemRefs.current[selectedIndex]) {
+      itemRefs.current[selectedIndex]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    }
+  }, [selectedIndex]);
 
   const handleInternalKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -41,7 +52,6 @@ export function PDVProductSearch({
       let qty = 1;
       let query = searchTerm.trim();
 
-      // Extrai o multiplicador se existir (Ex: 4*789...)
       if (query.includes('*')) {
         const parts = query.split('*');
         const parsed = parseInt(parts[0], 10);
@@ -53,7 +63,6 @@ export function PDVProductSearch({
 
       if (!query && filteredProducts.length === 0) return;
 
-      // Pega o produto destacado pela seta (selectedIndex) ou o primeiro da lista filtrada
       const target = filteredProducts[selectedIndex] || filteredProducts[0];
 
       if (target) {
@@ -114,7 +123,7 @@ export function PDVProductSearch({
           />
         </div>
 
-        {/* Sugestões em tempo real */}
+        {/* Sugestões em tempo real com Auto-Scroll */}
         {searchTerm.trim().length > 0 && (
           <div className="border rounded-2xl max-h-60 overflow-y-auto divide-y divide-slate-500/10 bg-slate-50 dark:bg-slate-950 shadow-lg relative z-30">
             {filteredProducts.length === 0 ? (
@@ -125,6 +134,7 @@ export function PDVProductSearch({
                 return (
                   <button
                     key={p.id}
+                    ref={(el) => { itemRefs.current[idx] = el; }}
                     type="button"
                     onClick={() => {
                       let qty = 1;
@@ -167,15 +177,6 @@ export function PDVProductSearch({
             )}
           </div>
         )}
-      </div>
-
-      <div className="p-5 rounded-2xl border bg-slate-500/5 border-slate-500/10 space-y-2">
-        <h4 className="font-bold text-xs uppercase tracking-wider opacity-70">Regras e Convênios:</h4>
-        <ul className="text-[11px] opacity-60 space-y-1 font-sans">
-          <li>Navegação: Use as <code className="font-bold">Setas ↕</code> na lista e pressione <code className="font-bold">Enter</code> para adicionar.</li>
-          <li>Multiplicador: Digite <code className="font-bold">Qtd*EAN</code> e pressione Enter (Ex: <code className="font-bold">4*789...</code>).</li>
-          <li>Cancelar itens ou alterar preços exige obrigatoriamente a introdução do <strong>PIN do Gerente</strong>.</li>
-        </ul>
       </div>
     </div>
   );
