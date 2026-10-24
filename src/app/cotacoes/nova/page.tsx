@@ -1,415 +1,145 @@
 'use client';
 
-import {
-  FormEvent,
-  useEffect,
-  useState,
-  useCallback,
-  useSyncExternalStore,
-} from 'react';
-import Link from 'next/link';
+import { FormEvent, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import ProductSelectionModal from '@/components/ProductSelectionModal';
-import QuotationFormHeader from '@/components/QuotationFormHeader';
 import QuotationBasicInfo from '@/components/QuotationBasicInfo';
 import QuotationItemsTable from '@/components/QuotationItemsTable';
-import QuotationSuppliersSection from '@/components/QuotationSuppliersSection';
 import QuotationSuggestionBar from '@/components/QuotationSuggestionBar';
-import { ProductImportModal, ItemPendente, Product } from '@/components/ProductImportModal';
+import { ProductImportModal } from '@/components/ProductImportModal';
 import { useTheme } from '@/context/ThemeContext';
 import { AppHeader } from '@/components/AppHeader';
 import { CommandMenu } from '@/components/CommandMenu';
 import { getCompanyId } from '@/lib/companySession';
-import { apiFetch } from '@/lib/apiClient';
 
-interface Supplier {
-  id: string;
-  name: string;
-  contactPerson?: string | null;
-}
+import { useCatalogProducts } from '@/features/quotations/hooks/useCatalogProducts';
+import { useQuotationSuppliers } from '@/features/quotations/hooks/useQuotationSuppliers';
+import { useQuotationItems } from '@/features/quotations/hooks/useQuotationItems';
+import { useCreateQuotation } from '@/features/quotations/hooks/useCreateQuotation';
+import { useQuotationShortcuts } from '@/features/quotations/hooks/useQuotationShortcuts';
 
-interface QuotationItem {
-  id: string;
-  productId: string;
-  description: string;
-  brand: string | null;
-  ean: string | null;
-  imageUrl?: string | null;
-  stockCurrent: number;
-  stockIdeal: number;
-  requestedQuantity: number;
-}
+import { CreateQuotationHeader } from '@/features/quotations/components/CreateQuotationHeader';
+import { QuantityVisibilitySection } from '@/features/quotations/components/QuantityVisibilitySection';
+import { SuppliersSelectionCard } from '@/features/quotations/components/SuppliersSelectionCard';
+import { QuotationFormActions } from '@/features/quotations/components/QuotationFormActions';
+import { QuotationErrorAlert } from '@/features/quotations/components/QuotationErrorAlert';
 
 const companyId = getCompanyId();
-const emptySubscribe = () => () => {};
 
-function getTodayDateString() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const day = String(today.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-export default function Page() {
+export default function CreateQuotationPage() {
   const router = useRouter();
   const { isDarkMode } = useTheme();
-  const mounted = useSyncExternalStore(
-    emptySubscribe,
-    () => true,
-    () => false,
-  );
-  
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
-
-  const [title, setTitle] = useState('');
-  const [paymentTerms, setPaymentTerms] = useState('Boleto 28 Dias');
-  
-  const [startDate, setStartDate] = useState(getTodayDateString());
-  const [endDate, setEndDate] = useState('');
-  const [closingTime, setClosingTime] = useState('');
-  const [showQuantities, setShowQuantities] = useState(true);
-  const [selectedSupplierIds, setSelectedSupplierIds] = useState<string[]>([]);
-  
-  const [quotationItems, setQuotationItems] = useState<QuotationItem[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
   const [isCmdOpen, setIsCmdOpen] = useState(false);
 
-  const [loadingSuppliers, setLoadingSuppliers] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const catalog = useCatalogProducts();
+  const suppliersDomain = useQuotationSuppliers();
+  const itemsDomain = useQuotationItems();
+  const quotationForm = useCreateQuotation();
 
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-      e.preventDefault();
-      setIsCmdOpen((open) => !open);
-    }
-    if (e.key === 'Escape') {
-      setIsCmdOpen(false);
-    }
-  }, []);
+  useQuotationShortcuts({
+    onToggleCmd: () => setIsCmdOpen((prev) => !prev),
+    onCloseModals: () => setIsCmdOpen(false),
+  });
 
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
-
-  const loadProductsAndSuppliers = useCallback(async () => {
-    try {
-      const [supRes, prodRes] = await Promise.all([
-        apiFetch('/api/suppliers'),
-        apiFetch('/api/products')
-      ]);
-
-      if (supRes.ok) {
-        const supData = await supRes.json();
-        setSuppliers(Array.isArray(supData) ? supData : []);
-      }
-
-      let prodData = [];
-      if (prodRes.ok) {
-        prodData = await prodRes.json();
-      }
-      const productList = Array.isArray(prodData) ? prodData : prodData.products || prodData.data || [];
-      setCatalogProducts(productList);
-    } catch (loadError) {
-      console.error(loadError);
-      setError('Não foi possível carregar os dados iniciais.');
-    } finally {
-      setLoadingSuppliers(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function init() {
-      if (!isMounted) return;
-      await loadProductsAndSuppliers();
-    }
-
-    void init();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [loadProductsAndSuppliers]);
-
-  if (!mounted) {
-    return null;
-  }
-
-  const toggleSupplier = (supplierId: string) => {
-    setSelectedSupplierIds((current) =>
-      current.includes(supplierId)
-        ? current.filter((id) => id !== supplierId)
-        : [...current, supplierId],
-    );
-  };
-
-  const handleSelectAllSuppliers = () => {
-    setSelectedSupplierIds(suppliers.map((sup) => sup.id));
-  };
-
-  const handleDeselectAllSuppliers = () => {
-    setSelectedSupplierIds([]);
-  };
-
-  const handleRemoveItem = (id: string) => {
-    setQuotationItems(prev => prev.filter(item => item.id !== id && item.productId !== id));
-  };
-
-  const handleUpdateQuantity = (id: string, qty: number) => {
-    setQuotationItems(prev => prev.map(i => (i.id === id || i.productId === id) ? { ...i, requestedQuantity: qty } : i));
-  };
-
-  const handleApplyStockSuggestion = () => {
-    setQuotationItems(prev => prev.map(item => {
-      const stockIdeal = item.stockIdeal || 0;
-      const stockCurrent = item.stockCurrent || 0;
-      const suggestedQty = stockIdeal > stockCurrent ? stockIdeal - stockCurrent : item.requestedQuantity;
-      return {
-        ...item,
-        requestedQuantity: suggestedQty > 0 ? suggestedQty : item.requestedQuantity,
-      };
-    }));
-    alert('Sugestão de reposição aplicada com sucesso!');
-  };
-
-  const handleAddSelectedProducts = (selectedProductIds: string[]) => {
-    const productsToAdd = catalogProducts.filter(p => selectedProductIds.includes(p.id));
-
-    const newItems: QuotationItem[] = productsToAdd
-      .filter(p => !quotationItems.some(existing => existing.productId === p.id))
-      .map(p => {
-        const stockCurrent = p.stockCurrent || 0;
-        const stockIdeal = p.stockIdeal || 0;
-        const autoQty = stockIdeal > stockCurrent ? stockIdeal - stockCurrent : 0;
-
-        return {
-          id: p.id,
-          productId: p.id,
-          description: p.description,
-          brand: p.brand || null,
-          ean: p.ean || null,
-          imageUrl: p.imageUrl || null,
-          stockCurrent,
-          stockIdeal,
-          requestedQuantity: autoQty,
-        };
-      });
-
-    setQuotationItems(prev => [...prev, ...newItems]);
-  };
-
-  const handleQuickRegister = async (itemPendente: ItemPendente) => {
-    try {
-      const res = await apiFetch('/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          companyId,
-          description: itemPendente.descricaoPadronizada,
-          code: itemPendente.ean || null,
-          salePrice: itemPendente.precoVenda || 34.99,
-          stockIdeal: 10,
-          stockCurrent: 0,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Erro ao cadastrar produto.');
-
-      await loadProductsAndSuppliers();
-    } catch (err) {
-      console.error(err);
-      throw err;
-    }
-  };
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = useCallback(async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setError(null);
-
-    if (!title.trim() || !paymentTerms.trim() || selectedSupplierIds.length === 0 || quotationItems.length === 0) {
-      setError('Preencha todos os campos obrigatórios, selecione fornecedores e adicione itens.');
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      const response = await apiFetch('/api/quotations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          companyId,
-          title: title.trim(),
-          paymentTerms: paymentTerms.trim(),
-          supplierIds: selectedSupplierIds,
-          startDate: startDate || null,
-          endDate: endDate || null,
-          closingTime: closingTime || null,
-          showQuantities,
-          items: quotationItems,
-        }),
-      });
-
-      if (!response.ok) throw new Error('Não foi possível criar a cotação.');
-      router.push('/cotacoes');
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Erro ao criar cotação.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    await quotationForm.submitQuotation(
+      companyId,
+      suppliersDomain.selectedSupplierIds,
+      itemsDomain.quotationItems,
+      () => {
+        router.push('/cotacoes');
+      }
+    );
+  }, [quotationForm, suppliersDomain.selectedSupplierIds, itemsDomain.quotationItems, router]);
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+    <div className={`min-h-screen transition-colors duration-300 pb-24 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
       
-      <AppHeader
-        title="Economia Certa"
-        subtitle="Painel gerencial inteligente e controle de compras em tempo real."
-        onOpenCmd={() => setIsCmdOpen(true)}
-      />
+      {/* Cabeçalho verde com espaçamento interno adequado */}
+      <div className="pb-12">
+        <AppHeader
+          title="Economia Certa"
+          subtitle="Painel gerencial inteligente e controle de compras em tempo real."
+          onOpenCmd={() => setIsCmdOpen(true)}
+        />
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-20 relative z-20 space-y-6">
+      {/* Container principal com margem superior ajustada para evitar sobreposição */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 relative z-20 space-y-6">
         
-        <div className={`rounded-xl border p-6 sm:p-7 shadow-xs transition-all space-y-6 ${
+        <div className={`rounded-xl border p-6 sm:p-7 shadow-sm transition-all space-y-6 ${
           isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
         }`}>
           
-          <QuotationFormHeader onOpenModal={() => setIsCatalogModalOpen(true)} />
+          <CreateQuotationHeader onOpenModal={() => {}} />
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <QuotationBasicInfo
-              title={title}
-              setTitle={setTitle}
-              startDate={startDate}
-              setStartDate={setStartDate}
-              endDate={endDate}
-              setEndDate={setEndDate}
-              closingTime={closingTime}
-              setClosingTime={setClosingTime}
-              paymentTerms={paymentTerms}
-              setPaymentTerms={setPaymentTerms}
+              title={quotationForm.title}
+              setTitle={quotationForm.setTitle}
+              startDate={quotationForm.startDate}
+              setStartDate={quotationForm.setStartDate}
+              endDate={quotationForm.endDate}
+              setEndDate={quotationForm.setEndDate}
+              closingTime={quotationForm.closingTime}
+              setClosingTime={quotationForm.setClosingTime}
+              paymentTerms={quotationForm.paymentTerms}
+              setPaymentTerms={quotationForm.setPaymentTerms}
             />
 
             <ProductImportModal 
-              products={catalogProducts} 
-              onQuickRegister={handleQuickRegister} 
-              onImportComplete={(itensImportados) => {
-                setQuotationItems((prev) => {
-                  const existingIds = new Set(prev.map(i => i.productId));
-                  const novos = itensImportados.filter(i => !existingIds.has(i.productId));
-                  return [...prev, ...novos];
+              products={catalog.catalogProducts as unknown as Parameters<typeof ProductImportModal>[0]['products']} 
+              onQuickRegister={async (itemPendente) => {
+                await catalog.quickRegisterProduct({
+                  companyId,
+                  description: itemPendente.descricaoPadronizada,
+                  code: itemPendente.ean || null,
+                  salePrice: Number(itemPendente.precoVenda) || 34.99,
+                  stockIdeal: 10,
+                  stockCurrent: 0,
                 });
-              }}
+              }} 
+              onImportComplete={itemsDomain.handleImportComplete}
             />
 
             <QuotationSuggestionBar
-              itemsCount={quotationItems.length}
-              onApplySuggestion={handleApplyStockSuggestion}
+              itemsCount={itemsDomain.quotationItems.length}
+              onApplySuggestion={itemsDomain.handleApplyStockSuggestion}
             />
 
             <QuotationItemsTable
-              items={quotationItems}
-              searchTerm={searchTerm}
-              setSearchTerm={setSearchTerm}
-              onUpdateQuantity={handleUpdateQuantity}
-              onRemoveItem={handleRemoveItem}
+              items={itemsDomain.quotationItems}
+              searchTerm={itemsDomain.searchTerm}
+              setSearchTerm={itemsDomain.setSearchTerm}
+              onUpdateQuantity={itemsDomain.handleUpdateQuantity}
+              onRemoveItem={itemsDomain.handleRemoveItem}
             />
 
-            <div className={`rounded-xl border p-5 ${
-              isDarkMode ? 'border-indigo-900/60 bg-indigo-950/20' : 'border-indigo-100 bg-indigo-50/60'
-            }`}>
-              <h2 className="text-xs font-bold uppercase tracking-wider">Quantidade enviada aos representantes</h2>
-              <p className="mt-0.5 text-xs text-slate-500">
-                Escolha se os representantes verão a quantidade solicitada ao responder.
-              </p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <label className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3.5 transition ${
-                  showQuantities
-                    ? 'border-emerald-500 bg-emerald-500/10'
-                    : 'border-slate-200 dark:border-slate-800'
-                }`}>
-                  <input
-                    type="radio"
-                    name="quantity-visibility"
-                    checked={showQuantities}
-                    onChange={() => setShowQuantities(true)}
-                    className="mt-0.5 accent-emerald-600"
-                  />
-                  <span>
-                    <span className="block text-xs font-bold">Enviar com quantidade</span>
-                    <span className="mt-0.5 block text-[11px] text-slate-500">O representante verá a quantidade de cada item.</span>
-                  </span>
-                </label>
-                <label className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3.5 transition ${
-                  !showQuantities
-                    ? 'border-indigo-500 bg-indigo-500/10'
-                    : 'border-slate-200 dark:border-slate-800'
-                }`}>
-                  <input
-                    type="radio"
-                    name="quantity-visibility"
-                    checked={!showQuantities}
-                    onChange={() => setShowQuantities(false)}
-                    className="mt-0.5 accent-indigo-600"
-                  />
-                  <span>
-                    <span className="block text-xs font-bold">Enviar sem quantidade</span>
-                    <span className="mt-0.5 block text-[11px] text-slate-500">O representante informará os preços sem ver a quantidade.</span>
-                  </span>
-                </label>
-              </div>
-            </div>
+            <QuantityVisibilitySection
+              showQuantities={quotationForm.showQuantities}
+              setShowQuantities={quotationForm.setShowQuantities}
+              isDarkMode={isDarkMode}
+            />
 
-            <div className={`space-y-4 rounded-xl border p-5 transition-all ${
-              isDarkMode ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50/70 border-slate-200/90'
-            }`}>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
-                <h2 className="text-xs font-bold uppercase tracking-wider">Distribuidores / Fornecedores Convidados</h2>
-                <div className="flex items-center gap-3 text-xs font-semibold">
-                  <button type="button" onClick={handleSelectAllSuppliers} className="text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer">Marcar todos</button>
-                  <span className="opacity-30">|</span>
-                  <button type="button" onClick={handleDeselectAllSuppliers} className="text-slate-500 hover:underline cursor-pointer">Desmarcar todos</button>
-                </div>
-              </div>
+            <SuppliersSelectionCard
+              suppliers={suppliersDomain.suppliers}
+              selectedSupplierIds={suppliersDomain.selectedSupplierIds}
+              toggleSupplier={suppliersDomain.toggleSupplier}
+              handleSelectAllSuppliers={suppliersDomain.handleSelectAllSuppliers}
+              handleDeselectAllSuppliers={suppliersDomain.handleDeselectAllSuppliers}
+              loadingSuppliers={suppliersDomain.loadingSuppliers}
+              isDarkMode={isDarkMode}
+            />
 
-              <QuotationSuppliersSection
-                suppliers={suppliers}
-                selectedSupplierIds={selectedSupplierIds}
-                onToggleSupplier={toggleSupplier}
-                loading={loadingSuppliers}
-              />
-            </div>
+            <QuotationErrorAlert error={quotationForm.error} />
 
-            {error && <p role="alert" className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-3 text-xs font-semibold text-rose-500">{error}</p>}
-
-            <div className="flex flex-col-reverse gap-2.5 border-t border-slate-100 dark:border-slate-800 pt-5 sm:flex-row sm:justify-end">
-              <Link href="/cotacoes" className="rounded-lg px-4 py-2.5 text-center text-xs font-semibold transition-all border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800">Cancelar</Link>
-              <button type="submit" disabled={submitting || loadingSuppliers || suppliers.length === 0} className="rounded-lg bg-emerald-600 hover:bg-emerald-500 px-5 py-2.5 text-xs font-bold text-white shadow-xs transition-all disabled:opacity-50 cursor-pointer">
-                {submitting ? 'A criar...' : 'Criar cotação'}
-              </button>
-            </div>
+            <QuotationFormActions
+              submitting={quotationForm.submitting}
+              loadingSuppliers={suppliersDomain.loadingSuppliers}
+              suppliersLength={suppliersDomain.suppliers.length}
+            />
           </form>
-
-          <ProductSelectionModal
-            isOpen={isCatalogModalOpen}
-            onClose={() => setIsCatalogModalOpen(false)}
-            products={catalogProducts.map(p => ({
-              ...p,
-              brand: p.brand || undefined,
-              ean: p.ean || undefined,
-              imageUrl: p.imageUrl || undefined,
-            }))}
-            onAddSelectedProducts={handleAddSelectedProducts}
-          />
-
         </div>
-
       </main>
 
       <CommandMenu isOpen={isCmdOpen} onClose={() => setIsCmdOpen(false)} isDarkMode={isDarkMode} latestQuotationId="" />
