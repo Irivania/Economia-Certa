@@ -1,6 +1,6 @@
 'use client';
 
-type UserRole = 'admin' | 'gerente' | 'supervisor' | 'geral';
+import { UserRole } from '@/features/dashboard/types/user.types';
 
 interface RoleSelectionModalProps {
   isOpen: boolean;
@@ -16,6 +16,24 @@ export function RoleSelectionModal({
   onRoleChange,
 }: RoleSelectionModalProps) {
   if (!isOpen) return null;
+
+  const roles: UserRole[] = ['admin', 'gerente', 'supervisor', 'geral', 'operador'];
+
+  const titles: Record<UserRole, string> = {
+    admin: '👑 Administrador (Acesso Total)',
+    gerente: '💼 Gerente',
+    supervisor: '🛡️ Supervisor',
+    geral: '👤 Acesso Geral (Operador)',
+    operador: '⚡ Operador de Caixa (PDV)',
+  };
+
+  const desc: Record<UserRole, string> = {
+    admin: 'Controle completo de todas as funcionalidades, fornecedores e relatórios.',
+    gerente: 'Acesso a gestão de fornecedores, comparadores e relatórios financeiros.',
+    supervisor: 'Permite importação de dados e visualização de stocks críticos.',
+    geral: 'Apenas visualização do catálogo, cotações e comparador básico.',
+    operador: 'Acesso direto ao Terminal de Vendas (PDV) e operação de caixa.',
+  };
 
   return (
     <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
@@ -33,21 +51,8 @@ export function RoleSelectionModal({
           </button>
         </div>
 
-        <div className="space-y-2.5">
-          {(['admin', 'gerente', 'supervisor', 'geral'] as UserRole[]).map((role) => {
-            const titles: Record<UserRole, string> = {
-              admin: '👑 Administrador (Acesso Total)',
-              gerente: '💼 Gerente',
-              supervisor: '🛡️ Supervisor',
-              geral: '👤 Acesso Geral (Operador)',
-            };
-            const desc: Record<UserRole, string> = {
-              admin: 'Controle completo de todas as funcionalidades, fornecedores e relatórios.',
-              gerente: 'Acesso a gestão de fornecedores, comparadores e relatórios financeiros.',
-              supervisor: 'Permite importação de dados e visualização de stocks críticos.',
-              geral: 'Apenas visualização do catálogo, cotações e comparador básico.',
-            };
-
+        <div className="space-y-2.5 max-h-[60vh] overflow-y-auto pr-1">
+          {roles.map((role) => {
             const isSelected = userRole === role;
 
             return (

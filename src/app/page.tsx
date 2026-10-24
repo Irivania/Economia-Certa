@@ -1,8 +1,6 @@
 'use client';
 
-import { useEffect, useState, useSyncExternalStore, useCallback } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useState, useSyncExternalStore, useCallback } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { AppHeader } from '@/components/AppHeader';
 import { ToastContainer } from '@/components/ToastContainer';
@@ -13,192 +11,63 @@ import { CashFlowWidget } from '@/components/dashboard/CashFlowWidget';
 import { DashboardQuickAccess } from '@/components/dashboard/DashboardQuickAccess';
 import { RoleSelectionModal } from '@/components/dashboard/RoleSelectionModal';
 import { getCompanyId } from '@/lib/companySession';
-import { apiFetch } from '@/lib/apiClient';
+
+import { useUserSession } from '@/features/dashboard/hooks/useUserSession';
+import { useDashboardMetrics } from '@/features/dashboard/hooks/useDashboardMetrics';
+import { useDashboardShortcuts } from '@/features/dashboard/hooks/useDashboardShortcuts';
+import { useToast } from '@/features/dashboard/hooks/useToast';
+import { DashboardBanner } from '@/features/dashboard/components/DashboardBanner';
+import { LowStockAlert } from '@/features/dashboard/components/LowStockAlert';
+import { PERMISSIONS, ADMIN_ROLE } from '@/features/dashboard/constants/roles';
+import { UserRole } from '@/features/dashboard/types/user.types';
 
 const subscribeToHydration = () => () => {};
 
-interface Product {
-  id: string;
-  description: string;
-  internalCode?: string;
-  stockCurrent?: number;
-  stockMin?: number;
-}
-
-interface ToastMessage {
-  id: string;
-  title: string;
-  description: string;
-  type: 'success' | 'info' | 'warning';
-}
-
-type UserRole = 'admin' | 'gerente' | 'supervisor' | 'geral';
-
 export default function DashboardPage() {
-  const router = useRouter();
   const { isDarkMode } = useTheme();
-
-  const [productCount, setProductCount] = useState(0);
-  const [quotationCount, setQuotationCount] = useState(0);
-  const [completedQuotationCount, setCompletedQuotationCount] = useState(0);
-  const [latestQuotationId, setLatestQuotationId] = useState('');
-  const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-
   const [isCmdOpen, setIsCmdOpen] = useState(false);
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  
-  const [userRole, setUserRole] = useState<UserRole>(() => {
-    if (typeof window === 'undefined') return 'admin';
-    try {
-      const sessionData = sessionStorage.getItem('melo_company_session');
-      if (sessionData) {
-        const parsed = JSON.parse(sessionData);
-        return (parsed.role || 'admin').toLowerCase();
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return 'admin';
-  });
+  const companyId = getCompanyId();
 
-  // Redirecionamento automático de Segurança: Operador vai direto para o PDV
-  useEffect(() => {
-    const roleLower = String(userRole || '').toLowerCase();
-    if (roleLower === 'geral' || roleLower === 'operador') {
-      router.replace('/pdv');
-    }
-  }, [userRole, router]);
+  const { toasts, addToast } = useToast();
+  const { userName, userRole, isPermissionModalOpen, setIsPermissionModalOpen, handleLogout, handleRoleChange } = useUserSession();
+  const metrics = useDashboardMetrics(companyId);
 
-  const [userName] = useState<string>(() => {
-    if (typeof window === 'undefined') return 'Melo Perfumaria';
-    try {
-      const sessionData = sessionStorage.getItem('melo_company_session');
-      if (sessionData) {
-        const parsed = JSON.parse(sessionData);
-        return parsed.name || 'Melo Perfumaria';
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return 'Melo Perfumaria';
-  });
-
-  const [isPermissionModalOpen, setIsPermissionModalOpen] = useState(false);
-
-  const mounted = useSyncExternalStore(
-    subscribeToHydration,
-    () => true,
-    () => false,
-  );
-
-  const [companyId] = useState(() => getCompanyId());
-
-  const handleLogout = () => {
-    sessionStorage.removeItem('melo_company_session');
-    void fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/login');
-  };
-
-  const handleRoleChange = (newRole: UserRole) => {
-    if (userRole !== 'admin') {
-      addToast('Acesso Restrito', 'Apenas administradores podem alterar níveis de permissão.', 'warning');
-      return;
-    }
-
-    setUserRole(newRole);
-    try {
-      const sessionData = sessionStorage.getItem('melo_company_session');
-      const parsed = sessionData ? JSON.parse(sessionData) : {};
-      parsed.role = newRole;
-      sessionStorage.setItem('melo_company_session', JSON.stringify(parsed));
-    } catch (e) {
-      console.error(e);
-    }
-    addToast('Nível Alterado', `Permissão atualizada para: ${newRole.toUpperCase()}`, 'info');
+  const handleCloseModals = useCallback(() => {
+    setIsCmdOpen(false);
     setIsPermissionModalOpen(false);
-  };
+  }, [setIsPermissionModalOpen]);
 
-  const addToast = (title: string, description: string, type: 'success' | 'info' | 'warning' = 'success') => {
-    const id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, title, description, type }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4000);
-  };
-
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-      e.preventDefault();
-      setIsCmdOpen((open) => !open);
-    }
-    if (e.key === 'Escape') {
-      setIsCmdOpen(false);
-      setIsPermissionModalOpen(false);
-    }
+  const handleToggleCmd = useCallback(() => {
+    setIsCmdOpen((prev) => !prev);
   }, []);
 
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
+  useDashboardShortcuts({
+    onToggleCmd: handleToggleCmd,
+    onCloseModals: handleCloseModals,
+  });
 
-  useEffect(() => {
-    if (!companyId) return;
-
-    async function loadMetrics() {
-      try {
-        setLoading(true);
-        const [pRes, qRes] = await Promise.all([
-          apiFetch('/api/products'),
-          apiFetch('/api/quotations'),
-        ]);
-
-        if (pRes.ok) {
-          const products: Product[] = await pRes.json();
-          setProductCount(Array.isArray(products) ? products.length : 0);
-
-          const criticalItems = products.filter(
-            (p) => (p.stockCurrent ?? 0) <= (p.stockMin ?? 0) && (p.stockMin ?? 0) > 0
-          );
-          setLowStockProducts(criticalItems);
-        }
-
-        if (qRes.ok) {
-          const quotations = await qRes.json() as Array<{ id?: string; status?: string | null }>;
-          if (Array.isArray(quotations)) {
-            const activeQuotations = quotations.filter((quotation) =>
-              ['OPEN', 'PENDING'].includes(String(quotation.status || '').toUpperCase()),
-            );
-            const completedQuotations = quotations.filter((quotation) =>
-              ['COMPLETED', 'RESPONDED', 'CLOSED', 'ORDERED', 'PARTIALLY_CLOSED'].includes(String(quotation.status || '').toUpperCase()),
-            );
-
-            setQuotationCount(activeQuotations.length);
-            setCompletedQuotationCount(completedQuotations.length);
-            setLatestQuotationId(quotations[0]?.id || '');
-          }
-        }
-      } catch (err) {
-        console.error('Erro ao carregar métricas do dashboard:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadMetrics();
-  }, [companyId]);
+  const mounted = useSyncExternalStore(subscribeToHydration, () => true, () => false);
 
   if (!mounted) {
-    return <div className="min-h-screen bg-slate-50" />;
+    return <div className="min-h-screen bg-slate-50" aria-hidden="true" />;
   }
 
-  const canManageSuppliers = ['admin', 'gerente'].includes(userRole);
-  const canImportData = ['admin', 'gerente', 'supervisor'].includes(userRole);
+  const canManageSuppliers = PERMISSIONS.CAN_MANAGE_SUPPLIERS.includes(userRole);
+  const canImportData = PERMISSIONS.CAN_IMPORT_DATA.includes(userRole);
+
+  const handleTestToast = () => {
+    addToast('Ação Simulada', 'Link de cotação copiado para o WhatsApp com sucesso!', 'success');
+  };
+
+  const onRoleChangeAction = (newRole: UserRole) => {
+    handleRoleChange(newRole, addToast);
+    if (newRole === userRole && userRole === ADMIN_ROLE) {
+      addToast('Nível Alterado', `Permissão atualizada para: ${newRole.toUpperCase()}`, 'info');
+    }
+  };
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
-      
       <AppHeader
         title="Economia Certa"
         subtitle="Painel gerencial inteligente e controle de compras em tempo real."
@@ -209,7 +78,7 @@ export default function DashboardPage() {
         userName={userName}
         userRole={userRole}
         onOpenPermissionModal={() => {
-          if (userRole === 'admin') {
+          if (userRole === ADMIN_ROLE) {
             setIsPermissionModalOpen(true);
           } else {
             addToast('Acesso Restrito', 'Apenas administradores podem alterar o nível de permissão.', 'warning');
@@ -220,85 +89,46 @@ export default function DashboardPage() {
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 pb-20 relative z-25 space-y-6">
-        
-        {/* Barra de Atalhos / Dica Pro Refinada */}
-        <div className={`p-3.5 rounded-xl border shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 ${isDarkMode ? 'bg-slate-900/80 border-slate-800 text-slate-300' : 'bg-white border-slate-200 text-slate-600'}`}>
-          <div className="flex items-center gap-2 text-xs">
-            <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-500 font-bold">💡 Dica Pro</span>
-            <span>Pressione <kbd className="px-1.5 py-0.5 rounded bg-slate-500/15 font-mono text-[11px] font-semibold">Ctrl + K</kbd> para busca rápida.</span>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => addToast('Ação Simulada', 'Link de cotação copiado para o WhatsApp com sucesso!', 'success')}
-              className="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 text-xs font-semibold transition-colors border border-emerald-500/20 cursor-pointer"
-            >
-              Testar Toast WhatsApp 📲
-            </button>
-            <button 
-              onClick={() => setIsCmdOpen(true)}
-              className="text-xs font-semibold text-indigo-500 hover:text-indigo-600 cursor-pointer"
-            >
-              Abrir Menu &rarr;
-            </button>
-          </div>
-        </div>
+        <DashboardBanner
+          isDarkMode={isDarkMode}
+          onTestToast={handleTestToast}
+          onOpenCmd={() => setIsCmdOpen(true)}
+        />
 
-        {/* Alerta de Estoque Crítico */}
-        {!loading && lowStockProducts.length > 0 && (
-          <div className={`${isDarkMode ? 'bg-rose-950/30 border-rose-900/60 text-rose-200' : 'bg-rose-50 border-rose-200 text-rose-900'} border rounded-xl p-4 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-all`}>
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-rose-500/15 rounded-lg text-rose-600">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="text-xs sm:text-sm font-bold">Alerta de Reposição Urgente ({lowStockProducts.length} itens críticos)</h3>
-                <p className="text-xs opacity-80">Produtos abaixo do estoque mínimo. Recomendamos iniciar cotação imediata.</p>
-              </div>
-            </div>
-            <Link
-              href="/produtos"
-              className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition-all shadow-xs whitespace-nowrap"
-            >
-              Ver Produtos &rarr;
-            </Link>
-          </div>
-        )}
-
-        <DashboardMetrics
-          productCount={productCount}
-          quotationCount={quotationCount}
-          completedQuotationCount={completedQuotationCount}
-          loading={loading}
+        <LowStockAlert
+          lowStockProducts={metrics.lowStockProducts}
           isDarkMode={isDarkMode}
         />
 
-        {/* Widget Executivo de Projeção de Fluxo de Caixa */}
+        <DashboardMetrics
+          productCount={metrics.productCount}
+          quotationCount={metrics.quotationCount}
+          completedQuotationCount={metrics.completedQuotationCount}
+          loading={metrics.loading}
+          isDarkMode={isDarkMode}
+        />
+
         <CashFlowWidget isDarkMode={isDarkMode} />
 
         <DashboardQuickAccess
           canManageSuppliers={canManageSuppliers}
           canImportData={canImportData}
-          latestQuotationId={latestQuotationId}
+          latestQuotationId={metrics.latestQuotationId}
           isDarkMode={isDarkMode}
         />
-
       </main>
 
-      {userRole === 'admin' && (
+      {userRole === ADMIN_ROLE && (
         <RoleSelectionModal
           isOpen={isPermissionModalOpen}
           onClose={() => setIsPermissionModalOpen(false)}
           userRole={userRole}
-          onRoleChange={handleRoleChange}
+          onRoleChange={onRoleChangeAction}
         />
       )}
 
       <ToastContainer toasts={toasts} isDarkMode={isDarkMode} />
-      <CommandMenu isOpen={isCmdOpen} onClose={() => setIsCmdOpen(false)} isDarkMode={isDarkMode} latestQuotationId={latestQuotationId} />
-
+      <CommandMenu isOpen={isCmdOpen} onClose={() => setIsCmdOpen(false)} isDarkMode={isDarkMode} latestQuotationId={metrics.latestQuotationId} />
     </div>
   );
 }
