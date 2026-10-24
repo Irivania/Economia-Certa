@@ -27,7 +27,7 @@ export interface Quotation {
   suppliers?: SupplierTracking[];
 }
 
-// --- TIPOS ADICIONADOS PARA O MÓDULO DE CRIAÇÃO DE COTAÇÕES ---
+// --- ITENS E PAYLOADS DE CRIAÇÃO / EDIÇÃO ---
 
 export interface QuotationItem {
   id: string;
@@ -39,6 +39,35 @@ export interface QuotationItem {
   stockCurrent: number;
   stockIdeal: number;
   requestedQuantity: number;
+  costPrice?: number;
+}
+
+export interface ApiQuotationItem {
+  id?: string;
+  productId?: string;
+  description?: string;
+  requestedQuantity?: number | string;
+  costPrice?: number | string;
+}
+
+export interface ApiSupplierLink {
+  id: string;
+  name?: string;
+  status?: string;
+  token?: string;
+}
+
+export interface ApiQuotation {
+  id: string;
+  title?: string;
+  paymentTerms?: string | null;
+  showQuantities?: boolean | null;
+  supplierId?: string | null;
+  suppliers?: ApiSupplierLink[];
+  startDate?: string | Date | null;
+  endDate?: string | Date | null;
+  closingTime?: string | null;
+  items?: ApiQuotationItem[];
 }
 
 export interface CreateQuotationFormData {
@@ -60,4 +89,8 @@ export interface CreateQuotationApiPayload {
   closingTime: string | null;
   showQuantities: boolean;
   items: QuotationItem[];
+}
+
+export interface UpdateQuotationRequest extends CreateQuotationApiPayload {
+  id: string;
 }

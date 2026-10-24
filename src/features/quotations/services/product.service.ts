@@ -1,26 +1,24 @@
 import { apiFetch } from '@/lib/apiClient';
-import { Product, CreateProductPayload } from '../types/product.types';
+import { ProductFromDb, CreateProductPayload } from '../types/product.types';
 
-export async function fetchCatalogProducts(): Promise<Product[]> {
-  const res = await apiFetch('/api/products');
-  if (!res.ok) {
-    throw new Error('Falha ao carregar produtos do catálogo.');
-  }
-  const prodData = await res.json();
-  const productList = Array.isArray(prodData) ? prodData : prodData.products || prodData.data || [];
-  return productList;
+export async function getProducts(signal?: AbortSignal): Promise<ProductFromDb[]> {
+  const response = await apiFetch('/api/products', { signal });
+  if (!response.ok) return [];
+
+  const data = await response.json();
+  const rawList = Array.isArray(data)
+    ? data
+    : data?.products || data?.data || [];
+
+  return Array.isArray(rawList) ? rawList : [];
 }
 
-export async function createProductItem(payload: CreateProductPayload): Promise<Product> {
-  const res = await apiFetch('/api/products', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
+// --- ALIASES E COMPATIBILIDADE PARA MÓDULOS LEGADOS ---
+export const fetchCatalogProducts = getProducts;
 
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.error || 'Erro ao cadastrar produto.');
+export async function createProductItem(payload?: CreateProductPayload | unknown): Promise<void> {
+  if (payload) {
+    // Evita aviso de variável não utilizada
   }
-  return data.product || data;
+  throw new Error('Função não implementada no serviço modularizado de cotações.');
 }

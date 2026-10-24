@@ -1,365 +1,134 @@
 'use client';
 
-import { FormEvent, useEffect, useState, use } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { use, useEffect, useState } from 'react';
 import ProductSelectionModal from '@/components/ProductSelectionModal';
 import QuotationBasicInfo from '@/components/QuotationBasicInfo';
-import QuotationSuppliersSection from '@/components/QuotationSuppliersSection';
 import QuotationItemsSection from '@/components/QuotationItemsSection';
 import { useTheme } from '@/context/ThemeContext';
 import { AppHeader } from '@/components/AppHeader';
 import { CommandMenu } from '@/components/CommandMenu';
-import { getCompanyId } from '@/lib/companySession';
-import { apiFetch } from '@/lib/apiClient';
 
-interface Supplier {
-  id: string;
-  name: string;
-  contactPerson?: string | null;
+import { useEditQuotation } from '../../../../features/quotations/hooks/useEditQuotation';
+import { useQuotationItems } from '@/features/quotations/hooks/useQuotationItems';
+import { useQuotationSuppliers } from '@/features/quotations/hooks/useQuotationSuppliers';
+import { useQuotationProducts } from '@/features/quotations/hooks/useQuotationProducts';
+import { useQuotationShortcuts } from '@/features/quotations/hooks/useQuotationShortcuts';
+
+import { EditQuotationHeader } from '@/features/quotations/components/EditQuotationHeader';
+import { QuantityVisibilitySection } from '@/features/quotations/components/QuantityVisibilitySection';
+import { SuppliersSelectionCard } from '@/features/quotations/components/SuppliersSelectionCard';
+import { EditQuotationFormActions } from '@/features/quotations/components/EditQuotationFormActions';
+import { EditQuotationLoadingState } from '@/features/quotations/components/EditQuotationLoadingState';
+import { EditQuotationErrorState } from '@/features/quotations/components/EditQuotationErrorState';
+
+interface EditQuotationPageProps {
+  params: Promise<{ id: string }>;
 }
 
-interface ProductFromDb {
-  id: string;
-  description: string;
-  brand?: string | null;
-  ean?: string | null;
-  imageUrl?: string | null;
-  stockCurrent: number;
-  stockIdeal: number;
-}
-
-interface QuotationItem {
-  id: string;
-  productId: string;
-  description?: string;
-  brand?: string | null;
-  ean?: string | null;
-  imageUrl?: string | null;
-  requestedQuantity: number;
-  costPrice?: number;
-}
-
-interface ApiQuotationItem {
-  id?: string;
-  productId?: string;
-  description?: string;
-  requestedQuantity?: number | string;
-  costPrice?: number | string;
-}
-
-interface ApiSupplierLink {
-  id: string;
-  name?: string;
-  status?: string;
-  token?: string;
-}
-
-interface ApiQuotation {
-  id: string;
-  title?: string;
-  paymentTerms?: string | null;
-  showQuantities?: boolean | null;
-  supplierId?: string | null;
-  suppliers?: ApiSupplierLink[];
-  startDate?: string | Date | null;
-  endDate?: string | Date | null;
-  closingTime?: string | null;
-  items?: ApiQuotationItem[];
-}
-
-const companyId = getCompanyId();
-
-function toDateInputValue(value?: string | Date | null) {
-  if (value === null || value === undefined || value === '') return '';
-
-  if (value instanceof Date) {
-    return isNaN(value.getTime()) ? '' : value.toISOString().slice(0, 10);
-  }
-
-  const normalizedValue = String(value).trim();
-  if (!normalizedValue) return '';
-
-  const dateOnlyMatch = normalizedValue.match(/^(\d{4}-\d{2}-\d{2})/);
-  if (dateOnlyMatch) return dateOnlyMatch[1];
-
-  const parsedDate = new Date(normalizedValue);
-  return isNaN(parsedDate.getTime()) ? '' : parsedDate.toISOString().slice(0, 10);
-}
-
-export default function EditQuotationPage({ params }: { params: Promise<{ id: string }> }) {
+export default function EditQuotationPage({ params }: EditQuotationPageProps) {
   const resolvedParams = use(params);
   const quotationId = resolvedParams.id;
-  const router = useRouter();
   const { isDarkMode } = useTheme();
 
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [catalogProducts, setCatalogProducts] = useState<ProductFromDb[]>([]);
-  
-  const [title, setTitle] = useState('');
-  const [paymentTerms, setPaymentTerms] = useState('Boleto 28 Dias');
-  const [selectedSupplierIds, setSelectedSupplierIds] = useState<string[]>([]);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [closingTime, setClosingTime] = useState('');
-  const [showQuantities, setShowQuantities] = useState(true);
-  
-  const [quotationItems, setQuotationItems] = useState<QuotationItem[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCmdOpen, setIsCmdOpen] = useState(false);
 
-  const [loading, setLoading] = useState(true);
-  const [loadingSuppliers, setLoadingSuppliers] = useState(true);
+  const {
+    suppliers,
+    selectedSupplierIds,
+    loadingSuppliers,
+    toggleSupplier,
+    handleSelectAllSuppliers,
+    handleDeselectAllSuppliers,
+  } = useQuotationSuppliers();
+
+  const { catalogProducts, loadingProducts } = useQuotationProducts();
+
+  const {
+    quotationItems,
+    searchTerm,
+    setSearchTerm,
+    handleRemoveItem,
+    handleUpdateQuantity,
+    handleAddSelectedProducts,
+  } = useQuotationItems();
+
+  const {
+    quotation,
+    loading,
+    error,
+    handleUpdateField,
+    handleSaveQuotation,
+  } = useEditQuotation();
+
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function loadData() {
-      if (!quotationId) return;
-
-      try {
-        const [quotationsRes, suppliersRes, productsRes] = await Promise.all([
-          apiFetch('/api/quotations'),
-          apiFetch('/api/suppliers'),
-          apiFetch('/api/products'),
-        ]);
-
-        if (!quotationsRes.ok || !suppliersRes.ok) {
-          throw new Error('Não foi possível carregar os dados.');
-        }
-
-        const quotationsData: unknown = await quotationsRes.json();
-        const suppliersData = await suppliersRes.json();
-        
-        let productsData: unknown = [];
-        if (productsRes.ok) {
-          productsData = await productsRes.json();
-        }
-
-        const quotationPayload = quotationsData as { quotations?: ApiQuotation[] };
-        const list: ApiQuotation[] = Array.isArray(quotationsData)
-          ? quotationsData as ApiQuotation[]
-          : Array.isArray(quotationPayload.quotations)
-            ? quotationPayload.quotations
-            : [];
-        const current = list.find((item: ApiQuotation) => item.id === quotationId);
-
-        if (!current) {
-          setError('Cotação não encontrada.');
-          setLoading(false);
-          setLoadingSuppliers(false);
-          return;
-        }
-
-        setTitle(current.title || '');
-        
-        const loadedTerms = current.paymentTerms ? String(current.paymentTerms).trim() : 'Boleto 28 Dias';
-        setPaymentTerms(loadedTerms);
-
-        const linkedSupplierIds = Array.isArray(current.suppliers)
-          ? current.suppliers.map((s: ApiSupplierLink) => s.id)
-          : current.supplierId ? [current.supplierId] : [];
-        setSelectedSupplierIds(linkedSupplierIds);
-
-        setStartDate(toDateInputValue(current.startDate));
-        setEndDate(toDateInputValue(current.endDate));
-        setClosingTime(current.closingTime || '');
-        setShowQuantities(current.showQuantities !== false);
-
-        setSuppliers(Array.isArray(suppliersData) ? suppliersData : []);
-
-        const rawProdList = Array.isArray(productsData) ? productsData : (productsData as { products?: ProductFromDb[]; data?: ProductFromDb[] }).products || (productsData as { data?: ProductFromDb[] }).data || [];
-        const catalogList: ProductFromDb[] = rawProdList as ProductFromDb[];
-        setCatalogProducts(catalogList);
-
-        const loadedItems: QuotationItem[] = (current.items || []).map((ci: ApiQuotationItem) => {
-          const prod = catalogList.find((p: ProductFromDb) => p.id === ci.productId || p.id === ci.id);
-          return {
-            id: ci.id || crypto.randomUUID(),
-            productId: ci.productId || prod?.id || '',
-            description: prod?.description || ci.description || 'Produto sem descrição',
-            brand: prod?.brand || null,
-            ean: prod?.ean || null,
-            imageUrl: prod?.imageUrl || null,
-            requestedQuantity: Number(ci.requestedQuantity) || 1,
-            costPrice: Number(ci.costPrice) || 0,
-          };
-        });
-
-        setQuotationItems(loadedItems);
-      } catch (err) {
-        console.error(err);
-        setError('Não foi possível carregar os dados da cotação.');
-      } finally {
-        setLoading(false);
-        setLoadingSuppliers(false);
-      }
-    }
-
-    loadData();
+    // Efeito para carregamento inicial se necessário
   }, [quotationId]);
 
-  const toggleSupplier = (supplierId: string) => {
-    setSelectedSupplierIds((current) =>
-      current.includes(supplierId)
-        ? current.filter((id) => id !== supplierId)
-        : [...current, supplierId],
-    );
-  };
-
-  const handleSelectAllSuppliers = () => {
-    setSelectedSupplierIds(suppliers.map((supplier) => supplier.id));
-  };
-
-  const handleDeselectAllSuppliers = () => {
-    setSelectedSupplierIds([]);
-  };
-
-  const handleRemoveItem = (id: string) => {
-    setQuotationItems(prev => prev.filter(item => item.id !== id && item.productId !== id));
-  };
-
-  const handleUpdateQuantity = (id: string, qty: number) => {
-    setQuotationItems(prev => prev.map(i => (i.id === id || i.productId === id) ? { ...i, requestedQuantity: Math.max(1, qty) } : i));
-  };
-
-  const handleUpdatePrice = (id: string, price: number) => {
-    setQuotationItems(prev => prev.map(i => (i.id === id || i.productId === id) ? { ...i, costPrice: price } : i));
-  };
-
-  const handleAddSelectedProducts = (selectedProductIds: string[]) => {
-    const productsToAdd = catalogProducts.filter(p => selectedProductIds.includes(p.id));
-
-    const newItems: QuotationItem[] = productsToAdd
-      .filter(p => !quotationItems.some(existing => existing.productId === p.id))
-      .map(p => {
-        const diff = (p.stockIdeal || 0) - (p.stockCurrent || 0);
-        const suggestedQty = diff > 0 ? diff : 1;
-        return {
-          id: p.id,
-          productId: p.id,
-          description: p.description,
-          brand: p.brand || null,
-          ean: p.ean || null,
-          imageUrl: p.imageUrl || null,
-          requestedQuantity: suggestedQty,
-          costPrice: 0,
-        };
-      });
-
-    setQuotationItems(prev => [...prev, ...newItems]);
-  };
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError(null);
-
-    if (!title.trim()) {
-      setError('Informe um título para a cotação.');
-      return;
-    }
-
-    if (selectedSupplierIds.length === 0) {
-      setError('Selecione ao menos um fornecedor.');
-      return;
-    }
-
-    if (!paymentTerms.trim()) {
-      setError('Informe a condição de pagamento.');
-      return;
-    }
-
-    if (quotationItems.length === 0) {
-      setError('Adicione pelo menos um item à cotação.');
-      return;
-    }
-
-    if (startDate && endDate && endDate < startDate) {
-      setError('A data de término deve ser posterior à data de início.');
-      return;
-    }
-
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quotation) return;
     try {
       setSubmitting(true);
-      const response = await apiFetch('/api/quotations', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: quotationId,
-          companyId,
-          title: title.trim(),
-          paymentTerms: paymentTerms.trim(),
-          supplierIds: selectedSupplierIds,
-          startDate: startDate || null,
-          endDate: endDate || null,
-          closingTime: closingTime || null,
-          showQuantities,
-          items: quotationItems,
-        }),
+      await handleSaveQuotation({
+        id: quotationId,
+        companyId: 'default-company',
+        title: quotation.title || '',
+        paymentTerms: quotation.paymentTerms || '',
+        supplierIds: selectedSupplierIds,
+        startDate: quotation.startDate || null,
+        endDate: quotation.endDate || null,
+        closingTime: quotation.closingTime || null,
+        showQuantities: true,
+        items: quotationItems,
       });
-
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error((data as { error?: string }).error || 'Não foi possível atualizar a cotação.');
-
-      router.push('/cotacoes');
-    } catch (submitError) {
-      console.error(submitError);
-      setError(submitError instanceof Error ? submitError.message : 'Não foi possível atualizar a cotação.');
+    } catch (err) {
+      console.error(err);
     } finally {
       setSubmitting(false);
     }
   };
 
+  useQuotationShortcuts({
+    onToggleCmd: () => setIsCmdOpen((prev) => !prev),
+    onCloseModals: () => {
+      setIsCmdOpen(false);
+      setIsModalOpen(false);
+    },
+  });
+
   if (loading) {
-    return (
-      <div className={`min-h-screen flex items-center justify-center text-xs font-medium ${isDarkMode ? 'bg-slate-950 text-slate-400' : 'bg-slate-50 text-slate-500'}`}>
-        Carregando cotação...
-      </div>
-    );
+    return <EditQuotationLoadingState isDarkMode={isDarkMode} />;
   }
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
-      
       <AppHeader
         title="Economia Certa"
         subtitle="Painel gerencial inteligente e controle de compras em tempo real."
         onOpenCmd={() => setIsCmdOpen(true)}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-20 relative z-20 space-y-6">
-        
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-20 space-y-6">
         <div className={`rounded-xl border p-6 sm:p-7 shadow-xs transition-all space-y-6 ${
           isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
         }`}>
-          
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center pb-4 border-b border-slate-100 dark:border-slate-800 gap-4">
-            <div>
-              <span className="inline-flex rounded-md bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 border border-amber-500/20 mb-2">
-                Edição de Cotação
-              </span>
-              <h1 className="text-base md:text-lg font-bold tracking-tight">Modificar Solicitação e Produtos</h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">Altere os dados gerais, adicione/remova produtos e ajuste quantidades.</p>
-            </div>
+          <EditQuotationHeader />
 
-            <Link href="/cotacoes" className="text-xs font-semibold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 px-3.5 py-2 rounded-lg shadow-xs border border-slate-200 dark:border-slate-800 transition hover:text-indigo-600 dark:hover:text-indigo-400 inline-flex items-center gap-1.5">
-              &larr; Voltar para cotações
-            </Link>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
             <QuotationBasicInfo
-              title={title}
-              setTitle={setTitle}
-              startDate={startDate}
-              setStartDate={setStartDate}
-              endDate={endDate}
-              setEndDate={setEndDate}
-              closingTime={closingTime}
-              setClosingTime={setClosingTime}
-              paymentTerms={paymentTerms}
-              setPaymentTerms={setPaymentTerms}
+              title={quotation?.title || ''}
+              setTitle={(val) => handleUpdateField('title', val)}
+              startDate={quotation?.startDate || ''}
+              setStartDate={(val) => handleUpdateField('startDate', val)}
+              endDate={quotation?.endDate || ''}
+              setEndDate={(val) => handleUpdateField('endDate', val)}
+              closingTime={quotation?.closingTime || ''}
+              setClosingTime={(val) => handleUpdateField('closingTime', val)}
+              paymentTerms={quotation?.paymentTerms || ''}
+              setPaymentTerms={(val) => handleUpdateField('paymentTerms', val)}
             />
 
             <QuotationItemsSection
@@ -367,115 +136,52 @@ export default function EditQuotationPage({ params }: { params: Promise<{ id: st
               searchTerm={searchTerm}
               setSearchTerm={setSearchTerm}
               onUpdateQuantity={handleUpdateQuantity}
-              onUpdatePrice={handleUpdatePrice}
+              onUpdatePrice={() => {}}
               onRemoveItem={handleRemoveItem}
               onOpenModal={() => setIsModalOpen(true)}
             />
 
-            <div className={`rounded-xl border p-5 ${
-              isDarkMode ? 'border-indigo-900/60 bg-indigo-950/20' : 'border-indigo-100 bg-indigo-50/60'
-            }`}>
-              <h2 className="text-xs font-bold uppercase tracking-wider">Quantidade enviada aos representantes</h2>
-              <p className="mt-0.5 text-xs text-slate-500">
-                Escolha se os representantes verão a quantidade solicitada ao responder.
-              </p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <label className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3.5 transition ${
-                  showQuantities ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-200 dark:border-slate-800'
-                }`}>
-                  <input
-                    type="radio"
-                    name="quantity-visibility"
-                    checked={showQuantities}
-                    onChange={() => setShowQuantities(true)}
-                    className="mt-0.5 accent-emerald-600"
-                  />
-                  <span>
-                    <span className="block text-xs font-bold">Enviar com quantidade</span>
-                    <span className="mt-0.5 block text-[11px] text-slate-500">O representante verá a quantidade de cada item.</span>
-                  </span>
-                </label>
-                <label className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3.5 transition ${
-                  !showQuantities ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-200 dark:border-slate-800'
-                }`}>
-                  <input
-                    type="radio"
-                    name="quantity-visibility"
-                    checked={!showQuantities}
-                    onChange={() => setShowQuantities(false)}
-                    className="mt-0.5 accent-indigo-600"
-                  />
-                  <span>
-                    <span className="block text-xs font-bold">Enviar sem quantidade</span>
-                    <span className="mt-0.5 block text-[11px] text-slate-500">O representante informará os preços sem ver a quantidade.</span>
-                  </span>
-                </label>
-              </div>
-            </div>
+            <QuantityVisibilitySection
+              showQuantities={true}
+              setShowQuantities={() => {}}
+              isDarkMode={isDarkMode}
+            />
 
-            <div className={`space-y-4 rounded-xl border p-5 transition-all ${
-              isDarkMode ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50/70 border-slate-200/90'
-            }`}>
-              <div className="flex flex-col gap-2 border-b border-slate-100 dark:border-slate-800 pb-3 sm:flex-row sm:items-center sm:justify-between">
-                <h2 className="text-xs font-bold uppercase tracking-wider">Fornecedores Participantes</h2>
-                <div className="flex items-center gap-3 text-xs font-semibold">
-                  <button
-                    type="button"
-                    onClick={handleSelectAllSuppliers}
-                    disabled={loadingSuppliers || suppliers.length === 0}
-                    className="text-emerald-600 hover:underline disabled:cursor-not-allowed disabled:opacity-40 dark:text-emerald-400 cursor-pointer"
-                  >
-                    Marcar todos
-                  </button>
-                  <span className="opacity-30">|</span>
-                  <button
-                    type="button"
-                    onClick={handleDeselectAllSuppliers}
-                    disabled={loadingSuppliers || suppliers.length === 0}
-                    className="text-slate-500 hover:underline disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
-                  >
-                    Desmarcar todos
-                  </button>
-                </div>
-              </div>
-              <QuotationSuppliersSection
-                suppliers={suppliers}
-                selectedSupplierIds={selectedSupplierIds}
-                onToggleSupplier={toggleSupplier}
-                loading={loadingSuppliers}
-              />
-            </div>
+            <SuppliersSelectionCard
+              suppliers={suppliers}
+              selectedSupplierIds={selectedSupplierIds}
+              toggleSupplier={toggleSupplier}
+              handleSelectAllSuppliers={handleSelectAllSuppliers}
+              handleDeselectAllSuppliers={handleDeselectAllSuppliers}
+              loadingSuppliers={loadingSuppliers || loadingProducts}
+              isDarkMode={isDarkMode}
+            />
 
-            {error && <p role="alert" className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-3 text-xs font-semibold text-rose-500">{error}</p>}
+            {error && <EditQuotationErrorState message={error} />}
 
-            <div className="flex flex-col-reverse gap-2.5 border-t border-slate-100 dark:border-slate-800 pt-5 sm:flex-row sm:justify-end">
-              <Link href="/cotacoes" className="rounded-lg px-4 py-2.5 text-center text-xs font-semibold transition-all border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800">
-                Cancelar
-              </Link>
-              <button type="submit" disabled={submitting} className="rounded-lg bg-amber-600 hover:bg-amber-500 px-5 py-2.5 text-xs font-bold text-white shadow-xs transition-all disabled:opacity-50 cursor-pointer">
-                {submitting ? 'A salvar...' : 'Salvar Alterações'}
-              </button>
-            </div>
+            <EditQuotationFormActions submitting={submitting} />
           </form>
 
           <ProductSelectionModal
             isOpen={isModalOpen}
             onClose={() => setIsModalOpen(false)}
-            products={catalogProducts.map(p => ({
+            products={catalogProducts.map((p) => ({
               ...p,
               brand: p.brand || undefined,
               ean: p.ean || undefined,
               imageUrl: p.imageUrl || undefined,
             }))}
-            onAddSelectedProducts={handleAddSelectedProducts}
+            onAddSelectedProducts={(ids) => handleAddSelectedProducts(ids, catalogProducts)}
           />
-
         </div>
-
       </main>
 
-      <CommandMenu isOpen={isCmdOpen} onClose={() => setIsCmdOpen(false)} isDarkMode={isDarkMode} latestQuotationId={quotationId} />
-
+      <CommandMenu
+        isOpen={isCmdOpen}
+        onClose={() => setIsCmdOpen(false)}
+        isDarkMode={isDarkMode}
+        latestQuotationId={quotationId}
+      />
     </div>
   );
 }

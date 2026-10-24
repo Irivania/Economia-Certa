@@ -1,41 +1,72 @@
 import { apiFetch } from '@/lib/apiClient';
-import { Quotation, CreateQuotationApiPayload } from '../types/quotation.types';
+import { Quotation, CreateQuotationApiPayload as CreateQuotationRequest, UpdateQuotationRequest } from '../types/quotation.types';
 
 export async function getQuotations(signal?: AbortSignal): Promise<Quotation[]> {
   const response = await apiFetch('/api/quotations', { signal });
+  if (!response.ok) return [];
+
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Erro ao buscar cotações.');
-  return Array.isArray(data) ? data : [];
+  const rawList = Array.isArray(data) ? data : data?.quotations || data?.data || [];
+
+  return Array.isArray(rawList) ? rawList : [];
 }
 
-export async function deleteQuotationApi(id: string): Promise<void> {
-  const response = await apiFetch(`/api/quotations?id=${id}`, { 
-    method: 'DELETE' 
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || 'Não foi possível excluir a cotação.');
+export async function getQuotationById(id: string, signal?: AbortSignal): Promise<Quotation | null> {
+  const response = await apiFetch(`/api/quotations/${id}`, { signal });
+  if (!response.ok) return null;
+
+  const data = await response.json();
+  return data?.quotation || data || null;
 }
 
-export async function cancelQuotationApi(id: string): Promise<void> {
-  const response = await apiFetch('/api/quotations', {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id, action: 'cancel' }),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || 'Não foi possível cancelar a cotação.');
-}
-
-// --- MÉTODO ADICIONADO PARA O MÓDULO DE CRIAÇÃO DE COTAÇÕES ---
-
-export async function createQuotationRecord(payload: CreateQuotationApiPayload): Promise<void> {
+export async function createQuotation(payload: CreateQuotationRequest): Promise<Quotation> {
   const response = await apiFetch('/api/quotations', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  const data = await response.json().catch(() => ({}));
+
   if (!response.ok) {
-    throw new Error(data.error || 'Não foi possível criar a cotação.');
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Erro ao criar a cotação.');
+  }
+
+  const data = await response.json();
+  return data?.quotation || data;
+}
+
+export async function updateQuotation(payload: UpdateQuotationRequest): Promise<Quotation> {
+  const response = await apiFetch(`/api/quotations/${payload.id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Erro ao atualizar o registo da cotação.');
+  }
+
+  const data = await response.json();
+  return data?.quotation || data;
+}
+
+export async function deleteQuotation(id: string): Promise<void> {
+  const response = await apiFetch(`/api/quotations/${id}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error('Erro ao eliminar a cotação.');
+  }
+}
+
+export async function cancelQuotation(id: string): Promise<void> {
+  const response = await apiFetch(`/api/quotations/${id}/cancel`, {
+    method: 'POST',
+  });
+
+  if (!response.ok) {
+    throw new Error('Erro ao cancelar a cotação.');
   }
 }

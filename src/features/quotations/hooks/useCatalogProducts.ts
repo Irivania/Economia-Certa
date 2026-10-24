@@ -1,43 +1,53 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Product, CreateProductPayload } from '../types/product.types';
-import { fetchCatalogProducts, createProductItem } from '../services/product.service';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { ProductFromDb, CreateProductPayload } from '../types/product.types';
+import { getProducts, createProductItem } from '../services/product.service';
 
 export function useCatalogProducts() {
-  const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [catalogProducts, setCatalogProducts] = useState<ProductFromDb[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadProducts = useCallback(async () => {
+  const loadProducts = useCallback(async (signal?: AbortSignal) => {
     try {
       setLoading(true);
       setError(null);
-      const list = await fetchCatalogProducts();
-      setCatalogProducts(list);
+      const data = await getProducts(signal);
+      setCatalogProducts(data);
     } catch (err) {
-      console.error(err);
-      setError('Não foi possível carregar os dados iniciais.');
+      if (!(err instanceof DOMException && err.name === 'AbortError')) {
+        console.error(err);
+        setError('Não foi possível carregar o catálogo de produtos.');
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
+  const isMountedRef = useRef(false);
+
   useEffect(() => {
-    let isMounted = true;
-    async function init() {
-      if (!isMounted) return;
-      await loadProducts();
+    const controller = new AbortController();
+    
+    if (!isMountedRef.current) {
+      isMountedRef.current = true;
+      void loadProducts(controller.signal);
     }
-    void init();
+
     return () => {
-      isMounted = false;
+      controller.abort();
     };
   }, [loadProducts]);
 
   const quickRegisterProduct = useCallback(async (payload: CreateProductPayload) => {
-    await createProductItem(payload);
-    await loadProducts();
+    try {
+      await createProductItem(payload);
+      await loadProducts();
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }
   }, [loadProducts]);
 
   return {
@@ -48,3 +58,6 @@ export function useCatalogProducts() {
     quickRegisterProduct,
   };
 }
+
+// --- ALIAS DE COMPATIBILIDADE PARA MÓDULOS LEGADOS ---
+export const fetchCatalogProducts = getProducts;

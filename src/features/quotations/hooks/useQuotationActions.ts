@@ -1,48 +1,58 @@
-import { useCallback } from 'react';
+'use client';
+
+import { useState, useCallback } from 'react';
+import { deleteQuotation, cancelQuotation } from '../services/quotations.service';
 import { Quotation } from '../types/quotation.types';
-import { deleteQuotationApi, cancelQuotationApi } from '../services/quotations.service';
 
 interface UseQuotationActionsProps {
-  setQuotations: React.Dispatch<React.SetStateAction<Quotation[]>>;
-  addToast?: (title: string, description: string, type?: 'success' | 'warning' | 'info') => void;
+  setQuotations?: React.Dispatch<React.SetStateAction<Quotation[]>>;
 }
 
-export function useQuotationActions({ setQuotations, addToast }: UseQuotationActionsProps) {
-  const handleDelete = useCallback(async (quotation: Quotation) => {
-    if (!window.confirm(`Deseja realmente excluir a cotação "${quotation.title}"?`)) return;
+export function useQuotationActions({ setQuotations }: UseQuotationActionsProps = {}) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  const handleDelete = useCallback(async (id: string) => {
+    if (!window.confirm('Tem certeza que deseja eliminar esta cotação?')) return;
     try {
-      await deleteQuotationApi(quotation.id);
-      setQuotations((current) => current.filter((item) => item.id !== quotation.id));
-      addToast?.('Sucesso', 'Cotação excluída com sucesso.', 'success');
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Não foi possível excluir a cotação.';
-      addToast?.('Erro', message, 'warning');
+      setLoading(true);
+      setError(null);
+      await deleteQuotation(id);
+      
+      if (setQuotations) {
+        setQuotations((prev) => prev.filter((q) => q.id !== id));
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao eliminar cotação.';
+      setError(msg);
+    } finally {
+      setLoading(false);
     }
-  }, [setQuotations, addToast]);
+  }, [setQuotations]);
 
-  const handleCancel = useCallback(async (quotation: Quotation) => {
-    if (!window.confirm(`Deseja cancelar a cotação "${quotation.title}"? O representante não poderá mais acessá-la, mas o histórico será preservado.`)) return;
-
+  const handleCancel = useCallback(async (id: string) => {
+    if (!window.confirm('Tem certeza que deseja cancelar esta cotação?')) return;
     try {
-      await cancelQuotationApi(quotation.id);
-      setQuotations((current) => current.map((item) =>
-        item.id === quotation.id
-          ? { 
-              ...item, 
-              status: 'CANCELLED', 
-              suppliers: item.suppliers?.map((supplier) => ({ ...supplier, status: 'CANCELLED' })) 
-            }
-          : item
-      ));
-      addToast?.('Sucesso', 'Cotação cancelada com sucesso.', 'success');
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Não foi possível cancelar a cotação.';
-      addToast?.('Erro', message, 'warning');
+      setLoading(true);
+      setError(null);
+      await cancelQuotation(id);
+
+      if (setQuotations) {
+        setQuotations((prev) =>
+          prev.map((q) => (q.id === id ? { ...q, status: 'CANCELLED' } : q))
+        );
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao cancelar cotação.';
+      setError(msg);
+    } finally {
+      setLoading(false);
     }
-  }, [setQuotations, addToast]);
+  }, [setQuotations]);
 
   return {
+    loading,
+    error,
     handleDelete,
     handleCancel,
   };

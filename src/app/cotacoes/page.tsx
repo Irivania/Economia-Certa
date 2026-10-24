@@ -10,6 +10,7 @@ import { useQuotationActions } from '@/features/quotations/hooks/useQuotationAct
 import { useQuotationShortcuts } from '@/features/quotations/hooks/useQuotationShortcuts';
 import { QuotationsHeader } from '@/features/quotations/components/QuotationsHeader';
 import { QuotationsTable } from '@/features/quotations/components/QuotationsTable';
+import { Quotation } from '@/features/quotations/types/quotation.types';
 
 export default function QuotationsPage() {
   const { isDarkMode } = useTheme();
@@ -17,6 +18,17 @@ export default function QuotationsPage() {
 
   const { quotations, loading, setQuotations } = useQuotations();
   const { handleDelete, handleCancel } = useQuotationActions({ setQuotations });
+
+  // Funções de ponte para aceitar o objeto Quotation ou string vindos da tabela
+  const onDeleteWrapper = useCallback((quotationOrId: Quotation | string) => {
+    const id = typeof quotationOrId === 'string' ? quotationOrId : quotationOrId.id;
+    handleDelete(id);
+  }, [handleDelete]);
+
+  const onCancelWrapper = useCallback((quotationOrId: Quotation | string) => {
+    const id = typeof quotationOrId === 'string' ? quotationOrId : quotationOrId.id;
+    handleCancel(id);
+  }, [handleCancel]);
 
   const latestQuotationId = useMemo(() => quotations[0]?.id || '', [quotations]);
 
@@ -41,7 +53,6 @@ export default function QuotationsPage() {
         onOpenCmd={() => setIsCmdOpen(true)}
       />
 
-      {/* CONTEÚDO PRINCIPAL - Sem duplicação de botões */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 pb-24 relative z-25 space-y-6">
         <div className={`rounded-xl border pt-8 px-6 sm:px-7 pb-32 shadow-xs transition-all space-y-5 ${
           isDarkMode ? 'bg-slate-900/90 border-slate-800 text-white backdrop-blur-md' : 'bg-white border-slate-200/90 text-slate-900 backdrop-blur-md'
@@ -52,8 +63,8 @@ export default function QuotationsPage() {
             quotations={quotations}
             loading={loading}
             isDarkMode={isDarkMode}
-            onDelete={handleDelete}
-            onCancel={handleCancel}
+            onDelete={onDeleteWrapper}
+            onCancel={onCancelWrapper}
           />
         </div>
       </main>

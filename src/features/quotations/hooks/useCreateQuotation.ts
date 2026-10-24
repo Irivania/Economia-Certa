@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import { CreateQuotationFormData, QuotationItem } from '../types/quotation.types';
 import { validateQuotationPayload } from '../utils/quotationValidation';
-import { createQuotationRecord } from '../services/quotations.service';
+import { createQuotation } from '../services/quotations.service';
 
 function getTodayDateString() {
   const today = new Date();
@@ -49,7 +49,7 @@ export function useCreateQuotation() {
 
       try {
         setSubmitting(true);
-        await createQuotationRecord({
+        await createQuotation({
           companyId,
           title: title.trim(),
           paymentTerms: paymentTerms.trim(),

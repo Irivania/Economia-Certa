@@ -10,6 +10,9 @@ export interface Product {
   category?: string;
 }
 
+// Alias para compatibilidade com os hooks de cotação
+export type ProductFromDb = Product;
+
 export interface CreateProductPayload {
   companyId: string;
   description: string;
