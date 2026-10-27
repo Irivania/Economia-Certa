@@ -5,6 +5,7 @@ import {
   quotationSuppliers,
   supplierBrands,
   suppliers,
+  quotations,
 } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
 import crypto from 'crypto';
@@ -33,7 +34,6 @@ export async function saveQuotationItems(quotationId: string, items: unknown[]) 
 
     if (!pId) continue;
 
-    // Removido o campo 'price' pois ele não pertence à tabela quotationItems no schema atual
     await db.insert(quotationItems).values({
       id: crypto.randomUUID(),
       quotationId,
@@ -116,4 +116,29 @@ export async function linkQuotationSuppliers(quotationId: string, supplierIds: s
     createdQuotations.push({ supplierId, token: supplierToken });
   }
   return createdQuotations;
+}
+
+export async function getQuotationById(quotationId: string) {
+  try {
+    const [quotation] = await db
+      .select()
+      .from(quotations)
+      .where(eq(quotations.id, quotationId))
+      .limit(1);
+
+    if (!quotation) return null;
+
+    const items = await db
+      .select()
+      .from(quotationItems)
+      .where(eq(quotationItems.quotationId, quotationId));
+
+    return {
+      ...quotation,
+      items,
+    };
+  } catch (error) {
+    console.error('Erro ao buscar cotação por ID no banco de dados:', error);
+    return null;
+  }
 }

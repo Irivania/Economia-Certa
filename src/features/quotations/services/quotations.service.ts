@@ -1,5 +1,10 @@
 import { apiFetch } from '@/lib/apiClient';
-import { Quotation, CreateQuotationApiPayload as CreateQuotationRequest, UpdateQuotationRequest } from '../types/quotation.types';
+import { 
+  Quotation, 
+  CreateQuotationApiPayload as CreateQuotationRequest, 
+  UpdateQuotationRequest 
+} from '../types/quotation.types';
+import { UnrequestedItem, OrderStatus, OrderItem } from '../types/order.types';
 
 export async function getQuotations(signal?: AbortSignal): Promise<Quotation[]> {
   const response = await apiFetch('/api/quotations', { signal });
@@ -69,4 +74,73 @@ export async function cancelQuotation(id: string): Promise<void> {
   if (!response.ok) {
     throw new Error('Erro ao cancelar a cotação.');
   }
+}
+
+// --- MÉTODOS DE PEDIDOS E FINALIZAÇÃO DE COTAÇÃO ---
+
+export interface PersistedOrderResponse {
+  supplierId: string;
+  quotationSupplierId?: string | null;
+  status: OrderStatus;
+}
+
+export async function getPersistedOrders(companyId: string): Promise<PersistedOrderResponse[]> {
+  const response = await apiFetch(`/api/portal/orders?companyId=${companyId}`);
+  if (!response.ok) return [];
+  const data = await response.json();
+  const rawOrders = Array.isArray(data) ? data : data?.orders || [];
+  return Array.isArray(rawOrders) ? rawOrders : [];
+}
+
+export async function getUnrequestedItems(quotationId: string): Promise<UnrequestedItem[]> {
+  const response = await apiFetch(`/api/quotations/${quotationId}/finalize`);
+  if (!response.ok) return [];
+  const data = await response.json();
+  return data?.unrequestedItems || [];
+}
+
+export interface FinalizeOrderPayload {
+  orders: Record<string, OrderItem[]>;
+  paymentTerms: string;
+  unrequestedItems: UnrequestedItem[];
+}
+
+export async function finalizeOrder(
+  quotationId: string, 
+  payload: FinalizeOrderPayload
+): Promise<Record<string, unknown>> {
+  const response = await apiFetch(`/api/quotations/${quotationId}/finalize`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(result.error || result.message || 'Não foi possível enviar o pedido.');
+  }
+  return result;
+}
+
+export interface UpdateOrderStatusPayload {
+  orderId: string;
+  status: OrderStatus;
+  actorRole: string;
+}
+
+export async function updateOrderStatusApi(
+  quotationId: string, 
+  payload: UpdateOrderStatusPayload
+): Promise<Record<string, unknown>> {
+  const response = await apiFetch(`/api/quotations/${quotationId}/finalize`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || errorData.message || 'Não foi possível atualizar o status do pedido.');
+  }
+  return response.json();
 }

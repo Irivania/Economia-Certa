@@ -12,12 +12,16 @@ export type SupplierStatus =
 
 export interface SupplierTracking {
   id: string;
+  quotationSupplierId?: string;
+  supplierId?: string;
   name: string;
   status: SupplierStatus | string;
+  observation?: string | null;
 }
 
 export interface Quotation {
   id: string;
+  companyId?: string;
   title: string;
   paymentTerms?: string | null;
   status?: QuotationStatus | string | null;
@@ -52,13 +56,17 @@ export interface ApiQuotationItem {
 
 export interface ApiSupplierLink {
   id: string;
+  quotationSupplierId?: string;
+  supplierId?: string;
   name?: string;
   status?: string;
   token?: string;
+  observation?: string | null;
 }
 
 export interface ApiQuotation {
   id: string;
+  companyId?: string;
   title?: string;
   paymentTerms?: string | null;
   showQuantities?: boolean | null;
