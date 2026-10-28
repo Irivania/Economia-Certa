@@ -12,6 +12,7 @@ import { QuotationsHeader } from '@/features/quotations/components/QuotationsHea
 import { QuotationsTable } from '@/features/quotations/components/QuotationsTable';
 import { Quotation } from '@/features/quotations/types/quotation.types';
 
+// ATENÇÃO: A palavra 'default' aqui é OBRIGATÓRIA para o Next.js reconhecer a página
 export default function QuotationsPage() {
   const { isDarkMode } = useTheme();
   const [isCmdOpen, setIsCmdOpen] = useState<boolean>(false);
@@ -19,7 +20,6 @@ export default function QuotationsPage() {
   const { quotations, loading, setQuotations } = useQuotations();
   const { handleDelete, handleCancel } = useQuotationActions({ setQuotations });
 
-  // Funções de ponte para aceitar o objeto Quotation ou string vindos da tabela
   const onDeleteWrapper = useCallback((quotationOrId: Quotation | string) => {
     const id = typeof quotationOrId === 'string' ? quotationOrId : quotationOrId.id;
     handleDelete(id);

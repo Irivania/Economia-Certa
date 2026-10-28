@@ -1,20 +1,31 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
-interface UseQuotationShortcutsProps {
+interface UseQuotationsShortcutsProps {
   onToggleCmd?: () => void;
   onCloseModals?: () => void;
 }
 
-export function useQuotationShortcuts({ onToggleCmd, onCloseModals }: UseQuotationShortcutsProps = {}) {
+export function useQuotationShortcuts(props?: UseQuotationsShortcutsProps) {
+  const [isCmdOpen, setIsCmdOpen] = useState(false);
+  const { onToggleCmd, onCloseModals } = props || {};
+
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
-      onToggleCmd?.();
+      if (onToggleCmd) {
+        onToggleCmd();
+      } else {
+        setIsCmdOpen((open) => !open);
+      }
     }
     if (e.key === 'Escape') {
-      onCloseModals?.();
+      if (onCloseModals) {
+        onCloseModals();
+      } else {
+        setIsCmdOpen(false);
+      }
     }
   }, [onToggleCmd, onCloseModals]);
 
@@ -24,4 +35,9 @@ export function useQuotationShortcuts({ onToggleCmd, onCloseModals }: UseQuotati
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [handleKeyDown]);
+
+  return {
+    isCmdOpen,
+    setIsCmdOpen,
+  };
 }

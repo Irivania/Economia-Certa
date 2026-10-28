@@ -98,7 +98,9 @@ export function BatchStockModal({ isOpen, onClose, products, companyId, onSucces
             <div key={p.id} className={`grid grid-cols-12 gap-3 items-center p-3 rounded-2xl border transition-all ${isDarkMode ? 'bg-slate-950/50 border-slate-800' : 'bg-slate-50 border-slate-200/60'}`}>
               <div className="col-span-8">
                 <p className="text-xs font-bold tracking-tight">{p.description}</p>
-                <span className="text-[10px] opacity-60">{p.brand || 'Marca não informada'} • Atual: {p.stockCurrent} un</span>
+                <p className="text-[10px] opacity-60">
+                  {p.brand || 'Marca não informada'} • Atual: <span className="font-semibold">{p.stockCurrent} un</span>
+                </p>
               </div>
               <div className="col-span-4 flex justify-center">
                 <input
