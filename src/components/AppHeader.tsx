@@ -9,6 +9,7 @@ interface AppHeaderProps {
   title: string;
   subtitle: string;
   onOpenCmd: () => void;
+  hideQuotationButton?: boolean;
 }
 
 const colorMap = {
@@ -96,7 +97,7 @@ function subscribeToCompanySession(onStoreChange: () => void) {
   };
 }
 
-export function AppHeader({ title, subtitle, onOpenCmd }: AppHeaderProps) {
+export function AppHeader({ title, subtitle, onOpenCmd, hideQuotationButton }: AppHeaderProps) {
   const { themeColor, setThemeColor, isDarkMode, toggleDarkMode, mounted } = useTheme();
   const session = useSyncExternalStore(
     subscribeToCompanySession,
@@ -177,7 +178,9 @@ export function AppHeader({ title, subtitle, onOpenCmd }: AppHeaderProps) {
             <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white flex items-center gap-1.5">
               {title} <span className={`${themeStyles.accentText} font-light text-base`}>ERP</span>
             </h1>
-            <span className="text-xs text-white/80 font-medium hidden sm:inline">• {subtitle}</span>
+            <span className="text-xs text-white/80 font-medium hidden sm:inline">
+              {subtitle}
+            </span>
           </div>
         </div>
 
@@ -193,9 +196,11 @@ export function AppHeader({ title, subtitle, onOpenCmd }: AppHeaderProps) {
               <Link href="/" className="bg-white/10 hover:bg-white/20 text-white font-semibold text-xs px-3 py-1.5 rounded-lg transition-all border border-white/20 whitespace-nowrap">
                 &larr; Dashboard
               </Link>
-              <Link href="/cotacoes/nova" className={`${themeStyles.button} font-bold text-xs px-3.5 py-1.5 rounded-lg transition-all shadow-md whitespace-nowrap`}>
-                Nova Cotação
-              </Link>
+              {!hideQuotationButton && (
+                <Link href="/cotacoes/nova" className={`${themeStyles.button} font-bold text-xs px-3.5 py-1.5 rounded-lg transition-all shadow-md whitespace-nowrap`}>
+                  Nova Cotação
+                </Link>
+              )}
             </>
           )}
         </div>

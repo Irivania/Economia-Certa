@@ -6,6 +6,7 @@ import {
   supplierBrands,
   suppliers,
   quotations,
+  products,
 } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
 import crypto from 'crypto';
@@ -27,19 +28,53 @@ export async function getActiveB2BSuppliers(companyId: string) {
 export async function saveQuotationItems(quotationId: string, items: unknown[]) {
   if (!Array.isArray(items)) return;
 
+  // Limpa itens anteriores caso seja uma edição/atualização
+  await db.delete(quotationItems).where(eq(quotationItems.quotationId, quotationId));
+
+  const itemsPayload = [];
+
   for (const item of items) {
     const itemObj = item as Record<string, unknown>;
-    const pId = String(itemObj.productId || itemObj.id || '');
-    const qQty = Number(itemObj.requestedQuantity || itemObj.quantity || 0);
+    const pId = String(itemObj.productId || itemObj.id || '').trim();
+    const qQty = Number(itemObj.requestedQuantity || itemObj.quantity || 1);
 
-    if (!pId) continue;
+    if (!pId && !itemObj.description && !itemObj.productName) continue;
 
-    await db.insert(quotationItems).values({
+    let description = String(itemObj.description || itemObj.productName || '').trim();
+    let ean = String(itemObj.ean || itemObj.barcode || itemObj.code || '').trim();
+    let unit = String(itemObj.unit || 'UN').trim();
+    let imageUrl = String(itemObj.imageUrl || itemObj.image || '').trim() || null;
+
+    // Se temos um productId válido mas faltam dados textuais, busca na tabela de produtos
+    if (pId && (!description || !ean || ean === '-')) {
+      const [prodData] = await db
+        .select()
+        .from(products)
+        .where(eq(products.id, pId))
+        .limit(1);
+
+      if (prodData) {
+        description = description || prodData.description;
+        ean = ean || prodData.ean || '-';
+        unit = unit || prodData.unit || 'UN';
+        imageUrl = imageUrl || prodData.imageUrl || null;
+      }
+    }
+
+    itemsPayload.push({
       id: crypto.randomUUID(),
       quotationId,
-      productId: pId,
+      productId: pId || '',
       requestedQuantity: String(qQty),
+      description: description || 'Produto de Reposição',
+      ean: ean || '-',
+      unit: unit || 'UN',
+      imageUrl: imageUrl,
     });
+  }
+
+  if (itemsPayload.length > 0) {
+    await db.insert(quotationItems).values(itemsPayload);
   }
 }
 

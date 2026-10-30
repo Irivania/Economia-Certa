@@ -1,8 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { QuotationTimer } from './QuotationTimer';
 
 interface QuotationDetailsMeta {
   title: string;
@@ -29,6 +28,49 @@ export function SupplierQuotationHeader({
   const router = useRouter();
   const progressPercent = totalItems > 0 ? Math.round((totalCompleted / totalItems) * 100) : 0;
 
+  // Estado para o cronómetro em tempo real
+  const [timeLeft, setTimeLeft] = useState({ days: '00', hours: '00', minutes: '00', seconds: '00', percent: 100 });
+
+  useEffect(() => {
+    const calculateTime = () => {
+      if (!quotation.endDate) return;
+      const [year, month, day] = quotation.endDate.split('T')[0].split('-').map(Number);
+      const [hours = 23, minutes = 59, seconds = 59] = (quotation.closingTime || '23:59:59').split(':').map(Number);
+      const endTimestamp = new Date(year, month - 1, day, hours, minutes, seconds).getTime();
+      const startTimestamp = quotation.startDate ? new Date(quotation.startDate).getTime() : endTimestamp - (7 * 86400000);
+      const now = Date.now();
+
+      const difference = endTimestamp - now;
+
+      if (difference <= 0) {
+        setTimeLeft({ days: '00', hours: '00', minutes: '00', seconds: '00', percent: 0 });
+        return;
+      }
+
+      const d = Math.floor(difference / (1000 * 60 * 60 * 24));
+      const h = Math.floor((difference / (1000 * 60 * 60)) % 24);
+      const m = Math.floor((difference / 1000 / 60) % 60);
+      const s = Math.floor((difference / 1000) % 60);
+
+      const totalDuration = endTimestamp - startTimestamp;
+      const elapsed = now - startTimestamp;
+      const rawPercent = totalDuration > 0 ? Math.round((elapsed / totalDuration) * 100) : 0;
+      const percent = Math.min(Math.max(100 - rawPercent, 0), 100);
+
+      setTimeLeft({
+        days: String(d).padStart(2, '0'),
+        hours: String(h).padStart(2, '0'),
+        minutes: String(m).padStart(2, '0'),
+        seconds: String(s).padStart(2, '0'),
+        percent,
+      });
+    };
+
+    calculateTime();
+    const interval = setInterval(calculateTime, 1000);
+    return () => clearInterval(interval);
+  }, [quotation.endDate, quotation.closingTime, quotation.startDate]);
+
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return 'Não definida';
     try {
@@ -54,13 +96,48 @@ export function SupplierQuotationHeader({
           <span>←</span>
           <span>Voltar ao Painel Principal do Representante</span>
         </button>
+      </div>
 
-        {/* Cronómetro em tempo real no topo */}
-        <QuotationTimer 
-          endDate={quotation.endDate} 
-          closingTime={quotation.closingTime} 
-          isDarkMode={isDarkMode} 
-        />
+      {/* 🚀 Bloco Unificado de Contagem Regressiva Estilo DPCNet (Elegante, Lado a Lado) */}
+      <div className={`p-4 sm:p-5 rounded-2xl border shadow-xs flex flex-col lg:flex-row items-center justify-between gap-4 ${
+        isDarkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200/90'
+      }`}>
+        <div className="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-start">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="text-[10px] font-black uppercase tracking-widest opacity-70">Terminam em:</span>
+          </div>
+
+          {/* Dígitos Elegantes */}
+          <div className="flex items-center gap-1 font-mono font-black text-sm sm:text-base tracking-tight">
+            <span className="px-2 py-1 rounded bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">{timeLeft.days}d</span>
+            <span className="opacity-40">:</span>
+            <span className="px-2 py-1 rounded bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">{timeLeft.hours}h</span>
+            <span className="opacity-40">:</span>
+            <span className="px-2 py-1 rounded bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">{timeLeft.minutes}m</span>
+            <span className="opacity-40">:</span>
+            <span className="px-2 py-1 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20">{timeLeft.seconds}s</span>
+          </div>
+        </div>
+
+        {/* Barra de Progresso e Percentagem Lateral */}
+        <div className="w-full lg:w-[45%] flex items-center gap-3">
+          <div className="flex-1 space-y-1">
+            <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider opacity-60">
+              <span>Progresso do Prazo</span>
+              <span className="text-emerald-500 font-mono font-black">{timeLeft.percent}% restante</span>
+            </div>
+            <div className={`w-full h-2.5 rounded-full overflow-hidden ${isDarkMode ? 'bg-slate-800' : 'bg-slate-100'}`}>
+              <div 
+                className="h-full bg-gradient-to-r from-emerald-500 via-indigo-500 to-amber-500 transition-all duration-1000 rounded-full shadow-xs"
+                style={{ width: `${timeLeft.percent}%` }}
+              />
+            </div>
+          </div>
+          <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 whitespace-nowrap">
+            {timeLeft.percent <= 15 ? '⚠️ Reta final' : '🟢 Ativo'}
+          </span>
+        </div>
       </div>
 
       <div className={`p-8 rounded-3xl shadow-xl border backdrop-blur-md grid grid-cols-1 lg:grid-cols-3 gap-6 items-center ${

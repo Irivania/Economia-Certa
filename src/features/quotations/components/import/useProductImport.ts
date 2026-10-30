@@ -1,106 +1,8 @@
-'use client';
-
 import { useState } from 'react';
-import { products as productsSchema } from '@/db/schema';
-import { ImportHeader } from './import/ImportHeader';
-import { ImportResultsList } from './import/ImportResultsList';
-import { useTheme } from '@/context/ThemeContext';
+import { Product, ItemPendente, ItemReconhecido, QuotationItemPayload } from './types';
+import { normalizarTexto, calcularSimilaridade, formatarValorInicial, formatarMoedaInput } from './import.utils';
 
-export type Product = typeof productsSchema.$inferSelect & {
-  ean?: string | null;
-};
-
-export interface ItemPendente {
-  codigoExterno?: string;
-  ean?: string | null;
-  descricao: string;
-  descricaoPadronizada: string;
-  precoVenda?: string | '';
-  estoqueAtual?: number | '';
-}
-
-interface ItemReconhecido {
-  codigoExterno?: string;
-  ean?: string | null;
-  descricao: string;
-  product: Product;
-  matchType: 'EAN' | 'Exato' | 'Similar';
-}
-
-interface QuotationItemPayload {
-  id: string;
-  productId: string;
-  description: string;
-  brand: string | null;
-  ean: string | null;
-  imageUrl?: string | null;
-  stockCurrent: number;
-  stockIdeal: number;
-  requestedQuantity: number;
-}
-
-interface ProductImportModalProps {
-  products: Product[];
-  onQuickRegister?: (itemPendente: ItemPendente) => Promise<void>;
-  onImportComplete?: (itens: QuotationItemPayload[]) => void;
-}
-
-function formatarMoedaInput(valorStr: string): string {
-  const apenasDigitos = valorStr.replace(/\D/g, '');
-  if (!apenasDigitos) return '';
-  const numero = Number(apenasDigitos) / 100;
-  return numero.toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-function calcularSimilaridade(s1: string, s2: string): number {
-  let longer = s1;
-  let shorter = s2;
-  if (s1.length < s2.length) {
-    longer = s2;
-    shorter = s1;
-  }
-  const longerLength = longer.length;
-  if (longerLength === 0) return 1.0;
-  return (longerLength - editarDistancia(longer, shorter)) / longerLength;
-}
-
-function editarDistancia(s1: string, s2: string): number {
-  const costs: number[] = [];
-  for (let i = 0; i <= s1.length; i++) {
-    let lastValue = i;
-    for (let j = 0; j <= s2.length; j++) {
-      if (i === 0) {
-        costs[j] = j;
-      } else if (j > 0) {
-        let newValue = costs[j - 1];
-        if (s1.charAt(i - 1) !== s2.charAt(j - 1)) {
-          newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
-        }
-        costs[j - 1] = lastValue;
-        lastValue = newValue;
-      }
-    }
-    if (i > 0) costs[s2.length] = lastValue;
-  }
-  return costs[s2.length];
-}
-
-function normalizarTexto(texto: string): string {
-  if (!texto) return '';
-  return texto
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toUpperCase()
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-export function ProductImportModal({ products, onImportComplete }: ProductImportModalProps) {
-  const { isDarkMode } = useTheme();
-
+export function useProductImport(products: Product[], onImportComplete?: (itens: QuotationItemPayload[]) => void) {
   const [rawImportText, setRawImportText] = useState(() => {
     if (typeof window !== 'undefined') {
       return sessionStorage.getItem('melo_raw_import') || '';
@@ -162,47 +64,17 @@ export function ProductImportModal({ products, onImportComplete }: ProductImport
     }
   };
 
-  const handleFinalizarImportacao = () => {
-    const itensParaCotacao: QuotationItemPayload[] = [
-      ...itensReconhecidos.map(r => ({
-        id: r.product.id,
-        productId: r.product.id,
-        description: r.product.description,
-        brand: r.product.brand || null,
-        ean: r.product.ean || r.ean || null,
-        imageUrl: r.product.imageUrl || null,
-        stockCurrent: r.product.stockCurrent || 0,
-        stockIdeal: r.product.stockIdeal || 0,
-        requestedQuantity: 0,
-      })),
-      ...itensPendentes.map((p, idx) => ({
-        id: `pendente_${idx}_${Date.now()}`,
-        productId: `pendente_${idx}`,
-        description: p.descricaoPadronizada,
-        brand: null,
-        ean: p.ean || null,
-        imageUrl: null,
-        stockCurrent: Number(p.estoqueAtual) || 0,
-        stockIdeal: 0,
-        requestedQuantity: 0,
-      }))
-    ];
-
-    if (onImportComplete && itensParaCotacao.length > 0) {
-      onImportComplete(itensParaCotacao);
+  const handleUpdatePendingItem = (index: number, field: 'descricaoPadronizada' | 'precoVenda' | 'estoqueAtual', value: string | number) => {
+    const updated = [...itensPendentes];
+    if (field === 'precoVenda') {
+      updated[index] = { ...updated[index], [field]: formatarMoedaInput(String(value)) };
+    } else {
+      updated[index] = { ...updated[index], [field]: value };
     }
-
-    setRawImportText('');
-    setItensReconhecidos([]);
-    setItensPendentes([]);
-    if (typeof window !== 'undefined') {
-      sessionStorage.removeItem('melo_raw_import');
-      sessionStorage.removeItem('melo_reconhecidos');
-      sessionStorage.removeItem('melo_pendentes');
-    }
+    atualizarPendentes(updated);
   };
 
-  const processarLinhasExtraidas = (linhas: Array<{ ean: string | null; descricao: string }>) => {
+  const processarLinhasExtraidas = (linhas: Array<{ ean: string | null; descricao: string; precoVenda: string }>) => {
     const reconhecidos: ItemReconhecido[] = [];
     const pendentes: ItemPendente[] = [];
     const chavesProcessadas = new Set<string>();
@@ -262,7 +134,7 @@ export function ProductImportModal({ products, onImportComplete }: ProductImport
             ean: item.ean,
             descricao: item.descricao,
             descricaoPadronizada: descNormalizada,
-            precoVenda: '',
+            precoVenda: formatarValorInicial(item.precoVenda),
             estoqueAtual: '',
           });
         }
@@ -294,17 +166,28 @@ export function ProductImportModal({ products, onImportComplete }: ProductImport
     setProgress(0);
 
     const linhasTexto = rawImportText.split('\n').filter((l) => l.trim() !== '');
-    const itensExtraidos: Array<{ ean: string | null; descricao: string }> = linhasTexto.map((linha) => {
+    const itensExtraidos = linhasTexto.map((linha) => {
       const partes = linha.split(/[\t;]/).map(p => p.trim()).filter(Boolean);
       let ean: string | null = null;
       let descricao = '';
+      let precoVenda = '';
 
-      if (partes.length >= 2) {
+      if (partes.length >= 3) {
         if (/^\d{8,14}$/.test(partes[0])) {
           ean = partes[0];
-          descricao = partes.slice(1).join(' ');
+          precoVenda = partes[partes.length - 1];
+          descricao = partes.slice(1, partes.length - 1).join(' ');
         } else {
-          descricao = partes.join(' ');
+          precoVenda = partes[partes.length - 1];
+          descricao = partes.slice(0, partes.length - 1).join(' ');
+        }
+      } else if (partes.length === 2) {
+        if (/^\d{8,14}$/.test(partes[0])) {
+          ean = partes[0];
+          descricao = partes[1];
+        } else {
+          descricao = partes[0];
+          precoVenda = partes[1];
         }
       } else {
         descricao = partes[0] || linha;
@@ -314,8 +197,8 @@ export function ProductImportModal({ products, onImportComplete }: ProductImport
         }
       }
 
-      return { ean, descricao: descricao.replace(/<[^>]*>?/gm, '') };
-    }).filter((item): item is { ean: string | null; descricao: string } => item.descricao !== '');
+      return { ean, descricao: descricao.replace(/<[^>]*>?/gm, ''), precoVenda };
+    }).filter((item) => item.descricao !== '');
 
     processarLinhasExtraidas(itensExtraidos);
   };
@@ -336,26 +219,35 @@ export function ProductImportModal({ products, onImportComplete }: ProductImport
 
       setProgress(50);
 
-      const itensExtraidos: Array<{ ean: string | null; descricao: string }> = rows
+      const itensExtraidos = rows
         .map((row) => {
           const cols = row.map(cell => (cell !== undefined && cell !== null ? String(cell).trim() : '')).filter(Boolean);
           if (cols.length === 0) return null;
 
           let ean: string | null = null;
           let descricao = '';
+          let precoVenda = '';
 
           const eanIndex = cols.findIndex(c => /^\d{8,14}$/.test(c));
           if (eanIndex !== -1) {
             ean = cols[eanIndex];
             cols.splice(eanIndex, 1);
           }
-          descricao = cols.join(' ');
 
+          if (cols.length > 1) {
+            const ultimaCol = cols[cols.length - 1];
+            if (/^[\d.,]+$/.test(ultimaCol)) {
+              precoVenda = ultimaCol;
+              cols.pop();
+            }
+          }
+
+          descricao = cols.join(' ');
           if (!descricao && ean) return null;
 
-          return { ean, descricao };
+          return { ean, descricao, precoVenda };
         })
-        .filter((item): item is { ean: string | null; descricao: string } => item !== null && item.descricao !== '');
+        .filter((item): item is { ean: string | null; descricao: string; precoVenda: string } => item !== null && item.descricao !== '');
 
       setProgress(80);
       processarLinhasExtraidas(itensExtraidos);
@@ -366,37 +258,56 @@ export function ProductImportModal({ products, onImportComplete }: ProductImport
     }
   };
 
-  const handleUpdatePendingItem = (index: number, field: 'descricaoPadronizada' | 'precoVenda' | 'estoqueAtual', value: string | number) => {
-    const updated = [...itensPendentes];
-    if (field === 'precoVenda') {
-      updated[index] = { ...updated[index], [field]: formatarMoedaInput(String(value)) };
-    } else {
-      updated[index] = { ...updated[index], [field]: value };
+  const handleFinalizarImportacao = () => {
+    const itensParaCotacao: QuotationItemPayload[] = [
+      ...itensReconhecidos.map(r => ({
+        id: r.product.id,
+        productId: r.product.id,
+        description: r.product.description,
+        brand: r.product.brand || null,
+        ean: r.product.ean || r.ean || null,
+        imageUrl: r.product.imageUrl || null,
+        stockCurrent: r.product.stockCurrent || 0,
+        stockIdeal: r.product.stockIdeal || 0,
+        requestedQuantity: 0,
+      })),
+      ...itensPendentes.map((p, idx) => ({
+        id: `pendente_${idx}_${Date.now()}`,
+        productId: `pendente_${idx}`,
+        description: p.descricaoPadronizada,
+        brand: null,
+        ean: p.ean || null,
+        imageUrl: null,
+        stockCurrent: Number(p.estoqueAtual) || 0,
+        stockIdeal: 0,
+        requestedQuantity: 0,
+      }))
+    ];
+
+    if (onImportComplete && itensParaCotacao.length > 0) {
+      onImportComplete(itensParaCotacao);
     }
-    atualizarPendentes(updated);
+
+    setRawImportText('');
+    setItensReconhecidos([]);
+    setItensPendentes([]);
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('melo_raw_import');
+      sessionStorage.removeItem('melo_reconhecidos');
+      sessionStorage.removeItem('melo_pendentes');
+    }
   };
 
-  return (
-    <div className={`rounded-2xl border p-6 space-y-6 transition-all ${
-      isDarkMode ? 'bg-slate-950/50 border-slate-800 text-white' : 'bg-slate-50/60 border-slate-200/80 text-slate-900'
-    }`}>
-      <ImportHeader
-        rawImportText={rawImportText}
-        onTextChange={handleTextChange}
-        isProcessing={isProcessing}
-        progress={progress}
-        onProcessImport={handleProcessImport}
-        onFileUpload={handleFileUpload}
-      />
-
-      {(itensReconhecidos.length > 0 || itensPendentes.length > 0) && !isProcessing && (
-        <ImportResultsList
-          itensReconhecidos={itensReconhecidos}
-          itensPendentes={itensPendentes}
-          onUpdatePendingItem={handleUpdatePendingItem}
-          onFinalizarImportacao={handleFinalizarImportacao}
-        />
-      )}
-    </div>
-  );
+  return {
+    rawImportText,
+    itensReconhecidos,
+    itensPendentes,
+    isProcessing,
+    progress,
+    handleTextChange,
+    handleProcessImport,
+    handleFileUpload,
+    handleUpdatePendingItem,
+    handleFinalizarImportacao,
+  };
 }

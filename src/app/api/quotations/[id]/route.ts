@@ -27,8 +27,8 @@ export async function GET(
       return NextResponse.json({ error: 'Cotação não encontrada.' }, { status: 404 });
     }
 
-    // 2. Busca os itens solicitados na cotação
-    const itemsList = await db
+    // 2. Busca os itens solicitados na cotação (Usando leftJoin para evitar perda de dados e mapeando para formato duplo)
+    const rawItemsList = await db
       .select({
         id: quotationItems.id,
         productId: quotationItems.productId,
@@ -40,8 +40,23 @@ export async function GET(
         imageUrl: products.imageUrl,
       })
       .from(quotationItems)
-      .innerJoin(products, eq(quotationItems.productId, products.id))
+      .leftJoin(products, eq(quotationItems.productId, products.id))
       .where(eq(quotationItems.quotationId, quotationId));
+
+    // Padroniza os itens para suportar tanto leituras planas quanto aninhadas no frontend
+    const itemsList = rawItemsList.map((item) => ({
+      ...item,
+      description: item.description || 'Produto sem descrição',
+      ean: item.ean || '',
+      imageUrl: item.imageUrl || null,
+      product: {
+        description: item.description || 'Produto sem descrição',
+        ean: item.ean || '',
+        brand: item.brand || null,
+        unit: item.unit || 'UN',
+        imageUrl: item.imageUrl || null,
+      },
+    }));
 
     // 3. Busca os fornecedores/distribuidores vinculados a esta cotação
     const suppliersList = await db
@@ -86,7 +101,7 @@ export async function GET(
       supplierItems: supplierItemsList,
     });
   } catch (error) {
-    console.error('Erro ao buscar detalhes da cotação para o lojista:', error);
+    console.error('Erro ao buscar detalhes da cotação para o lojista/representante:', error);
     return NextResponse.json({ error: 'Erro interno ao carregar cotação.' }, { status: 500 });
   }
 }

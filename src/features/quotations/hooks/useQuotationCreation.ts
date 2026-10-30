@@ -21,6 +21,7 @@ export function useQuotationCreation() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleQuickRegisterProduct = useCallback(async (itemPendente: { descricaoPadronizada: string; ean?: string | null; precoVenda?: number | string }) => {
     if (!companyId) return;
@@ -41,6 +42,8 @@ export function useQuotationCreation() {
     }
 
     setError(null);
+    setSuccessMessage(null);
+
     const formData = {
       title: quotationForm.title,
       paymentTerms: quotationForm.paymentTerms,
@@ -70,10 +73,15 @@ export function useQuotationCreation() {
         items: quotationItems.quotationItems,
       });
 
-      router.push('/cotacoes');
+      setSuccessMessage('Cotação criada e enviada com sucesso!');
+      
+      // Pequeno delay para o utilizador ler o aviso visual antes do redirecionamento
+      setTimeout(() => {
+        router.push('/cotacoes');
+      }, 1200);
+      
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erro ao criar cotação.');
-    } finally {
       setSubmitting(false);
     }
   }, [companyId, quotationForm, quotationSuppliers.selectedSupplierIds, quotationItems.quotationItems, router]);
@@ -85,6 +93,7 @@ export function useQuotationCreation() {
     quotationForm,
     submitting: submitting || quotationForm.submitting,
     error: error || quotationForm.error,
+    successMessage,
     handleQuickRegisterProduct,
     submit,
   };

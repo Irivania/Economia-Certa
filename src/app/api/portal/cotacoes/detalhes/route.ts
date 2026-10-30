@@ -144,8 +144,8 @@ export async function GET(request: NextRequest) {
       const typedRow = row as Record<string, unknown>;
       const item = (typedRow.quotation_items ||
         typedRow.quotationItems ||
-        {}) as Record<string, unknown>;
-      const prod = (typedRow.products || typedRow) as Record<string, unknown>;
+        typedRow) as Record<string, unknown>;
+      const prod = (typedRow.products || typedRow.product || typedRow) as Record<string, unknown>;
 
       const productId =
         (item.productId as string) ||
@@ -159,19 +159,32 @@ export async function GET(request: NextRequest) {
         const rawQty = item.requestedQuantity ?? item.quantity ?? 1;
         const quantity = Number(String(rawQty).replace(",", ".")) || 1;
         const showQuantity = quotData.showQuantities !== false;
+
+        // Captura o nome/descrição de qualquer fonte possível (tabela products ou item da cotação)
         const productName =
           (prod.description as string) ||
           (prod.name as string) ||
           (prod.title as string) ||
+          (item.description as string) ||
+          (item.productName as string) ||
           "Produto de Reposição";
 
         let barcode = String(
-          prod.ean || prod.barcode || prod.code || prod.sku || "-",
+          prod.ean || prod.barcode || prod.code || prod.sku || item.ean || item.barcode || "-",
         ).trim();
         if (barcode.length > 14) barcode = barcode.slice(0, 13);
 
         let unit = String(prod.unit || item.unit || "UN").trim();
         if (unit.length > 4) unit = "UN";
+
+        const imageUrl = 
+          (prod.imageUrl as string) || 
+          (prod.image as string) || 
+          (item.imageUrl as string) || 
+          null;
+
+        const brand = (prod.brand as string) || (item.brand as string) || "";
+        const description = brand ? `Marca: ${brand}` : "";
 
         // Obtém o preço específico salvo por este fornecedor específico
         const savedInfo = priceMap.get(productId);
@@ -183,8 +196,8 @@ export async function GET(request: NextRequest) {
           productId,
           productName,
           barcode,
-          description: (prod.brand as string) ? `Marca: ${prod.brand}` : "",
-          imageUrl: (prod.imageUrl as string) || (prod.image as string) || null,
+          description,
+          imageUrl,
           quantity: showQuantity ? quantity : null,
           showQuantity,
           unit,
@@ -278,7 +291,7 @@ export async function GET(request: NextRequest) {
       companyName: (compData.name as string) || "Melo Perfumaria",
       supplierName: resolvedSupplierName || "DISTRIBUIDORA PARCEIRA",
       status: supplierRecord.status,
-      isLocked, // Isolado por fornecedor: True apenas se este fornecedor específico já respondeu
+      isLocked,
       observation: supplierRecord.observation || "",
       startDate: quotData.startDate ?? null,
       endDate: quotData.endDate ?? null,

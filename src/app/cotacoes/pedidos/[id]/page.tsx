@@ -218,13 +218,16 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
   return (
     <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
       
-      <AppHeader
-        title="Economia Certa"
-        subtitle="Painel gerencial inteligente e controle de compras em tempo real."
-        onOpenCmd={() => setIsCmdOpen(true)}
-      />
+      {/* Cabeçalho isolado para evitar sobreposição */}
+      <div className="pb-8">
+        <AppHeader
+          title="Economia Certa"
+          subtitle="Painel gerencial inteligente e controle de compras em tempo real."
+          onOpenCmd={() => setIsCmdOpen(true)}
+        />
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-20 relative z-20 space-y-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 relative z-10" role="main">
         
         <div className={`rounded-xl border p-6 sm:p-7 shadow-xs transition-all space-y-5 ${
           isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'

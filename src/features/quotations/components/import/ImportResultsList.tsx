@@ -1,13 +1,6 @@
 'use client';
 
-import { ItemPendente } from '../ProductImportModal';
-
-interface ItemReconhecido {
-  ean?: string | null;
-  descricao: string;
-  product: { description: string };
-  matchType: 'EAN' | 'Exato' | 'Similar';
-}
+import { ItemPendente, ItemReconhecido } from './types';
 
 interface ImportResultsListProps {
   itensReconhecidos: ItemReconhecido[];
@@ -27,20 +20,20 @@ export function ImportResultsList({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* Já Cadastrados */}
-        <div className="bg-white p-5 rounded-lg border border-emerald-300 shadow-sm">
-          <h3 className="text-[13px] font-bold text-emerald-700 mb-4 flex items-center gap-2">
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-emerald-300 dark:border-emerald-900/50 shadow-sm">
+          <h3 className="text-[13px] font-bold text-emerald-700 dark:text-emerald-400 mb-4 flex items-center gap-2">
             ✅ Já Cadastrados no ERP ({itensReconhecidos.length})
           </h3>
-          <ul className="space-y-2.5 max-h-[350px] overflow-y-auto text-[11px] text-slate-600 pr-2">
+          <ul className="space-y-2.5 max-h-[350px] overflow-y-auto text-[11px] text-slate-600 dark:text-slate-300 pr-2">
             {itensReconhecidos.map((item, idx) => (
-              <li key={idx} className="border-b border-slate-100 pb-2 flex justify-between items-center">
+              <li key={idx} className="border-b border-slate-100 dark:border-slate-800 pb-2 flex justify-between items-center">
                 <span className="truncate pr-3 leading-relaxed">
                   {item.ean && <span className="text-indigo-500 font-mono mr-1.5 font-bold">[{item.ean}]</span>}
-                  <b className="text-slate-800">{item.descricao}</b> &rarr; <span className="uppercase text-slate-500">{item.product.description}</span>
+                  <b className="text-slate-800 dark:text-slate-100">{item.descricao}</b> &rarr; <span className="uppercase text-slate-500 dark:text-slate-400">{item.product.description}</span>
                 </span>
                 <span className={`text-[9px] px-2 py-0.5 rounded font-bold whitespace-nowrap ${
-                  item.matchType === 'EAN' ? 'bg-indigo-100 text-indigo-700' :
-                  item.matchType === 'Exato' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
+                  item.matchType === 'EAN' ? 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300' :
+                  item.matchType === 'Exato' ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300' : 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300'
                 }`}>
                   {item.matchType}
                 </span>
@@ -50,12 +43,12 @@ export function ImportResultsList({
         </div>
 
         {/* Novos / Pendentes */}
-        <div className="bg-white p-5 rounded-lg border border-amber-300 shadow-sm">
-          <h3 className="text-[13px] font-bold text-amber-600 mb-4 flex items-center gap-2">
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-amber-300 dark:border-amber-900/50 shadow-sm">
+          <h3 className="text-[13px] font-bold text-amber-600 dark:text-amber-400 mb-4 flex items-center gap-2">
             ⚠️ Novos / Não Cadastrados ({itensPendentes.length})
           </h3>
           {itensPendentes.length === 0 ? (
-            <p className="text-[11px] text-slate-500 py-6 text-center">Nenhum item pendente de cadastro!</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 py-6 text-center">Nenhum item pendente de cadastro!</p>
           ) : (
             <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2">
               {itensPendentes.map((item, idx) => {
@@ -64,44 +57,44 @@ export function ImportResultsList({
                   ean: item.ean || '',
                   salePrice: item.precoVenda !== '' ? String(item.precoVenda) : '',
                   stockCurrent: item.estoqueAtual !== '' ? String(item.estoqueAtual) : '',
-                  returnTo: '/cotacoes/nova', // Adicionado para permitir retorno à cotação
+                  returnTo: '/cotacoes/nova',
                 });
 
                 return (
-                  <div key={idx} className="bg-white p-3 rounded-lg border border-amber-200 shadow-sm flex flex-col gap-3">
+                  <div key={idx} className="bg-slate-50/50 dark:bg-slate-950/40 p-3 rounded-lg border border-amber-200 dark:border-amber-900/40 shadow-sm flex flex-col gap-3">
                     <div className="flex items-center gap-2">
-                      {item.ean && <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-100 px-1.5 py-0.5 rounded font-mono font-bold">{item.ean}</span>}
+                      {item.ean && <span className="text-[10px] bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900 px-1.5 py-0.5 rounded font-mono font-bold">{item.ean}</span>}
                       <input
                         type="text"
                         value={item.descricaoPadronizada}
                         onChange={(e) => onUpdatePendingItem(idx, 'descricaoPadronizada', e.target.value)}
-                        className="w-full bg-white border border-amber-100 rounded px-2.5 py-1.5 text-xs font-bold uppercase text-slate-800 focus:outline-none focus:border-indigo-400 transition-colors"
+                        className="w-full bg-white dark:bg-slate-900 border border-amber-100 dark:border-slate-800 rounded px-2.5 py-1.5 text-xs font-bold uppercase text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-400 transition-colors"
                         placeholder="Nome do produto"
                       />
                     </div>
                     
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 text-[11px]">
-                        <span className="text-slate-500 font-medium">Venda: R$</span>
+                        <span className="text-slate-500 dark:text-slate-400 font-medium">Venda: R$</span>
                         <input
                           type="text"
                           inputMode="numeric"
                           value={item.precoVenda}
                           onChange={(e) => onUpdatePendingItem(idx, 'precoVenda', e.target.value)}
                           placeholder="0,00"
-                          className="w-20 bg-white border border-amber-200 rounded px-2 py-1 text-xs text-center font-bold text-slate-700 focus:outline-none focus:border-amber-400"
+                          className="w-20 bg-white dark:bg-slate-900 border border-amber-200 dark:border-slate-800 rounded px-2 py-1 text-xs text-center font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-amber-400"
                         />
                       </div>
 
                       <div className="flex items-center gap-1.5 text-[11px]">
-                        <span className="text-slate-500 font-medium">Estq. Atual:</span>
+                        <span className="text-slate-500 dark:text-slate-400 font-medium">Estq. Atual:</span>
                         <input
                           type="number"
                           min="0"
                           value={item.estoqueAtual}
                           onChange={(e) => onUpdatePendingItem(idx, 'estoqueAtual', e.target.value === '' ? '' : Number(e.target.value))}
                           placeholder=""
-                          className="w-16 bg-white border border-amber-200 rounded px-2 py-1 text-xs text-center font-bold text-slate-700 focus:outline-none focus:border-amber-400 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
+                          className="w-16 bg-white dark:bg-slate-900 border border-amber-200 dark:border-slate-800 rounded px-2 py-1 text-xs text-center font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-amber-400 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
                         />
                       </div>
 
@@ -122,8 +115,9 @@ export function ImportResultsList({
 
       <div className="flex justify-end pt-2">
         <button
+          type="button"
           onClick={onFinalizarImportacao}
-          className="bg-slate-900 hover:bg-black text-white text-xs font-bold px-6 py-3 rounded-lg transition-colors shadow-md cursor-pointer flex items-center gap-2"
+          className="bg-slate-900 dark:bg-emerald-600 hover:bg-black dark:hover:bg-emerald-700 text-white text-xs font-bold px-6 py-3 rounded-xl transition-colors shadow-md cursor-pointer flex items-center gap-2"
         >
           ✓ Finalizar e Incluir na Cotação &rarr;
         </button>

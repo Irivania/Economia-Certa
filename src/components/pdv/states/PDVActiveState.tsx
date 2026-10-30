@@ -4,6 +4,7 @@ import React from 'react';
 import { PDVProductSearch } from '@/components/pdv/PDVProductSearch';
 import { PDVCartList } from '@/components/pdv/PDVCartList';
 import { PDVCheckoutPanel } from '@/components/pdv/PDVCheckoutPanel';
+import { POSPromoBanner } from '@/components/pdv/POSPromoBanner'; // 🌸 Nosso novo banner dinâmico
 import { usePDV } from '@/hooks/usePDV';
 
 interface PDVActiveStateProps {
@@ -15,10 +16,10 @@ export const PDVActiveState = React.memo(function PDVActiveState({ pdv, isDarkMo
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-full items-start overflow-hidden pb-1">
       
-      {/* Coluna Esquerda (7 Colunas): Busca de Produtos + Carrinho Maximizado e Limpo */}
+      {/* Coluna Esquerda (7 Colunas): Busca de Produtos + Carrinho / Banner Dinâmico */}
       <div className="lg:col-span-7 flex flex-col space-y-3 h-full overflow-hidden">
         
-        {/* Componente de Busca / Lançamento de Produtos (Sem blocos poluentes) */}
+        {/* Componente de Busca / Lançamento de Produtos */}
         <div className={`p-4 rounded-3xl border shadow-lg shrink-0 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
           <PDVProductSearch
             searchTerm={pdv.searchTerm}
@@ -32,19 +33,29 @@ export const PDVActiveState = React.memo(function PDVActiveState({ pdv, isDarkMo
           />
         </div>
 
-        {/* Lista do Carrinho Maximizada (Ocupa todo o espaço livre com scroll interno elegante) */}
-        <div className={`p-4 rounded-3xl border shadow-lg flex-1 overflow-y-auto flex flex-col ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-          <PDVCartList
-            cart={pdv.cart}
-            onRequestAction={pdv.requestManagerAction}
-            editingProductId={pdv.editingProductId}
-            editPrice={pdv.editPrice}
-            setEditPrice={pdv.setEditPrice}
-            editQty={pdv.editQty}
-            setEditQty={pdv.setEditQty}
-            onSaveEdit={pdv.handleSaveItemEdit}
-            onCancelEdit={() => pdv.setEditingProductId(null)}
-          />
+        {/* Área Dinâmica: Se o carrinho estiver vazio, exibe o Banner de Marca / Promoção. Se tiver itens, exibe a lista do carrinho. */}
+        <div className={`rounded-3xl border shadow-lg flex-1 overflow-y-auto flex flex-col ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+          {pdv.cart.length === 0 ? (
+            <POSPromoBanner 
+              isDarkMode={isDarkMode} 
+              companyName="Melo Perfumaria"
+              bannerUrl={null} // Aqui poderá futuramente passar a URL vinda das configurações da empresa
+            />
+          ) : (
+            <div className="p-4 flex-1 flex flex-col">
+              <PDVCartList
+                cart={pdv.cart}
+                onRequestAction={pdv.requestManagerAction}
+                editingProductId={pdv.editingProductId}
+                editPrice={pdv.editPrice}
+                setEditPrice={pdv.setEditPrice}
+                editQty={pdv.editQty}
+                setEditQty={pdv.setEditQty}
+                onSaveEdit={pdv.handleSaveItemEdit}
+                onCancelEdit={() => pdv.setEditingProductId(null)}
+              />
+            </div>
+          )}
         </div>
       </div>
 

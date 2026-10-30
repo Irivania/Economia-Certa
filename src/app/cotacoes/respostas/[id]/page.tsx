@@ -42,7 +42,6 @@ function QuotationResponsesContent({ id }: { id: string }) {
     setIgnoredProducts,
   } = useQuotationComparison(id);
 
-  // Correção aplicada: Removido o argumento 'selectedChoices' para alinhar com o hook
   const {
     handleSmartQuote,
     handleSelectChoice,
@@ -86,14 +85,18 @@ function QuotationResponsesContent({ id }: { id: string }) {
   const summaryTotal = calculateSummaryTotal(selectedBySupplier);
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
-      <AppHeader
-        title="Economia Certa"
-        subtitle="Painel gerencial inteligente e controle de compras em tempo real."
-        onOpenCmd={() => setIsCmdOpen(true)}
-      />
+    <div className={`min-h-screen transition-colors duration-300 pb-20 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+      
+      {/* Cabeçalho isolado sem sobreposição */}
+      <div className="pb-8">
+        <AppHeader
+          title="Economia Certa"
+          subtitle="Painel gerencial inteligente e controle de compras em tempo real."
+          onOpenCmd={() => setIsCmdOpen(true)}
+        />
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-20 relative z-20 space-y-6" role="main">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 relative z-10" role="main">
         <ComparisonHeader
           title={quotation.title}
           startDate={quotation.startDate}
