@@ -340,7 +340,8 @@ export const cashRegisters = pgTable("cash_registers", {
   openingAmount: numeric("opening_amount", { precision: 10, scale: 2 }).notNull(),
   closingAmount: numeric("closing_amount", { precision: 10, scale: 2 }),
   differenceAmount: numeric("difference_amount", { precision: 10, scale: 2 }),
-  status: text("status").default("OPEN").notNull(),
+  status: text("status").default("OPEN").notNull(), // 'OPEN', 'PAUSED', 'CLOSED'
+  pausedAt: timestamp("paused_at"), // Regista o timestamp exato do início da pausa
   openedAt: timestamp("opened_at").defaultNow().notNull(),
   closedAt: timestamp("closed_at"),
 });

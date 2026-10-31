@@ -69,7 +69,7 @@ export default function PDVPage() {
 
       <main className="max-w-7xl w-full mx-auto px-6 py-3 flex-1 flex flex-col justify-start relative z-20 space-y-3 overflow-hidden">
         
-        {/* 🌸 Banner de Branding da Melo Perfumaria (Tamanho Equilibrado e Sofisticado) */}
+        {/* 🌸 Banner de Branding da Melo Perfumaria */}
         <div className={`shrink-0 rounded-2xl p-3 px-5 border shadow-sm flex items-center justify-between transition-colors ${
           isDarkMode 
             ? 'bg-gradient-to-r from-purple-950/80 via-slate-900 to-slate-900 border-purple-900/50 text-white' 
@@ -117,6 +117,7 @@ export default function PDVPage() {
           </div>
         </div>
 
+        {/* Renderização Inteligente baseada no Estado do Caixa (Aberto, Fechado ou Pausado) */}
         <div className="flex-1 flex flex-col overflow-hidden pb-2">
           {!pdv.isRegisterOpen ? (
             <PDVClosedState isDarkMode={isDarkMode} />
