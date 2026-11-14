@@ -24,7 +24,8 @@ function ProductsContent() {
         onOpenCmd={() => prod.setIsCmdOpen(true)}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-20 relative z-20 space-y-6">
+      {/* 💡 CORREÇÃO DO LAYOUT: Substituído o -mt-8 por mt-6 para evitar a sobreposição com o cabeçalho */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 pb-20 relative z-20 space-y-6">
         
         {prod.returnTo && (
           <div className="bg-indigo-500/10 border border-indigo-500/30 p-4 rounded-xl flex items-center justify-between">
@@ -44,7 +45,7 @@ function ProductsContent() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4 border-slate-100 dark:border-slate-800">
             <div>
               <h2 className="text-sm font-bold tracking-tight">
-                {prod.editingId ? 'Editar Produto' : 'Cadastrar Novo Produto'}
+                {prod.editingId ? 'Editar Produto / Kit' : 'Cadastrar Novo Produto'}
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Selecione o modo de preenchimento ideal para a sua operação.</p>
             </div>
@@ -159,7 +160,9 @@ function ProductsContent() {
 export default function ProductsPage() {
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-xs text-slate-500">A carregar catálogo...</div>}>
-      <ProductsContent />
+      <Suspense fallback={null}>
+        <ProductsContent />
+      </Suspense>
     </Suspense>
   );
 }

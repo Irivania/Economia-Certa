@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/db/db';
-import { sales, saleItems, products, cashRegisters } from '@/db/schema';
+import { sales, saleItems, products, cashRegisters, productCompositions } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import crypto from 'crypto';
 
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
       status: saleStatus,
     });
 
-    // 4. Inserir os Itens da Venda e Atualizar o Estoque
+    // 4. Inserir os Itens da Venda e Atualizar o Estoque (com Suporte a Kits e Composição)
     for (const item of items) {
       const q = Number(item.quantity || 1);
       const p = Number(item.unitPrice || 0);
@@ -96,15 +96,43 @@ export async function POST(request: NextRequest) {
         subtotal: String(itemSubtotal.toFixed(2)),
       });
 
-      // Baixa de estoque permitindo valores negativos caso ultrapasse o saldo atual
+      // Se a venda for legítima (sem suspeita de fraude), faz a gestão de estoque
       if (!isSuspectedFraud) {
-        const [prod] = await db.select().from(products).where(eq(products.id, item.productId));
-        if (prod) {
-          const newStock = prod.stockCurrent - q;
-          await db
-            .update(products)
-            .set({ stockCurrent: newStock })
-            .where(eq(products.id, item.productId));
+        // Verifica se o produto vendido é um kit (possui componentes associados)
+        const kitComponents = await db
+          .select()
+          .from(productCompositions)
+          .where(eq(productCompositions.productId, item.productId));
+
+        if (kitComponents.length > 0) {
+          // É um KIT: dá baixa em cascata proporcional em cada um dos itens individuais (componentes)
+          for (const comp of kitComponents) {
+            const requiredQty = Number(comp.quantity) || 1;
+            const totalDeduction = requiredQty * q;
+
+            const [componentProd] = await db
+              .select()
+              .from(products)
+              .where(eq(products.id, comp.componentProductId));
+
+            if (componentProd) {
+              const newComponentStock = componentProd.stockCurrent - totalDeduction;
+              await db
+                .update(products)
+                .set({ stockCurrent: newComponentStock })
+                .where(eq(products.id, comp.componentProductId));
+            }
+          }
+        } else {
+          // É um produto unitário COMUM: dá baixa diretamente no stockCurrent dele
+          const [prod] = await db.select().from(products).where(eq(products.id, item.productId));
+          if (prod) {
+            const newStock = prod.stockCurrent - q;
+            await db
+              .update(products)
+              .set({ stockCurrent: newStock })
+              .where(eq(products.id, item.productId));
+          }
         }
       }
     }

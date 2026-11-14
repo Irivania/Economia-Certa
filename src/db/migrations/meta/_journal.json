@@ -64,6 +64,20 @@
       "when": 1788777605000,
       "tag": "0008_purchase_order_quotation_supplier",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788777606000,
+      "tag": "0009_create_product_compositions",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788777607000,
+      "tag": "0010_add_product_kit_stock_strategy",
+      "breakpoints": true
     }
   ]
 }

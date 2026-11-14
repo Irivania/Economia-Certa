@@ -79,9 +79,21 @@ export function ProductTaxSection({
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-            Classificação Tributária (`cClassTrib`)
-          </label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400">
+              Classificação Tributária (`cClassTrib`)
+            </label>
+            {/* 💡 INDICADOR VISUAL DE CONFORMIDADE PARA IBS/CBS */}
+            {classTrib ? (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                ✓ Pronto p/ IVA Dual
+              </span>
+            ) : (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                Pendente
+              </span>
+            )}
+          </div>
           <input
             type="text"
             placeholder="Ex: 000102"

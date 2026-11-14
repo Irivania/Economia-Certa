@@ -1,12 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ProductTaxSection } from '@/components/ProductTaxSection';
 import { ProductStockSection } from '@/components/ProductStockSection';
 import { ProductBasicSection } from '@/components/product-form/ProductBasicSection';
 import { ProductPricingSection } from '@/components/product-form/ProductPricingSection';
 import { ProductRegulatorySection } from '@/components/product-form/ProductRegulatorySection';
+import { ProductKitSection } from '@/components/product-form/ProductKitSection';
 import { apiFetch } from '@/lib/apiClient';
+
+interface ComponentItem {
+  componentProductId: string;
+  quantity: number;
+  description?: string;
+}
 
 interface ProductFormProps {
   editingId: string | null;
@@ -51,11 +58,16 @@ interface ProductFormProps {
   dimensions: string;
   setDimensions: (val: string) => void;
   submitting: boolean;
-  onSubmit: (e: React.FormEvent) => void;
+  onSubmit: (
+    e: React.FormEvent,
+    kitComponents?: ComponentItem[],
+    useFixedStock?: boolean,
+  ) => void;
   onCancelEdit: () => void;
   brandsList?: string[];
   isFromImport?: boolean;
   formMode?: 'minimal' | 'complete';
+  companyId?: string;
 }
 
 function formatarMoedaInput(valorStr: string): string {
@@ -100,9 +112,27 @@ export function ProductForm({
   brandsList = [],
   isFromImport = false,
   formMode = 'complete',
+  companyId = '',
 }: ProductFormProps) {
   const [margin, setMargin] = useState<string>('');
   const [isNewBrandMode, setIsNewBrandMode] = useState(false);
+
+  // Estados de Kit elevados para o form principal enviar na submissão
+  const [isKit, setIsKit] = useState(false);
+  const [kitComponents, setKitComponents] = useState<ComponentItem[]>([]);
+  const [useFixedStock, setUseFixedStock] = useState(false);
+
+  // 💡 EFEITO INTELIGENTE: Quando for kit e os componentes mudarem, podemos recalcular o custo estimado localmente se desejado
+  useEffect(() => {
+    if (isKit && kitComponents.length > 0) {
+      // Opcional: Poderia buscar o custo unitário dos produtos selecionados para preencher o custo automaticamente no form
+    }
+  }, [isKit, kitComponents]);
+
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(e, isKit ? kitComponents : [], useFixedStock);
+  };
 
   const handleEanBlur = async () => {
     if (!ean || ean.trim().length < 8) return;
@@ -162,7 +192,7 @@ export function ProductForm({
   };
 
   return (
-    <form onSubmit={onSubmit} className="mb-10 p-6 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-6 transition-all">
+    <form onSubmit={handleFormSubmit} className="mb-10 p-6 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-6 transition-all">
       <div className="flex justify-between items-center mb-2">
         <h2 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
           {editingId ? 'Editar Produto' : formMode === 'minimal' ? '⚡ Cadastro Rápido (Mínimo)' : '📋 Cadastro Completo (Fiscal, Custos, ANVISA & Logística)'}
@@ -188,6 +218,20 @@ export function ProductForm({
 
       <hr className="border-slate-200 dark:border-slate-800" />
 
+      {/* 📦 Secção de Kits com suporte a estratégia híbrida */}
+      <ProductKitSection
+        editingId={editingId}
+        companyId={companyId}
+        isKit={isKit}
+        setIsKit={setIsKit}
+        kitComponents={kitComponents}
+        setKitComponents={setKitComponents}
+        useFixedStock={useFixedStock}
+        setUseFixedStock={setUseFixedStock}
+      />
+
+      <hr className="border-slate-200 dark:border-slate-800" />
+
       <ProductPricingSection
         costPrice={costPrice}
         lastPurchasePrice={lastPurchasePrice}
@@ -197,6 +241,26 @@ export function ProductForm({
         onLastPurchaseChange={handleLastPurchaseChange}
         formMode={formMode}
       />
+
+      {/* 💡 Sugestão Dinâmica de Preço de Venda para Kits com base no custo calculado */}
+      {isKit && costPrice && (
+        <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-center justify-between text-xs">
+          <span className="text-indigo-900 dark:text-indigo-300 font-medium">
+            💡 Sugestão Inteligente (Margem de 40% sobre o custo dos componentes):
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              const costFloat = parseMoedaParaFloat(costPrice);
+              const suggestedSale = costFloat * 1.4;
+              handlePriceChange('sale', suggestedSale.toFixed(2).replace('.', ','));
+            }}
+            className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg transition-colors cursor-pointer"
+          >
+            Aplicar Venda (R$ {(parseMoedaParaFloat(costPrice) * 1.4).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+          </button>
+        </div>
+      )}
 
       {formMode === 'complete' && (
         <>

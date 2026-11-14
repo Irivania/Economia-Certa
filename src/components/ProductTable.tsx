@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/context/ThemeContext';
+import { ProductTableRow } from '@/components/ProductTableRow';
 
 interface Product {
   id: string;
@@ -21,6 +22,7 @@ interface Product {
   stockMax: number;
   ncm?: string | null;
   cest?: string | null;
+  isKit?: boolean;
 }
 
 interface ProductTableProps {
@@ -54,10 +56,6 @@ export function ProductTable({
 }: ProductTableProps) {
   const { isDarkMode } = useTheme();
   const router = useRouter();
-
-  const [editingStockId, setEditingStockId] = useState<string | null>(null);
-  const [tempStockValue, setTempStockValue] = useState<string>('');
-  const [savingStockId, setSavingStockId] = useState<string | null>(null);
   const [quickFilter, setQuickFilter] = useState<'all' | 'critical' | 'zero'>('all');
 
   const filteredProducts = products.filter((p) => {
@@ -93,47 +91,6 @@ export function ProductTable({
 
   const handleQuickQuote = (productId: string) => {
     router.push(`/cotacoes/nova?productId=${productId}`);
-  };
-
-  const handleStartStockEdit = (p: Product) => {
-    setEditingStockId(p.id);
-    setTempStockValue(String(p.stockCurrent ?? 0));
-  };
-
-  const handleSaveStock = async (productId: string) => {
-    const newStock = parseInt(tempStockValue, 10);
-    if (isNaN(newStock) || newStock < 0) {
-      setEditingStockId(null);
-      return;
-    }
-
-    try {
-      setSavingStockId(productId);
-      const res = await fetch('/api/products', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: productId,
-          companyId,
-          stockCurrent: newStock,
-        }),
-      });
-
-      if (!res.ok) throw new Error('Erro ao atualizar estoque.');
-
-      if (onRefresh) {
-        onRefresh();
-      } else {
-        const prod = products.find(p => p.id === productId);
-        if (prod) prod.stockCurrent = newStock;
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Não foi possível atualizar o estoque.');
-    } finally {
-      setSavingStockId(null);
-      setEditingStockId(null);
-    }
   };
 
   const handleExportCSV = () => {
@@ -284,111 +241,18 @@ export function ProductTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-500/10">
-              {filteredProducts.map((p) => {
-                const margin = calculateMargin(p.costPrice, p.salePrice);
-                const currentStock = p.stockCurrent ?? 0;
-                const minStock = p.stockMin ?? 0;
-                const isCritical = currentStock <= minStock;
-                const isEditingThisStock = editingStockId === p.id;
-                const isSavingThisStock = savingStockId === p.id;
-
-                return (
-                  <tr key={p.id} className={`transition-colors ${isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50/80'}`}>
-                    <td className="p-3 text-center">
-                      <div className="w-10 h-10 rounded-xl border border-slate-500/20 bg-slate-500/5 flex items-center justify-center overflow-hidden mx-auto">
-                        {p.imageUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={p.imageUrl} alt={p.description} className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-xs opacity-50">📦</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <p className="font-bold text-sm tracking-tight">{p.description}</p>
-                      <p className="text-[11px] opacity-60 font-mono mt-0.5">
-                        EAN: {p.ean || 'N/A'} {p.brand ? `• Marca: ${p.brand}` : ''} • Unid: {p.unit}
-                      </p>
-                    </td>
-                    <td className="p-3 text-right font-mono opacity-80 font-medium">
-                      R$ {Number(p.costPrice || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      {p.lastPurchasePrice && (
-                        <span className="block text-[10px] opacity-60">Últ: R$ {Number(p.lastPurchasePrice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                      )}
-                    </td>
-                    <td className="p-3 text-right font-mono">
-                      <div className="font-bold text-emerald-600 dark:text-emerald-400">
-                        {p.salePrice ? `R$ ${Number(p.salePrice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}
-                      </div>
-                      <span className="block text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-0.5">
-                        Margem: {margin}%
-                      </span>
-                    </td>
-                    <td className="p-3 text-center">
-                      <div className="font-mono font-bold text-sm inline-flex items-center gap-1.5 justify-center">
-                        {isEditingThisStock ? (
-                          <input
-                            type="number"
-                            autoFocus
-                            value={tempStockValue}
-                            onChange={(e) => setTempStockValue(e.target.value)}
-                            onBlur={() => handleSaveStock(p.id)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleSaveStock(p.id);
-                              if (e.key === 'Escape') setEditingStockId(null);
-                            }}
-                            className="w-20 px-2 py-1 text-center text-xs font-mono border-2 border-indigo-500 rounded-lg bg-indigo-50 dark:bg-slate-950 text-indigo-700 dark:text-indigo-300 outline-none shadow-md"
-                          />
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleStartStockEdit(p)}
-                            title="Clique para editar o estoque rapidamente"
-                            className="group relative px-2.5 py-1 rounded-xl hover:bg-indigo-500/10 transition-all cursor-pointer inline-flex items-center gap-1.5 font-mono"
-                          >
-                            <span>{isSavingThisStock ? 'Salvando...' : currentStock}</span>
-                            <span className="opacity-0 group-hover:opacity-100 text-[10px] text-indigo-500 font-sans transition-opacity">
-                              ✏️
-                            </span>
-                          </button>
-                        )}
-
-                        {isCritical && !isEditingThisStock && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-500 border border-rose-500/20 animate-pulse">
-                            ⚠️ Repor
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="p-3 text-center font-mono text-[11px] opacity-80">
-                      <span className="text-amber-500 font-bold" title="Estoque Mínimo">{minStock}</span> /{' '}
-                      <span className="text-blue-500 font-bold" title="Estoque Ideal">{p.stockIdeal ?? 0}</span> /{' '}
-                      <span className="opacity-60" title="Estoque Máximo">{p.stockMax ?? 0}</span>
-                    </td>
-                    <td className="p-3 text-right space-x-1.5 whitespace-nowrap">
-                      <button
-                        onClick={() => handleQuickQuote(p.id)}
-                        title="Cotar Preço com Fornecedores"
-                        className="px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-slate-950 text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer inline-flex items-center gap-1"
-                      >
-                        ⚡ Cotar
-                      </button>
-                      <button
-                        onClick={() => onEdit(p)}
-                        className="px-3 py-1.5 rounded-xl bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500 hover:text-white text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => onDelete(p.id)}
-                        className="px-3 py-1.5 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
-                      >
-                        Excluir
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
+              {filteredProducts.map((p) => (
+                <ProductTableRow
+                  key={p.id}
+                  product={p}
+                  isDarkMode={isDarkMode}
+                  companyId={companyId}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                  onQuickQuote={handleQuickQuote}
+                  onRefresh={onRefresh}
+                />
+              ))}
             </tbody>
           </table>
         </div>

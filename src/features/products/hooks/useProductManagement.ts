@@ -20,6 +20,7 @@ export interface Product {
   stockMin: number;
   stockIdeal: number;
   stockMax: number;
+  useFixedStock?: boolean;
   ncm?: string | null;
   cest?: string | null;
   classTrib?: string | null;
@@ -27,6 +28,14 @@ export interface Product {
   manufacturerName?: string | null;
   weight?: string | null;
   dimensions?: string | null;
+  isKit?: boolean;
+}
+
+export interface ComponentItem {
+  componentProductId: string;
+  quantity: number;
+  description?: string;
+  imageUrl?: string | null;
 }
 
 export function useProductManagement() {
@@ -159,7 +168,12 @@ export function useProductManagement() {
     setDimensions('');
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // 💡 ATUALIZADO: Aceita kitComponents e envia para a API no payload
+  const handleSubmit = async (
+    e: React.FormEvent,
+    kitComponents?: ComponentItem[],
+    useFixedStock = false,
+  ) => {
     e.preventDefault();
     if (!description.trim()) {
       alert('A descrição do produto é obrigatória.');
@@ -187,6 +201,7 @@ export function useProductManagement() {
         stockMin: formMode === 'complete' && stockMin !== '' ? Number(stockMin) : 0,
         stockIdeal: formMode === 'complete' && stockIdeal !== '' ? Number(stockIdeal) : 0,
         stockMax: formMode === 'complete' && stockMax !== '' ? Number(stockMax) : 0,
+        useFixedStock,
         ncm: formMode === 'complete' ? ncm : null,
         cest: formMode === 'complete' ? cest : null,
         classTrib: formMode === 'complete' ? classTrib : null,
@@ -194,6 +209,7 @@ export function useProductManagement() {
         manufacturerName: formMode === 'complete' ? manufacturerName : null,
         weight: formMode === 'complete' ? weight : null,
         dimensions: formMode === 'complete' ? dimensions : null,
+        components: kitComponents || [], // 💡 Envia os itens filhos do kit em cascata
       };
 
       const res = await apiFetch(url, { method, body: JSON.stringify(bodyData) });
