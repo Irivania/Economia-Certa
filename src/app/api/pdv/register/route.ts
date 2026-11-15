@@ -1,24 +1,32 @@
-import { NextResponse, NextRequest } from 'next/server';
-import { db } from '@/db/db';
-import { cashRegisters, cashRegisterTransactions, sales } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
-import crypto from 'crypto';
+import { NextResponse, NextRequest } from "next/server";
+import { db } from "@/db/db";
+import { cashRegisters, cashRegisterTransactions, sales } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
+import crypto from "crypto";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const companyId = searchParams.get('companyId');
+    const companyId = searchParams.get("companyId");
 
     if (!companyId) {
-      return NextResponse.json({ error: 'Company ID não informado.' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Company ID não informado." },
+        { status: 400 },
+      );
     }
 
     const [activeRegister] = await db
       .select()
       .from(cashRegisters)
-      .where(and(eq(cashRegisters.companyId, companyId), eq(cashRegisters.status, 'OPEN')))
+      .where(
+        and(
+          eq(cashRegisters.companyId, companyId),
+          eq(cashRegisters.status, "OPEN"),
+        ),
+      )
       .limit(1);
 
     if (!activeRegister) {
@@ -36,37 +44,73 @@ export async function GET(request: NextRequest) {
       .from(sales)
       .where(eq(sales.cashRegisterId, activeRegister.id));
 
+    // 🚨 Cálculo em tempo real do dinheiro em espécie (CASH) acumulado na gaveta
+    let currentCashBalance = Number(activeRegister.openingAmount || 0);
+    for (const tx of transactions) {
+      if (tx.type === "SUPPLY") currentCashBalance += Number(tx.amount);
+      if (tx.type === "BLEED") currentCashBalance -= Number(tx.amount);
+    }
+
+    const cashSalesTotal = registerSales
+      .filter((s) => s.paymentMethod === "CASH")
+      .reduce((acc, s) => acc + Number(s.total), 0);
+
+    currentCashBalance += cashSalesTotal;
+
     return NextResponse.json({
       isOpen: true,
       register: activeRegister,
       transactions,
       sales: registerSales, // Incluído para alimentar o extrato cronológico
       salesCount: registerSales.length,
+      currentCashBalance, // 👈 Enviado para o front-end monitorar o limite patrimonial da gaveta
     });
   } catch (error) {
-    console.error('Erro ao buscar status do caixa:', error);
-    return NextResponse.json({ error: 'Erro interno ao consultar caixa.' }, { status: 500 });
+    console.error("Erro ao buscar status do caixa:", error);
+    return NextResponse.json(
+      { error: "Erro interno ao consultar caixa." },
+      { status: 500 },
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { companyId, action, amount, reason, operatorName, userId, closingAmount } = body;
+    const {
+      companyId,
+      action,
+      amount,
+      reason,
+      operatorName,
+      userId,
+      closingAmount,
+    } = body;
 
     if (!companyId || !action) {
-      return NextResponse.json({ error: 'Dados insuficientes.' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Dados insuficientes." },
+        { status: 400 },
+      );
     }
 
-    if (action === 'OPEN') {
+    if (action === "OPEN") {
       const [existing] = await db
         .select()
         .from(cashRegisters)
-        .where(and(eq(cashRegisters.companyId, companyId), eq(cashRegisters.status, 'OPEN')))
+        .where(
+          and(
+            eq(cashRegisters.companyId, companyId),
+            eq(cashRegisters.status, "OPEN"),
+          ),
+        )
         .limit(1);
 
       if (existing) {
-        return NextResponse.json({ error: 'Já existe um caixa aberto para esta empresa.' }, { status: 400 });
+        return NextResponse.json(
+          { error: "Já existe um caixa aberto para esta empresa." },
+          { status: 400 },
+        );
       }
 
       const registerId = crypto.randomUUID();
@@ -75,20 +119,20 @@ export async function POST(request: NextRequest) {
       await db.insert(cashRegisters).values({
         id: registerId,
         companyId,
-        userId: userId || 'system',
-        operatorName: operatorName || 'Operador',
+        userId: userId || "system",
+        operatorName: operatorName || "Operador",
         openingAmount: String(openingVal),
-        status: 'OPEN',
+        status: "OPEN",
       });
 
       await db.insert(cashRegisterTransactions).values({
         id: crypto.randomUUID(),
         companyId,
         cashRegisterId: registerId,
-        type: 'OPENING',
+        type: "OPENING",
         amount: String(openingVal),
-        reason: 'Fundo de troco inicial',
-        operatorName: operatorName || 'Operador',
+        reason: "Fundo de troco inicial",
+        operatorName: operatorName || "Operador",
       });
 
       return NextResponse.json({ success: true, registerId });
@@ -97,17 +141,25 @@ export async function POST(request: NextRequest) {
     const [activeRegister] = await db
       .select()
       .from(cashRegisters)
-      .where(and(eq(cashRegisters.companyId, companyId), eq(cashRegisters.status, 'OPEN')))
+      .where(
+        and(
+          eq(cashRegisters.companyId, companyId),
+          eq(cashRegisters.status, "OPEN"),
+        ),
+      )
       .limit(1);
 
     if (!activeRegister) {
-      return NextResponse.json({ error: 'Nenhum caixa aberto encontrado.' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Nenhum caixa aberto encontrado." },
+        { status: 400 },
+      );
     }
 
-    if (action === 'SUPPLY' || action === 'BLEED') {
+    if (action === "SUPPLY" || action === "BLEED") {
       const val = Number(amount || 0);
       if (val <= 0) {
-        return NextResponse.json({ error: 'Valor inválido.' }, { status: 400 });
+        return NextResponse.json({ error: "Valor inválido." }, { status: 400 });
       }
 
       await db.insert(cashRegisterTransactions).values({
@@ -116,14 +168,18 @@ export async function POST(request: NextRequest) {
         cashRegisterId: activeRegister.id,
         type: action,
         amount: String(val),
-        reason: reason || (action === 'SUPPLY' ? 'Suprimento de caixa' : 'Sangria de segurança'),
-        operatorName: operatorName || 'Operador',
+        reason:
+          reason ||
+          (action === "SUPPLY"
+            ? "Suprimento de caixa"
+            : "Sangria de segurança"),
+        operatorName: operatorName || "Operador",
       });
 
       return NextResponse.json({ success: true });
     }
 
-    if (action === 'CLOSE') {
+    if (action === "CLOSE") {
       const counted = Number(closingAmount || 0);
 
       const transactions = await db
@@ -133,8 +189,8 @@ export async function POST(request: NextRequest) {
 
       let expected = Number(activeRegister.openingAmount);
       for (const tx of transactions) {
-        if (tx.type === 'SUPPLY') expected += Number(tx.amount);
-        if (tx.type === 'BLEED') expected -= Number(tx.amount);
+        if (tx.type === "SUPPLY") expected += Number(tx.amount);
+        if (tx.type === "BLEED") expected -= Number(tx.amount);
       }
 
       const registerSales = await db
@@ -142,31 +198,55 @@ export async function POST(request: NextRequest) {
         .from(sales)
         .where(eq(sales.cashRegisterId, activeRegister.id));
 
-      const cashSales = registerSales
-        .filter((s) => s.paymentMethod === 'CASH')
-        .reduce((acc, s) => acc + Number(s.total), 0);
+      // 📊 Breakdown Detalhado de Pagamentos (Relatório X/Z)
+      const paymentBreakdown = {
+        CASH: 0,
+        PIX: 0,
+        CREDIT_CARD: 0,
+        DEBIT_CARD: 0,
+      };
+
+      for (const s of registerSales) {
+        const method = s.paymentMethod as keyof typeof paymentBreakdown;
+        if (method in paymentBreakdown) {
+          paymentBreakdown[method] += Number(s.total);
+        }
+      }
+
+      const cashSales = paymentBreakdown.CASH;
 
       expected += cashSales;
       const difference = counted - expected;
 
-      await db.update(cashRegisters)
+      await db
+        .update(cashRegisters)
         .set({
           closingAmount: String(counted),
           differenceAmount: String(difference),
-          status: 'CLOSED',
+          status: "CLOSED",
           closedAt: new Date(),
         })
         .where(eq(cashRegisters.id, activeRegister.id));
 
       return NextResponse.json({
         success: true,
-        summary: { opening: activeRegister.openingAmount, cashSales, expected, counted, difference },
+        summary: {
+          opening: activeRegister.openingAmount,
+          cashSales,
+          paymentBreakdown, // 👈 Relatório X/Z por modalidade incluído
+          expected,
+          counted,
+          difference,
+        },
       });
     }
 
-    return NextResponse.json({ error: 'Ação desconhecida.' }, { status: 400 });
+    return NextResponse.json({ error: "Ação desconhecida." }, { status: 400 });
   } catch (error) {
-    console.error('Erro na operação de caixa:', error);
-    return NextResponse.json({ error: 'Erro interno ao processar caixa.' }, { status: 500 });
+    console.error("Erro na operação de caixa:", error);
+    return NextResponse.json(
+      { error: "Erro interno ao processar caixa." },
+      { status: 500 },
+    );
   }
 }

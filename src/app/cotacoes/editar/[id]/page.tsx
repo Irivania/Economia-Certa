@@ -1,25 +1,25 @@
-'use client';
+"use client";
 
-import { use, useEffect, useState } from 'react';
-import ProductSelectionModal from '@/components/ProductSelectionModal';
-import QuotationBasicInfo from '@/components/QuotationBasicInfo';
-import QuotationItemsSection from '@/components/QuotationItemsSection';
-import { useTheme } from '@/context/ThemeContext';
-import { AppHeader } from '@/components/AppHeader';
-import { CommandMenu } from '@/components/CommandMenu';
+import { use, useEffect, useState } from "react";
+import { ProductSelectionModal } from "@/features/quotations/components/ProductSelectionModal";
+import QuotationBasicInfo from "@/components/QuotationBasicInfo";
+import QuotationItemsSection from "@/components/QuotationItemsSection";
+import { useTheme } from "@/context/ThemeContext";
+import { AppHeader } from "@/components/AppHeader";
+import { CommandMenu } from "@/components/CommandMenu";
 
-import { useEditQuotation } from '../../../../features/quotations/hooks/useEditQuotation';
-import { useQuotationItems } from '@/features/quotations/hooks/useQuotationItems';
-import { useQuotationSuppliers } from '@/features/quotations/hooks/useQuotationSuppliers';
-import { useQuotationProducts } from '@/features/quotations/hooks/useQuotationProducts';
-import { useQuotationShortcuts } from '@/features/quotations/hooks/useQuotationShortcuts';
+import { useEditQuotation } from "../../../../features/quotations/hooks/useEditQuotation";
+import { useQuotationItems } from "@/features/quotations/hooks/useQuotationItems";
+import { useQuotationSuppliers } from "@/features/quotations/hooks/useQuotationSuppliers";
+import { useQuotationProducts } from "@/features/quotations/hooks/useQuotationProducts";
+import { useQuotationShortcuts } from "@/features/quotations/hooks/useQuotationShortcuts";
 
-import { EditQuotationHeader } from '@/features/quotations/components/EditQuotationHeader';
-import { QuantityVisibilitySection } from '@/features/quotations/components/QuantityVisibilitySection';
-import { SuppliersSelectionCard } from '@/features/quotations/components/SuppliersSelectionCard';
-import { EditQuotationFormActions } from '@/features/quotations/components/EditQuotationFormActions';
-import { EditQuotationLoadingState } from '@/features/quotations/components/EditQuotationLoadingState';
-import { EditQuotationErrorState } from '@/features/quotations/components/EditQuotationErrorState';
+import { EditQuotationHeader } from "@/features/quotations/components/EditQuotationHeader";
+import { QuantityVisibilitySection } from "@/features/quotations/components/QuantityVisibilitySection";
+import { SuppliersSelectionCard } from "@/features/quotations/components/SuppliersSelectionCard";
+import { EditQuotationFormActions } from "@/features/quotations/components/EditQuotationFormActions";
+import { EditQuotationLoadingState } from "@/features/quotations/components/EditQuotationLoadingState";
+import { EditQuotationErrorState } from "@/features/quotations/components/EditQuotationErrorState";
 
 interface EditQuotationPageProps {
   params: Promise<{ id: string }>;
@@ -53,13 +53,8 @@ export default function EditQuotationPage({ params }: EditQuotationPageProps) {
     handleAddSelectedProducts,
   } = useQuotationItems();
 
-  const {
-    quotation,
-    loading,
-    error,
-    handleUpdateField,
-    handleSaveQuotation,
-  } = useEditQuotation();
+  const { quotation, loading, error, handleUpdateField, handleSaveQuotation } =
+    useEditQuotation();
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -74,9 +69,9 @@ export default function EditQuotationPage({ params }: EditQuotationPageProps) {
       setSubmitting(true);
       await handleSaveQuotation({
         id: quotationId,
-        companyId: 'default-company',
-        title: quotation.title || '',
-        paymentTerms: quotation.paymentTerms || '',
+        companyId: "default-company",
+        title: quotation.title || "",
+        paymentTerms: quotation.paymentTerms || "",
         supplierIds: selectedSupplierIds,
         startDate: quotation.startDate || null,
         endDate: quotation.endDate || null,
@@ -104,7 +99,9 @@ export default function EditQuotationPage({ params }: EditQuotationPageProps) {
   }
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+    <div
+      className={`min-h-screen transition-colors duration-300 ${isDarkMode ? "bg-slate-950 text-slate-100" : "bg-slate-50 text-slate-900"}`}
+    >
       <AppHeader
         title="Economia Certa"
         subtitle="Painel gerencial inteligente e controle de compras em tempo real."
@@ -112,23 +109,27 @@ export default function EditQuotationPage({ params }: EditQuotationPageProps) {
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-20 space-y-6">
-        <div className={`rounded-xl border p-6 sm:p-7 shadow-xs transition-all space-y-6 ${
-          isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
-        }`}>
+        <div
+          className={`rounded-xl border p-6 sm:p-7 shadow-xs transition-all space-y-6 ${
+            isDarkMode
+              ? "bg-slate-900 border-slate-800 text-white"
+              : "bg-white border-slate-200/90 text-slate-900"
+          }`}
+        >
           <EditQuotationHeader />
 
           <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
             <QuotationBasicInfo
-              title={quotation?.title || ''}
-              setTitle={(val) => handleUpdateField('title', val)}
-              startDate={quotation?.startDate || ''}
-              setStartDate={(val) => handleUpdateField('startDate', val)}
-              endDate={quotation?.endDate || ''}
-              setEndDate={(val) => handleUpdateField('endDate', val)}
-              closingTime={quotation?.closingTime || ''}
-              setClosingTime={(val) => handleUpdateField('closingTime', val)}
-              paymentTerms={quotation?.paymentTerms || ''}
-              setPaymentTerms={(val) => handleUpdateField('paymentTerms', val)}
+              title={quotation?.title || ""}
+              setTitle={(val) => handleUpdateField("title", val)}
+              startDate={quotation?.startDate || ""}
+              setStartDate={(val) => handleUpdateField("startDate", val)}
+              endDate={quotation?.endDate || ""}
+              setEndDate={(val) => handleUpdateField("endDate", val)}
+              closingTime={quotation?.closingTime || ""}
+              setClosingTime={(val) => handleUpdateField("closingTime", val)}
+              paymentTerms={quotation?.paymentTerms || ""}
+              setPaymentTerms={(val) => handleUpdateField("paymentTerms", val)}
             />
 
             <QuotationItemsSection
@@ -171,7 +172,9 @@ export default function EditQuotationPage({ params }: EditQuotationPageProps) {
               ean: p.ean || undefined,
               imageUrl: p.imageUrl || undefined,
             }))}
-            onAddSelectedProducts={(ids) => handleAddSelectedProducts(ids, catalogProducts)}
+            onAddSelectedProducts={(ids) =>
+              handleAddSelectedProducts(ids, catalogProducts)
+            }
           />
         </div>
       </main>

@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { getCompanyId } from '@/lib/companySession';
-import { apiFetch } from '@/lib/apiClient';
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { getCompanyId } from "@/lib/companySession";
+import { apiFetch } from "@/lib/apiClient";
 
 interface ProductItem {
   id: string;
@@ -25,7 +25,7 @@ interface CartItem {
 
 interface PartnerItem {
   id: string;
-  type: 'EMPLOYEE' | 'COMPANY_PARTNER';
+  type: "EMPLOYEE" | "COMPANY_PARTNER";
   name: string;
   document: string | null;
   creditLimit: string;
@@ -40,27 +40,31 @@ export function usePDVState() {
 
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [partners, setPartners] = useState<PartnerItem[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
-  
+
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  
+
   const [openingRawValue, setOpeningRawValue] = useState(0);
-  const [openingDisplayValue, setOpeningDisplayValue] = useState('');
+  const [openingDisplayValue, setOpeningDisplayValue] = useState("");
 
   const [registerLoading, setRegisterLoading] = useState(true);
   const [isOperator, setIsOperator] = useState(false);
 
-  const [selectedPartnerId, setSelectedPartnerId] = useState('');
-  const [customerName, setCustomerName] = useState('');
+  const [selectedPartnerId, setSelectedPartnerId] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customerDocument, setCustomerDocument] = useState("");
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [pendingAction, setPendingAction] = useState<{ type: 'REMOVE' | 'EDIT'; productId: string } | null>(null);
+  const [pendingAction, setPendingAction] = useState<{
+    type: "REMOVE" | "EDIT";
+    productId: string;
+  } | null>(null);
 
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
-  const [editPrice, setEditPrice] = useState('');
-  const [editQty, setEditQty] = useState('');
+  const [editPrice, setEditPrice] = useState("");
+  const [editQty, setEditQty] = useState("");
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -69,7 +73,7 @@ export function usePDVState() {
     try {
       const [prodRes, partRes] = await Promise.all([
         apiFetch(`/api/products?companyId=${companyId}`),
-        apiFetch(`/api/partners?companyId=${companyId}`)
+        apiFetch(`/api/partners?companyId=${companyId}`),
       ]);
 
       if (prodRes.ok) {
@@ -79,10 +83,11 @@ export function usePDVState() {
 
       if (partRes.ok) {
         const partData = await partRes.json();
-        if (Array.isArray(partData)) setPartners(partData.filter((p: PartnerItem) => p.active));
+        if (Array.isArray(partData))
+          setPartners(partData.filter((p: PartnerItem) => p.active));
       }
     } catch (err) {
-      console.error('Erro ao carregar dados do PDV:', err);
+      console.error("Erro ao carregar dados do PDV:", err);
     }
   }, [companyId]);
 
@@ -94,11 +99,11 @@ export function usePDVState() {
       try {
         setRegisterLoading(true);
 
-        const sessionData = sessionStorage.getItem('melo_company_session');
+        const sessionData = sessionStorage.getItem("melo_company_session");
         if (sessionData) {
           const parsed = JSON.parse(sessionData);
-          const role = String(parsed.role || '').toLowerCase();
-          if (role === 'geral' || role === 'operador') {
+          const role = String(parsed.role || "").toLowerCase();
+          if (role === "geral" || role === "operador") {
             setIsOperator(true);
           }
         }
@@ -108,14 +113,14 @@ export function usePDVState() {
         if (isMounted) {
           if (data.isOpen) {
             setIsRegisterOpen(true);
-            setIsPaused(data.register?.status === 'PAUSED');
+            setIsPaused(data.register?.status === "PAUSED");
           } else {
             setIsRegisterOpen(false);
           }
         }
         await loadData();
       } catch (err) {
-        console.error('Erro ao inicializar PDV:', err);
+        console.error("Erro ao inicializar PDV:", err);
       } finally {
         if (isMounted) {
           setRegisterLoading(false);
@@ -131,97 +136,112 @@ export function usePDVState() {
   }, [companyId, loadData]);
 
   const handleOpeningMoneyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, '');
+    const value = e.target.value.replace(/\D/g, "");
     const numberValue = Number(value) / 100;
-    
+
     setOpeningRawValue(numberValue);
     setOpeningDisplayValue(
-      numberValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+      numberValue.toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      }),
     );
   };
 
   const handleOpenRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    const val = openingRawValue > 0 ? openingRawValue : Number(openingDisplayValue.replace(/\D/g, '')) / 100;
+    const val =
+      openingRawValue > 0
+        ? openingRawValue
+        : Number(openingDisplayValue.replace(/\D/g, "")) / 100;
 
     if (isNaN(val) || val <= 0) {
-      alert('Informe um valor de fundo de troco válido maior que zero.');
+      alert("Informe um valor de fundo de troco válido maior que zero.");
       return;
     }
 
     try {
-      const res = await fetch('/api/pdv/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/pdv/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           companyId,
-          action: 'OPEN',
+          action: "OPEN",
           amount: val,
-          operatorName: 'Operador de Caixa',
+          operatorName: "Operador de Caixa",
         }),
       });
       const data = await res.json();
       if (data.success) {
-        alert('Caixa aberto com sucesso! Bom turno de trabalho 🚀');
+        alert("Caixa aberto com sucesso! Bom turno de trabalho 🚀");
         setIsRegisterOpen(true);
         setOpeningRawValue(0);
-        setOpeningDisplayValue('');
+        setOpeningDisplayValue("");
       } else {
-        alert(data.error || 'Erro ao abrir caixa.');
+        alert(data.error || "Erro ao abrir caixa.");
       }
     } catch (err) {
       console.error(err);
-      alert('Erro de conexão.');
+      alert("Erro de conexão.");
     }
   };
 
-  const handleAddToCart = useCallback((product: ProductItem, customQty?: number) => {
-    if (!isRegisterOpen || isPaused) {
-      alert('O caixa encontra-se fechado ou pausado. Impossível realizar vendas.');
-      return;
-    }
-
-    const price = Number(product.salePrice || 0);
-    let qtyToAdd = customQty && customQty > 0 ? customQty : 1;
-    if (!customQty && searchTerm.includes('*')) {
-      const parts = searchTerm.split('*');
-      const parsedQty = parseInt(parts[0], 10);
-      if (!isNaN(parsedQty) && parsedQty > 0) {
-        qtyToAdd = parsedQty;
-      }
-    }
-
-    setCart((prev) => {
-      const existing = prev.find((item) => item.productId === product.id);
-      if (existing) {
-        const newQty = existing.quantity + qtyToAdd;
-        return prev.map((item) =>
-          item.productId === product.id ? { ...item, quantity: newQty, subtotal: newQty * item.unitPrice } : item
+  const handleAddToCart = useCallback(
+    (product: ProductItem, customQty?: number) => {
+      if (!isRegisterOpen || isPaused) {
+        alert(
+          "O caixa encontra-se fechado ou pausado. Impossível realizar vendas.",
         );
+        return;
       }
-      return [
-        ...prev,
-        {
-          productId: product.id,
-          description: product.description,
-          unitPrice: price,
-          quantity: qtyToAdd,
-          subtotal: price * qtyToAdd,
-          imageUrl: product.imageUrl,
-        },
-      ];
-    });
-    setSearchTerm('');
-    if (searchInputRef.current) {
-      searchInputRef.current.focus();
-    }
-  }, [isRegisterOpen, isPaused, searchTerm]);
+
+      const price = Number(product.salePrice || 0);
+      let qtyToAdd = customQty && customQty > 0 ? customQty : 1;
+      if (!customQty && searchTerm.includes("*")) {
+        const parts = searchTerm.split("*");
+        const parsedQty = parseInt(parts[0], 10);
+        if (!isNaN(parsedQty) && parsedQty > 0) {
+          qtyToAdd = parsedQty;
+        }
+      }
+
+      setCart((prev) => {
+        const existing = prev.find((item) => item.productId === product.id);
+        if (existing) {
+          const newQty = existing.quantity + qtyToAdd;
+          return prev.map((item) =>
+            item.productId === product.id
+              ? { ...item, quantity: newQty, subtotal: newQty * item.unitPrice }
+              : item,
+          );
+        }
+        return [
+          ...prev,
+          {
+            productId: product.id,
+            description: product.description,
+            unitPrice: price,
+            quantity: qtyToAdd,
+            subtotal: price * qtyToAdd,
+            imageUrl: product.imageUrl,
+          },
+        ];
+      });
+      setSearchTerm("");
+      if (searchInputRef.current) {
+        searchInputRef.current.focus();
+      }
+    },
+    [isRegisterOpen, isPaused, searchTerm],
+  );
 
   const totalCart = cart.reduce((acc, curr) => acc + curr.subtotal, 0);
 
   const filteredProducts = searchTerm.trim()
     ? products.filter((p) => {
-        const cleanTerm = searchTerm.includes('*') ? searchTerm.split('*')[1] || '' : searchTerm;
+        const cleanTerm = searchTerm.includes("*")
+          ? searchTerm.split("*")[1] || ""
+          : searchTerm;
         return (
           p.description.toLowerCase().includes(cleanTerm.toLowerCase()) ||
           (p.ean && p.ean.includes(cleanTerm))
@@ -230,25 +250,25 @@ export function usePDVState() {
     : [];
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       e.preventDefault();
 
       let customQty = 1;
       let queryToMatch = searchTerm.trim();
 
-      if (queryToMatch.includes('*')) {
-        const parts = queryToMatch.split('*');
+      if (queryToMatch.includes("*")) {
+        const parts = queryToMatch.split("*");
         const parsedQty = parseInt(parts[0], 10);
         if (!isNaN(parsedQty) && parsedQty > 0) {
           customQty = parsedQty;
         }
-        queryToMatch = (parts[1] || '').trim();
+        queryToMatch = (parts[1] || "").trim();
       }
 
       if (!queryToMatch) return;
 
       const exactMatchByEan = products.find(
-        (p) => p.ean && p.ean.toLowerCase() === queryToMatch.toLowerCase()
+        (p) => p.ean && p.ean.toLowerCase() === queryToMatch.toLowerCase(),
       );
 
       if (exactMatchByEan) {
@@ -257,8 +277,9 @@ export function usePDVState() {
       }
 
       const matchFromFiltered = filteredProducts.find(
-        (p) => (p.ean && p.ean.toLowerCase().includes(queryToMatch.toLowerCase())) ||
-               p.description.toLowerCase().includes(queryToMatch.toLowerCase())
+        (p) =>
+          (p.ean && p.ean.toLowerCase().includes(queryToMatch.toLowerCase())) ||
+          p.description.toLowerCase().includes(queryToMatch.toLowerCase()),
       );
 
       if (matchFromFiltered) {
@@ -266,7 +287,7 @@ export function usePDVState() {
       } else if (filteredProducts.length > 0) {
         handleAddToCart(filteredProducts[0], customQty);
       } else {
-        alert('Produto não encontrado para o código ou termo informado.');
+        alert("Produto não encontrado para o código ou termo informado.");
       }
     }
   };
@@ -290,6 +311,8 @@ export function usePDVState() {
     setSelectedPartnerId,
     customerName,
     setCustomerName,
+    customerDocument,
+    setCustomerDocument,
     isAuthModalOpen,
     setIsAuthModalOpen,
     pendingAction,

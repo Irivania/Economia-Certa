@@ -4,3 +4,4 @@ export * from "./pdv";
 export * from "./suppliers";
 export * from "./quotations";
 export * from "./financial";
+export * from "./cashback";

@@ -78,6 +78,13 @@
       "when": 1788777607000,
       "tag": "0010_add_product_kit_stock_strategy",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788777608000,
+      "tag": "0011_add_customer_document_to_sales",
+      "breakpoints": true
     }
   ]
 }

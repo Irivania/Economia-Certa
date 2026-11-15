@@ -1,14 +1,19 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useTheme } from '@/context/ThemeContext';
-import { AppHeader } from '@/components/AppHeader';
-import { getCompanyId } from '@/lib/companySession';
-import { NotaUploadForm } from '@/components/notas/NotaUploadForm';
-import { NotaPreviewTable } from '@/components/notas/NotaPreviewTable';
-import { NotaHistoryTable } from '@/components/notas/NotaHistoryTable';
+import { useEffect, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useTheme } from "@/context/ThemeContext";
+import { AppHeader } from "@/components/AppHeader";
+import { ToastContainer } from "@/components/ToastContainer";
+import { CommandMenu } from "@/components/CommandMenu";
+import { useToast } from "@/features/dashboard/hooks/useToast";
+import { getCompanyId } from "@/lib/companySession";
+import { NotaUploadForm } from "@/components/notas/NotaUploadForm";
+import { NotaPreviewTable } from "@/components/notas/NotaPreviewTable";
+import { NotaHistoryTable } from "@/components/notas/NotaHistoryTable";
+
+const subscribeToHydration = () => () => {};
 
 interface ItemXML {
   ean: string | null;
@@ -39,8 +44,20 @@ interface ImportedInvoiceRecord {
 
 interface InvoiceDetailData {
   invoice: ImportedInvoiceRecord;
-  items: Array<{ id: string; unitCost: string; quantity: string; productDescription: string; productEan: string | null }>;
-  payables: Array<{ id: string; invoiceNumber: string; amount: string; dueDate: string; status: string }>;
+  items: Array<{
+    id: string;
+    unitCost: string;
+    quantity: string;
+    productDescription: string;
+    productEan: string | null;
+  }>;
+  payables: Array<{
+    id: string;
+    invoiceNumber: string;
+    amount: string;
+    dueDate: string;
+    status: string;
+  }>;
 }
 
 export default function NotaEntradaHubPage() {
@@ -48,7 +65,10 @@ export default function NotaEntradaHubPage() {
   const { isDarkMode } = useTheme();
   const companyId = getCompanyId();
 
-  const [activeTab] = useState<'xml' | 'manual'>('xml');
+  const [isCmdOpen, setIsCmdOpen] = useState(false);
+  const { toasts, addToast } = useToast();
+
+  const [activeTab] = useState<"xml" | "manual">("xml");
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [notaData, setNotaData] = useState<{
@@ -63,8 +83,15 @@ export default function NotaEntradaHubPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [importedList, setImportedList] = useState<ImportedInvoiceRecord[]>([]);
 
-  const [selectedInvoiceDetail, setSelectedInvoiceDetail] = useState<InvoiceDetailData | null>(null);
+  const [selectedInvoiceDetail, setSelectedInvoiceDetail] =
+    useState<InvoiceDetailData | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  const mounted = useSyncExternalStore(
+    subscribeToHydration,
+    () => true,
+    () => false,
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -80,7 +107,7 @@ export default function NotaEntradaHubPage() {
           }
         }
       } catch (err) {
-        console.error('Erro ao carregar histórico de notas:', err);
+        console.error("Erro ao carregar histórico de notas:", err);
       }
     }
 
@@ -91,9 +118,20 @@ export default function NotaEntradaHubPage() {
     };
   }, [companyId]);
 
+  if (!mounted) {
+    return (
+      <div
+        className="min-h-screen bg-slate-50 dark:bg-slate-950"
+        aria-hidden="true"
+      />
+    );
+  }
+
   const handleOpenInvoiceDetail = async (invoiceNumber: string) => {
     try {
-      const res = await fetch(`/api/notes/xml-import/detail?companyId=${companyId}&invoiceNumber=${invoiceNumber}`);
+      const res = await fetch(
+        `/api/notes/xml-import/detail?companyId=${companyId}&invoiceNumber=${invoiceNumber}`,
+      );
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
@@ -103,40 +141,49 @@ export default function NotaEntradaHubPage() {
       }
     } catch (err) {
       console.error(err);
-      alert('Erro ao carregar os detalhes da nota fiscal.');
+      addToast(
+        "Atenção",
+        "Erro ao carregar os detalhes da nota fiscal.",
+        "warning",
+      );
     }
   };
 
   const handleFileUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) {
-      alert('Selecione um ficheiro XML da Nota Fiscal.');
+      addToast(
+        "Atenção",
+        "Selecione um ficheiro XML da Nota Fiscal.",
+        "warning",
+      );
       return;
     }
 
     try {
       setLoading(true);
       const formData = new FormData();
-      formData.append('file', file);
-      formData.append('companyId', companyId);
+      formData.append("file", file);
+      formData.append("companyId", companyId);
 
-      const res = await fetch('/api/notes/xml-import', {
-        method: 'POST',
+      const res = await fetch("/api/notes/xml-import", {
+        method: "POST",
         body: formData,
       });
 
       const data = await res.json();
-      
-      // Tratamento controlado e elegante de erro (incluindo nota duplicada)
+
       if (!res.ok) {
-        alert(data.error || 'Erro ao processar XML.');
+        addToast("Atenção", data.error || "Erro ao processar XML.", "warning");
         setLoading(false);
         return;
       }
 
       const itensFormatados = data.itens.map((item: ItemXML) => ({
         ...item,
-        custoRealUnitario: Number(Number(item.custoRealUnitario || 0).toFixed(2)),
+        custoRealUnitario: Number(
+          Number(item.custoRealUnitario || 0).toFixed(2),
+        ),
       }));
 
       setNotaData({
@@ -144,16 +191,21 @@ export default function NotaEntradaHubPage() {
         itens: itensFormatados,
       });
       setSuccessMsg(null);
+      addToast("Sucesso", "Ficheiro XML analisado com sucesso!", "success");
     } catch (err: unknown) {
       console.error(err);
-      const msg = err instanceof Error ? err.message : 'Erro ao importar XML.';
-      alert(msg);
+      const msg = err instanceof Error ? err.message : "Erro ao importar XML.";
+      addToast("Atenção", msg, "warning");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleItemFieldChange = (index: number, field: 'quantidadeRealEstoque' | 'custoRealUnitario', value: number) => {
+  const handleItemFieldChange = (
+    index: number,
+    field: "quantidadeRealEstoque" | "custoRealUnitario",
+    value: number,
+  ) => {
     if (!notaData) return;
     const updatedItens = [...notaData.itens];
     updatedItens[index] = {
@@ -166,7 +218,11 @@ export default function NotaEntradaHubPage() {
     });
   };
 
-  const handleBoletoFieldChange = (index: number, field: 'vencimento' | 'valor', value: string | number) => {
+  const handleBoletoFieldChange = (
+    index: number,
+    field: "vencimento" | "valor",
+    value: string | number,
+  ) => {
     if (!notaData) return;
     const updatedBoletos = [...notaData.boletos];
     updatedBoletos[index] = {
@@ -181,14 +237,19 @@ export default function NotaEntradaHubPage() {
 
   const handleConfirmarEntradaXML = async () => {
     if (!notaData) return;
-    
-    if (!confirm('Deseja confirmar a entrada desta nota, atualizar o estoque e lançar os boletos automaticamente no Contas a Pagar?')) return;
+
+    if (
+      !confirm(
+        "Deseja confirmar a entrada desta nota, atualizar o estoque e lançar os boletos automaticamente no Contas a Pagar?",
+      )
+    )
+      return;
 
     try {
       setLoading(true);
-      const res = await fetch('/api/notes/xml-import', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/notes/xml-import", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           companyId,
           emitente: notaData.emitente,
@@ -200,13 +261,20 @@ export default function NotaEntradaHubPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Erro ao efetivar entrada.');
+      if (!res.ok) throw new Error(data.error || "Erro ao efetivar entrada.");
 
-      setSuccessMsg(data.message || 'Nota fiscal importada, estoque atualizado e boletos gerados com sucesso!');
+      addToast(
+        "Sucesso",
+        data.message ||
+          "Nota fiscal importada, estoque atualizado e boletos gerados com sucesso!",
+        "success",
+      );
       setNotaData(null);
       setFile(null);
-      
-      const historyRes = await fetch(`/api/notes/xml-import?companyId=${companyId}`);
+
+      const historyRes = await fetch(
+        `/api/notes/xml-import?companyId=${companyId}`,
+      );
       if (historyRes.ok) {
         const historyData = await historyRes.json();
         if (historyData.success && Array.isArray(historyData.invoices)) {
@@ -215,24 +283,33 @@ export default function NotaEntradaHubPage() {
       }
     } catch (err: unknown) {
       console.error(err);
-      const msg = err instanceof Error ? err.message : 'Erro ao efetivar entrada de estoque.';
-      alert(msg);
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Erro ao efetivar entrada de estoque.";
+      addToast("Atenção", msg, "warning");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+    <div
+      className={`min-h-screen transition-colors duration-300 ${isDarkMode ? "bg-slate-950 text-slate-100" : "bg-slate-50 text-slate-900"}`}
+    >
+      {/* 1. Cabeçalho Global Padronizado */}
       <AppHeader
-        title="Centro de Entrada de Notas Fiscais"
+        title="Economia Certa"
         subtitle="Dê entrada em mercadorias de forma automatizada via XML ou através do registo manual."
-        onOpenCmd={() => {}}
+        onOpenCmd={() => setIsCmdOpen(true)}
       />
 
-      <main className="max-w-7xl mx-auto px-6 -mt-8 pb-20 relative z-20 space-y-6">
+      <main className="max-w-7xl mx-auto px-6 mt-6 pb-20 relative z-25 space-y-6">
         <div className="flex justify-between items-center">
-          <Link href="/" className="font-bold text-xs bg-white dark:bg-slate-900 px-4 py-2 rounded-xl shadow-md border border-slate-200 dark:border-slate-800 inline-flex items-center gap-2">
+          <Link
+            href="/"
+            className="font-bold text-xs bg-white dark:bg-slate-900 px-4 py-2.5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 inline-flex items-center gap-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+          >
             &larr; Voltar ao Início
           </Link>
 
@@ -241,16 +318,16 @@ export default function NotaEntradaHubPage() {
               type="button"
               onClick={() => {}}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'xml'
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                activeTab === "xml"
+                  ? "bg-indigo-600 text-white shadow-md"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               📄 Importar Ficheiro XML
             </button>
             <button
               type="button"
-              onClick={() => router.push('/notas/manual')}
+              onClick={() => router.push("/notas/manual")}
               className="px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
             >
               ✍️ Registo Manual & Boletos &rarr;
@@ -289,6 +366,15 @@ export default function NotaEntradaHubPage() {
           />
         </div>
       </main>
+
+      {/* 2. Componentes Globais de Apoio */}
+      <ToastContainer toasts={toasts} isDarkMode={isDarkMode} />
+      <CommandMenu
+        isOpen={isCmdOpen}
+        onClose={() => setIsCmdOpen(false)}
+        isDarkMode={isDarkMode}
+        latestQuotationId=""
+      />
     </div>
   );
 }

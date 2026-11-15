@@ -1,12 +1,13 @@
-'use client';
+"use client";
 
-import { useState, useCallback } from 'react';
-import { apiFetch } from '@/lib/apiClient';
+import { useState, useCallback } from "react";
+import { apiFetch } from "@/lib/apiClient";
 
 // ==========================================
 // 1. TIPOS E CONTRATOS ESTRITOS (TypeScript)
 // ==========================================
-export type PaymentMethodType = 'CASH' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'PIX' | 'CONVENIO';
+export type PaymentMethodType =
+  "CASH" | "CREDIT_CARD" | "DEBIT_CARD" | "PIX" | "CONVENIO";
 
 export interface CartItem {
   productId: string;
@@ -19,7 +20,7 @@ export interface CartItem {
 
 export interface PartnerItem {
   id: string;
-  type: 'EMPLOYEE' | 'COMPANY_PARTNER';
+  type: "EMPLOYEE" | "COMPANY_PARTNER";
   name: string;
   document: string | null;
   creditLimit: string;
@@ -44,10 +45,10 @@ export interface CompletedSaleData {
   changeGiven?: number;
 }
 
-export type NotificationType = 'success' | 'error' | 'warning' | 'info';
+export type NotificationType = "success" | "error" | "warning" | "info";
 
 interface RegisterTransaction {
-  type: 'SUPPLY' | 'BLEED' | string;
+  type: "SUPPLY" | "BLEED" | string;
   amount: string | number;
 }
 
@@ -68,23 +69,29 @@ interface RegisterDataResponse {
 // ==========================================
 // 2. CONSTANTES CENTRALIZADAS (Clean Code)
 // ==========================================
-const SAFETY_LIMIT_CASH = 500.00;
-const DEFAULT_OPERATOR_NAME = 'Operador de Caixa';
-const DEFAULT_CUSTOMER_NAME = 'Cliente Balcão';
+const SAFETY_LIMIT_CASH = 500.0;
+const DEFAULT_OPERATOR_NAME = "Operador de Caixa";
+const DEFAULT_CUSTOMER_NAME = "Cliente Balcão";
 
 // ==========================================
 // 3. FUNÇÕES PURAS DE VALIDAÇÃO (SOLID / DRY)
 // ==========================================
 function validateCart(cart: CartItem[]): { isValid: boolean; error?: string } {
   if (!Array.isArray(cart) || cart.length === 0) {
-    return { isValid: false, error: 'O carrinho está vazio.' };
+    return { isValid: false, error: "O carrinho está vazio." };
   }
   return { isValid: true };
 }
 
-function validateTotalAmount(totalCart: number): { isValid: boolean; error?: string } {
+function validateTotalAmount(totalCart: number): {
+  isValid: boolean;
+  error?: string;
+} {
   if (!Number.isFinite(totalCart) || totalCart <= 0) {
-    return { isValid: false, error: 'O valor total da venda é inválido ou inconsistente.' };
+    return {
+      isValid: false,
+      error: "O valor total da venda é inválido ou inconsistente.",
+    };
   }
   return { isValid: true };
 }
@@ -93,26 +100,45 @@ function validateConvenioLimit(
   paymentMethod: PaymentMethodType,
   selectedPartnerId: string,
   partners: PartnerItem[],
-  totalCart: number
-): { isValid: boolean; error?: string; finalCustomerName?: string; partnerIdToUse?: string | null } {
-  if (paymentMethod !== 'CONVENIO') {
-    return { isValid: true, finalCustomerName: undefined, partnerIdToUse: null };
+  totalCart: number,
+): {
+  isValid: boolean;
+  error?: string;
+  finalCustomerName?: string;
+  partnerIdToUse?: string | null;
+} {
+  if (paymentMethod !== "CONVENIO") {
+    return {
+      isValid: true,
+      finalCustomerName: undefined,
+      partnerIdToUse: null,
+    };
   }
 
   if (!selectedPartnerId) {
-    return { isValid: false, error: 'Selecione o funcionário ou empresa parceira para faturamento no convênio.' };
+    return {
+      isValid: false,
+      error:
+        "Selecione o funcionário ou empresa parceira para faturamento no convênio.",
+    };
   }
 
   const partner = partners.find((p) => p.id === selectedPartnerId);
   if (!partner) {
-    return { isValid: false, error: 'Parceiro ou funcionário de convênio não encontrado.' };
+    return {
+      isValid: false,
+      error: "Parceiro ou funcionário de convênio não encontrado.",
+    };
   }
 
   const limit = Number(partner.creditLimit || 0);
   const currentDebt = Number(partner.currentBalance || 0);
 
   if (!Number.isFinite(limit) || !Number.isFinite(currentDebt)) {
-    return { isValid: false, error: 'Erro ao processar os limites de crédito do convênio.' };
+    return {
+      isValid: false,
+      error: "Erro ao processar os limites de crédito do convênio.",
+    };
   }
 
   if (currentDebt + totalCart > limit) {
@@ -134,7 +160,7 @@ function validateConvenioLimit(
 // ==========================================
 async function auditCashDrawerLimit(
   companyId: string,
-  onNotify?: (message: string, type: NotificationType) => void
+  onNotify?: (message: string, type: NotificationType) => void,
 ): Promise<void> {
   try {
     const regRes = await apiFetch(`/api/pdv/register?companyId=${companyId}`);
@@ -147,14 +173,14 @@ async function auditCashDrawerLimit(
       if (Array.isArray(regData.transactions)) {
         regData.transactions.forEach((tx) => {
           const amt = Number(tx.amount || 0);
-          if (tx.type === 'SUPPLY') cashTotal += amt;
-          if (tx.type === 'BLEED') cashTotal -= amt;
+          if (tx.type === "SUPPLY") cashTotal += amt;
+          if (tx.type === "BLEED") cashTotal -= amt;
         });
       }
 
       if (Array.isArray(regData.sales)) {
         regData.sales.forEach((s) => {
-          if (s.paymentMethod === 'CASH') {
+          if (s.paymentMethod === "CASH") {
             cashTotal += Number(s.total || 0);
           }
         });
@@ -167,15 +193,19 @@ async function auditCashDrawerLimit(
           `Por motivos de segurança contra assaltos, aceda a "Gestão de Turno / Pausa / Fecho" e efetue uma Sangria de Segurança para o cofre imediatamente!`;
 
         if (onNotify) {
-          onNotify(warningMsg, 'warning');
+          onNotify(warningMsg, "warning");
         } else {
-          console.warn(`[PDV Audit Warning]: Excesso de dinheiro em gaveta: R$ ${cashTotal.toFixed(2)}`);
-          window.alert(warningMsg);
+          console.warn(
+            `[PDV Audit Warning]: Excesso de dinheiro em gaveta: R$ ${cashTotal.toFixed(2)}`,
+          );
         }
       }
     }
   } catch (secErr) {
-    console.error('[PDV Audit Error] Falha ao auditar limite de gaveta:', secErr);
+    console.error(
+      "[PDV Audit Error] Falha ao auditar limite de gaveta:",
+      secErr,
+    );
   }
 }
 
@@ -185,24 +215,27 @@ async function auditCashDrawerLimit(
 export function usePDVCheckout(
   companyId: string,
   loadData: () => Promise<void>,
-  onNotify?: (message: string, type: NotificationType) => void
+  onNotify?: (message: string, type: NotificationType) => void,
 ) {
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('CASH');
-  const [selectedPartnerId, setSelectedPartnerId] = useState('');
-  const [customerName, setCustomerName] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>("CASH");
+  const [selectedPartnerId, setSelectedPartnerId] = useState("");
+  const [customerName, setCustomerName] = useState("");
   const [loading, setLoading] = useState(false);
 
   const [isNFCeModalOpen, setIsNFCeModalOpen] = useState(false);
-  const [lastCompletedSale, setLastCompletedSale] = useState<CompletedSaleData | null>(null);
+  const [lastCompletedSale, setLastCompletedSale] =
+    useState<CompletedSaleData | null>(null);
 
-  const notify = useCallback((message: string, type: NotificationType = 'error') => {
-    if (onNotify) {
-      onNotify(message, type);
-    } else {
-      console.warn(`[PDV Checkout - ${type.toUpperCase()}]: ${message}`);
-      window.alert(message);
-    }
-  }, [onNotify]);
+  const notify = useCallback(
+    (message: string, type: NotificationType = "error") => {
+      if (onNotify) {
+        onNotify(message, type);
+      } else {
+        console.warn(`[PDV Checkout - ${type.toUpperCase()}]: ${message}`);
+      }
+    },
+    [onNotify],
+  );
 
   const handleCheckout = useCallback(
     async (
@@ -210,31 +243,41 @@ export function usePDVCheckout(
       totalCart: number,
       partners: PartnerItem[],
       paymentSplits?: PaymentSplit[],
-      changeGiven?: number
+      changeGiven?: number,
     ): Promise<boolean> => {
       if (loading) {
-        console.warn('[PDV Checkout] Tentativa de execução simultânea bloqueada.');
+        console.warn(
+          "[PDV Checkout] Tentativa de execução simultânea bloqueada.",
+        );
         return false;
       }
 
       const cartValidation = validateCart(cart);
       if (!cartValidation.isValid) {
-        notify(cartValidation.error || 'Carrinho inválido.', 'warning');
+        notify(cartValidation.error || "Carrinho inválido.", "warning");
         return false;
       }
 
       const totalValidation = validateTotalAmount(totalCart);
       if (!totalValidation.isValid) {
-        notify(totalValidation.error || 'Valor total inválido.', 'error');
+        notify(totalValidation.error || "Valor total inválido.", "error");
         return false;
       }
 
       let finalCustomerName = customerName.trim() || DEFAULT_CUSTOMER_NAME;
       let partnerIdPayload: string | null = null;
 
-      const convenioValidation = validateConvenioLimit(paymentMethod, selectedPartnerId, partners, totalCart);
+      const convenioValidation = validateConvenioLimit(
+        paymentMethod,
+        selectedPartnerId,
+        partners,
+        totalCart,
+      );
       if (!convenioValidation.isValid) {
-        notify(convenioValidation.error || 'Erro na validação do convênio.', 'error');
+        notify(
+          convenioValidation.error || "Erro na validação do convênio.",
+          "error",
+        );
         return false;
       }
 
@@ -246,15 +289,18 @@ export function usePDVCheckout(
       try {
         setLoading(true);
 
-        const finalSplits = paymentSplits && paymentSplits.length > 0
-          ? paymentSplits
-          : [{ method: paymentMethod, amount: totalCart }];
+        const finalSplits =
+          paymentSplits && paymentSplits.length > 0
+            ? paymentSplits
+            : [{ method: paymentMethod, amount: totalCart }];
 
-        const finalChange = Number.isFinite(changeGiven) ? Number(changeGiven) : 0;
+        const finalChange = Number.isFinite(changeGiven)
+          ? Number(changeGiven)
+          : 0;
 
         const payload = {
           companyId,
-          mode: 'CASHIER',
+          mode: "CASHIER",
           operatorName: DEFAULT_OPERATOR_NAME,
           customerName: finalCustomerName,
           partnerId: partnerIdPayload,
@@ -265,14 +311,16 @@ export function usePDVCheckout(
           totalAmount: totalCart,
         };
 
-        const res = await apiFetch('/api/pdv/checkout', {
-          method: 'POST',
+        const res = await apiFetch("/api/pdv/checkout", {
+          method: "POST",
           body: JSON.stringify(payload),
         });
 
         const data = await res.json();
         if (!res.ok) {
-          throw new Error(data.error || 'Erro ao processar transação no servidor.');
+          throw new Error(
+            data.error || "Erro ao processar transação no servidor.",
+          );
         }
 
         setLastCompletedSale({
@@ -287,26 +335,37 @@ export function usePDVCheckout(
         });
         setIsNFCeModalOpen(true);
 
-        if (paymentMethod === 'CASH') {
+        if (paymentMethod === "CASH") {
           await auditCashDrawerLimit(companyId, notify);
         }
 
-        setCustomerName('');
-        setSelectedPartnerId('');
-        setPaymentMethod('CASH');
+        setCustomerName("");
+        setSelectedPartnerId("");
+        setPaymentMethod("CASH");
         await loadData();
 
         return true;
       } catch (err: unknown) {
-        const errorMsg = err instanceof Error ? err.message : 'Erro desconhecido ao processar pagamento.';
-        console.error('[PDV Checkout Error]:', err);
-        notify(errorMsg, 'error');
+        const errorMsg =
+          err instanceof Error
+            ? err.message
+            : "Erro desconhecido ao processar pagamento.";
+        console.error("[PDV Checkout Error]:", err);
+        notify(errorMsg, "error");
         return false;
       } finally {
         setLoading(false);
       }
     },
-    [companyId, customerName, paymentMethod, selectedPartnerId, loading, loadData, notify]
+    [
+      companyId,
+      customerName,
+      paymentMethod,
+      selectedPartnerId,
+      loading,
+      loadData,
+      notify,
+    ],
   );
 
   return {

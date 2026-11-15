@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 interface CartItem {
   productId: string;
@@ -11,7 +11,7 @@ interface CartItem {
 
 interface PDVCartListProps {
   cart: CartItem[];
-  onRequestAction: (type: 'REMOVE' | 'EDIT', productId: string) => void;
+  onRequestAction: (type: "REMOVE" | "EDIT", productId: string) => void;
   editingProductId: string | null;
   editPrice: string;
   setEditPrice: (val: string) => void;
@@ -33,10 +33,12 @@ export function PDVCartList({
   onCancelEdit,
 }: PDVCartListProps) {
   return (
-    <div>
-      <h3 className="text-sm font-black uppercase tracking-wider border-b pb-3 border-slate-500/10">Carrinho da Venda</h3>
+    <div className="flex h-full min-h-0 flex-col">
+      <h3 className="text-sm font-black uppercase tracking-wider border-b pb-3 border-slate-500/10">
+        Carrinho da Venda
+      </h3>
 
-      <div className="divide-y divide-slate-500/10 max-h-60 overflow-y-auto my-3 font-mono text-xs pr-1">
+      <div className="flex-1 min-h-0 divide-y divide-slate-500/10 overflow-y-auto my-3 font-mono text-xs pr-1">
         {cart.length === 0 ? (
           <div className="text-center py-12 opacity-40 font-sans space-y-2">
             <div className="text-3xl">🛒</div>
@@ -54,13 +56,19 @@ export function PDVCartList({
                     <div className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-800 flex items-center justify-center overflow-hidden shrink-0 border border-slate-500/20">
                       {item.imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={item.imageUrl} alt={item.description} className="w-full h-full object-cover" />
+                        <img
+                          src={item.imageUrl}
+                          alt={item.description}
+                          className="w-full h-full object-cover"
+                        />
                       ) : (
                         <span className="text-xs">📦</span>
                       )}
                     </div>
                     <div>
-                      <div className="font-bold font-sans text-xs line-clamp-1">{item.description}</div>
+                      <div className="font-bold font-sans text-xs line-clamp-1">
+                        {item.description}
+                      </div>
                       <div className="text-[10px] opacity-60 font-bold text-indigo-600 dark:text-indigo-400">
                         {item.quantity} un x R$ {item.unitPrice.toFixed(2)}
                       </div>
@@ -75,14 +83,14 @@ export function PDVCartList({
                   <div className="flex justify-end gap-3 text-[10px]">
                     <button
                       type="button"
-                      onClick={() => onRequestAction('EDIT', item.productId)}
+                      onClick={() => onRequestAction("EDIT", item.productId)}
                       className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline cursor-pointer"
                     >
                       ⚙️ Alterar (Gerente)
                     </button>
                     <button
                       type="button"
-                      onClick={() => onRequestAction('REMOVE', item.productId)}
+                      onClick={() => onRequestAction("REMOVE", item.productId)}
                       className="text-rose-500 font-bold hover:underline cursor-pointer"
                     >
                       ✕ Cancelar
@@ -92,7 +100,9 @@ export function PDVCartList({
                   <div className="p-2.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 space-y-2">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <span className="text-[9px] opacity-70 block">Preço (R$)</span>
+                        <span className="text-[9px] opacity-70 block">
+                          Preço (R$)
+                        </span>
                         <input
                           type="number"
                           step="0.01"
