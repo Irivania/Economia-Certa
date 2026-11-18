@@ -19,10 +19,9 @@ import { SuccessModal } from "@/components/pdv/SuccessModal";
 import {
   Coffee,
   Keyboard,
-  Sparkles,
-  CircleDot,
   ArrowUpRight,
   ArrowLeft,
+  ShieldCheck,
 } from "lucide-react";
 
 const subscribeToHydration = () => () => {};
@@ -43,6 +42,20 @@ const PDVShortcutsModal = dynamic(
   { ssr: false, loading: () => null },
 );
 
+function Kbd({ children, dark }: { children: React.ReactNode; dark: boolean }) {
+  return (
+    <kbd
+      className={`ml-1 inline-flex h-5 min-w-[1.75rem] items-center justify-center rounded-md border px-1.5 font-mono text-[10px] font-semibold ${
+        dark
+          ? "border-slate-700 bg-slate-950 text-slate-400"
+          : "border-slate-200 bg-white text-slate-500"
+      }`}
+    >
+      {children}
+    </kbd>
+  );
+}
+
 export default function PDVPage() {
   const { isDarkMode } = useTheme();
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
@@ -51,14 +64,8 @@ export default function PDVPage() {
 
   const pdv = usePDV();
 
-  const handleOpenShortcuts = useCallback(() => {
-    setIsShortcutsOpen(true);
-  }, []);
-
-  const handleCloseShortcuts = useCallback(() => {
-    setIsShortcutsOpen(false);
-  }, []);
-
+  const handleOpenShortcuts = useCallback(() => setIsShortcutsOpen(true), []);
+  const handleCloseShortcuts = useCallback(() => setIsShortcutsOpen(false), []);
   const handleCloseAuthModal = useCallback(() => {
     pdv.setIsAuthModalOpen(false);
     pdv.setPendingAction(null);
@@ -84,15 +91,32 @@ export default function PDVPage() {
     return <PDVLoadingState isDarkMode={isDarkMode} />;
   }
 
+  const status = pdv.isPaused
+    ? {
+        label: "Pausado",
+        dot: "bg-amber-500",
+        tone: "text-amber-700 dark:text-amber-400 bg-amber-500/10 ring-amber-500/20",
+      }
+    : pdv.isRegisterOpen
+      ? {
+          label: "Caixa aberto",
+          dot: "bg-emerald-500",
+          tone: "text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 ring-emerald-500/20",
+        }
+      : {
+          label: "Caixa fechado",
+          dot: "bg-slate-400",
+          tone: "text-slate-600 dark:text-slate-300 bg-slate-500/10 ring-slate-500/20",
+        };
+
   return (
     <div
-      className={`min-h-screen lg:h-dvh lg:overflow-hidden lg:flex lg:flex-col transition-colors duration-300 ${
+      className={`min-h-screen lg:h-dvh lg:overflow-hidden lg:flex lg:flex-col antialiased transition-colors duration-300 ${
         isDarkMode
-          ? "bg-[#09090f] text-slate-100"
-          : "bg-[#f5f6fa] text-slate-900"
+          ? "dark bg-slate-950 text-slate-100"
+          : "bg-slate-50 text-slate-900"
       }`}
     >
-      {/* 1. CABEÇALHO GLOBAL DO ERP */}
       <div className="shrink-0 relative z-30">
         <AppHeader
           title={PDV_TEXTS.title}
@@ -102,128 +126,90 @@ export default function PDVPage() {
         />
       </div>
 
-      <main className="w-full max-w-[1600px] mx-auto px-3 sm:px-5 lg:px-7 mt-3 pb-3 relative z-25 space-y-3 lg:flex lg:flex-1 lg:min-h-0 lg:flex-col lg:overflow-hidden">
-        {/* 2. BANNER DE BRANDING DA MELO PERFUMARIA */}
+      <main className="relative z-20 mx-auto flex w-full max-w-[1600px] flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-1 lg:min-h-0 lg:overflow-hidden lg:px-8">
+        {/* Barra do terminal — marca, estado e ações numa única linha */}
         <section
-          className={`shrink-0 rounded-2xl border px-4 py-2.5 sm:px-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-sm transition-colors ${
+          className={`shrink-0 flex flex-col gap-3 rounded-2xl border px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_16px_-8px_rgba(15,23,42,0.08)] sm:flex-row sm:items-center sm:justify-between ${
             isDarkMode
-              ? "bg-gradient-to-r from-[#1b1429] via-[#151321] to-[#11111a] border-purple-900/40 text-white"
-              : "bg-gradient-to-r from-white via-purple-50/70 to-pink-50/60 border-purple-100 text-slate-900"
+              ? "border-slate-800 bg-slate-900"
+              : "border-slate-200/80 bg-white"
           }`}
         >
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex min-w-0 items-center gap-3">
             <div className="relative shrink-0">
-              <div className="w-10 h-10 rounded-xl overflow-hidden border-2 border-purple-400/40 shadow-lg shadow-purple-500/10 bg-white">
+              <div className="h-10 w-10 overflow-hidden rounded-xl bg-white ring-1 ring-slate-200 dark:ring-slate-700">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/logo-melo.png"
                   alt="Melo Perfumaria"
-                  className="w-full h-full object-cover"
+                  className="h-full w-full object-cover"
                 />
               </div>
-              <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-[#171321]" />
+              <span
+                className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-white dark:ring-slate-900 ${status.dot}`}
+              />
             </div>
 
             <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-sm sm:text-base font-black tracking-tight text-purple-600 dark:text-purple-400 uppercase">
-                  MELO PERFUMARIA{" "}
-                  <span className="text-slate-400 dark:text-slate-500">•</span>{" "}
-                  FRENTE DE CAIXA
-                </h2>
-                <span className="text-[10px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2.5 py-0.5 rounded-lg border border-purple-500/20">
-                  Caixa Livre
-                </span>
-              </div>
+              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                Melo Perfumaria
+              </p>
+              <h2 className="truncate text-base font-semibold tracking-tight">
+                Frente de Caixa
+              </h2>
             </div>
-          </div>
 
-          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
-            <Link
-              href="/"
-              className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 font-bold text-[10px] uppercase tracking-wider text-slate-700 dark:text-slate-200 transition inline-flex items-center gap-1.5 cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4" /> Voltar ao Início
-            </Link>
-          </div>
-        </section>
-
-        {/* 3. BARRA DE FERRAMENTAS DO TERMINAL */}
-        <section className="shrink-0 flex flex-col lg:flex-row lg:items-center justify-between gap-2 bg-white/80 dark:bg-slate-900/80 px-3 py-2 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-sm backdrop-blur-sm">
-          <div className="flex items-center gap-3 min-w-0">
-            <div
-              className={`hidden sm:flex w-8 h-8 rounded-lg items-center justify-center shrink-0 ${
-                isDarkMode
-                  ? "bg-indigo-500/10 text-indigo-400"
-                  : "bg-indigo-50 text-indigo-600"
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-            </div>
-            <h3 className="text-xs font-black uppercase tracking-wide truncate">
-              Terminal de Vendas
-            </h3>
-
-            <div className="flex items-center gap-1.5 min-w-0">
+            <div className="ml-2 hidden items-center gap-2 md:flex">
               <span
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border ${
-                  pdv.isRegisterOpen && !pdv.isPaused
-                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-                    : "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400"
-                }`}
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${status.tone}`}
               >
-                <CircleDot className="w-3 h-3" />
-                {pdv.isPaused
-                  ? "Pausado"
-                  : pdv.isRegisterOpen
-                    ? "Caixa aberto"
-                    : "Caixa fechado"}
+                <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
+                {status.label}
               </span>
-              <span
-                className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border ${
-                  isDarkMode
-                    ? "bg-slate-800 border-slate-700 text-slate-300"
-                    : "bg-slate-100 border-slate-200 text-slate-600"
-                }`}
-              >
-                <Sparkles className="w-3 h-3" />
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700">
+                <ShieldCheck className="h-3.5 w-3.5" />
                 {pdv.isOperator ? "Operador de Caixa" : "Acesso limitado"}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0 w-full lg:w-auto">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <Link
+              href="/"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+            >
+              <ArrowLeft className="h-4 w-4" /> Início
+            </Link>
+
             <button
               type="button"
               onClick={handleOpenShortcuts}
               aria-label={PDV_TEXTS.ariaShortcuts}
-              className={`inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl border text-[11px] font-bold transition-all cursor-pointer ${
-                isDarkMode
-                  ? "bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700"
-                  : "bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200"
-              }`}
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
             >
-              <Keyboard className="w-4 h-4 text-purple-500" />
+              <Keyboard className="h-4 w-4 text-slate-400" />
               <span className="hidden sm:inline">
                 {PDV_TEXTS.shortcutsGuide}
               </span>
-              <span>[F1]</span>
+              <Kbd dark={isDarkMode}>F1</Kbd>
             </button>
 
             <a
               href="/pdv/caixa"
               aria-label={PDV_TEXTS.ariaShift}
-              className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold shadow-lg shadow-emerald-600/20 transition-all cursor-pointer"
+              className="inline-flex h-9 items-center gap-2 rounded-lg bg-emerald-600 px-3.5 text-sm font-semibold text-white shadow-sm shadow-emerald-600/20 transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
             >
-              <Coffee className="w-4 h-4" />
+              <Coffee className="h-4 w-4" />
               <span>{PDV_TEXTS.shiftManagement}</span>
-              <span>[F6]</span>
-              <ArrowUpRight className="w-3.5 h-3.5 opacity-70" />
+              <kbd className="ml-1 rounded-md bg-emerald-700/60 px-1.5 py-0.5 font-mono text-[10px]">
+                F6
+              </kbd>
+              <ArrowUpRight className="h-3.5 w-3.5 opacity-70" />
             </a>
           </div>
         </section>
 
-        {/* 5. RENDERIZAÇÃO LIMPA DO ESTADO ATIVO DO PDV */}
+        {/* Área de trabalho — o PDVActiveState renderiza as duas colunas */}
         <div className="w-full flex-1 min-h-0 overflow-hidden">
           {!pdv.isRegisterOpen ? (
             <PDVClosedState isDarkMode={isDarkMode} />
@@ -235,20 +221,17 @@ export default function PDVPage() {
         </div>
       </main>
 
-      {/* MODAIS E SUPORTE */}
       <ManagerAuthModal
         isOpen={pdv.isAuthModalOpen}
         onClose={handleCloseAuthModal}
         onAuthorized={pdv.handleManagerAuthorized}
         isDarkMode={isDarkMode}
       />
-
       <PDVShortcutsModal
         isOpen={isShortcutsOpen}
         onClose={handleCloseShortcuts}
         isDarkMode={isDarkMode}
       />
-
       <SuccessModal
         isOpen={pdv.completedSale !== null}
         saleId={pdv.completedSale?.saleId || ""}
@@ -257,7 +240,6 @@ export default function PDVPage() {
         onClose={pdv.clearCompletedSale || (() => {})}
         isDarkMode={isDarkMode}
       />
-
       <ToastContainer toasts={toasts} isDarkMode={isDarkMode} />
       <CommandMenu
         isOpen={isCmdOpen}

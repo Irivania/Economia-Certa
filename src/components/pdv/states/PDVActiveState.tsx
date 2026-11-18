@@ -6,70 +6,100 @@ import { PDVCartList } from "@/components/pdv/PDVCartList";
 import { PDVCheckoutPanel } from "@/components/pdv/PDVCheckoutPanel";
 import { POSPromoBanner } from "@/components/pdv/POSPromoBanner";
 import { usePDV } from "@/hooks/usePDV";
-import { ShoppingCart, ScanBarcode, Sparkles } from "lucide-react";
+import { ShoppingCart, ScanBarcode, Receipt } from "lucide-react";
 
 interface PDVActiveStateProps {
   pdv: ReturnType<typeof usePDV>;
   isDarkMode: boolean;
 }
 
+const brl = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+});
+
+function CardHeader({
+  icon,
+  title,
+  subtitle,
+  right,
+  isDarkMode,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  right?: React.ReactNode;
+  isDarkMode: boolean;
+}) {
+  return (
+    <div
+      className={`shrink-0 flex items-center justify-between gap-3 border-b px-5 py-4 ${
+        isDarkMode ? "border-slate-800" : "border-slate-100"
+      }`}
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <div
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset ${
+            isDarkMode
+              ? "bg-emerald-500/10 text-emerald-400 ring-emerald-500/20"
+              : "bg-emerald-50 text-emerald-700 ring-emerald-600/10"
+          }`}
+        >
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <h2
+            className={`truncate text-sm font-semibold tracking-tight ${isDarkMode ? "text-slate-50" : "text-slate-900"}`}
+          >
+            {title}
+          </h2>
+          <p
+            className={`truncate text-xs ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}
+          >
+            {subtitle}
+          </p>
+        </div>
+      </div>
+      {right}
+    </div>
+  );
+}
+
 export const PDVActiveState = React.memo(function PDVActiveState({
   pdv,
   isDarkMode,
 }: PDVActiveStateProps) {
-  const surface = isDarkMode
-    ? "bg-[#151522] border-slate-800"
-    : "bg-white border-slate-200";
-
-  const muted = isDarkMode ? "text-slate-400" : "text-slate-500";
+  const card = `rounded-2xl border transition-colors duration-200 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.10)] ${
+    isDarkMode
+      ? "bg-slate-900 border-slate-800"
+      : "bg-white border-slate-200/80"
+  }`;
+  const itemCount = pdv.cart.length;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 lg:grid-rows-1 gap-4 h-full min-h-0 overflow-y-auto lg:overflow-hidden pb-1">
-      {/* COLUNA ESQUERDA: PRODUTOS E CARRINHO */}
-      <div className="lg:col-span-7 flex flex-col gap-3 min-h-0 lg:h-full">
-        {/* BUSCA DE PRODUTOS */}
-        <section
-          className={`shrink-0 rounded-2xl border overflow-hidden transition-colors duration-200 ${surface}`}
-        >
-          <div
-            className={`px-4 pt-4 pb-2 flex items-center justify-between ${
-              isDarkMode ? "text-white" : "text-slate-800"
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <div
-                className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+    <div className="grid h-full min-h-0 grid-cols-1 gap-4 overflow-y-auto pb-1 lg:grid-cols-[minmax(0,1fr)_400px] lg:overflow-hidden xl:grid-cols-[minmax(0,1fr)_440px]">
+      {/* ESQUERDA — busca + carrinho */}
+      <div className="flex min-h-0 min-w-0 flex-col gap-4 lg:h-full">
+        <section className={`shrink-0 ${card}`}>
+          <CardHeader
+            isDarkMode={isDarkMode}
+            icon={<ScanBarcode className="h-[18px] w-[18px]" />}
+            title="Lançamento de produtos"
+            subtitle="Pesquise pelo nome ou leia o código de barras"
+            right={
+              <span
+                className={`hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset sm:inline-flex ${
                   isDarkMode
-                    ? "bg-purple-500/15 text-purple-400"
-                    : "bg-purple-50 text-purple-700"
+                    ? "bg-emerald-500/10 text-emerald-400 ring-emerald-500/20"
+                    : "bg-emerald-50 text-emerald-700 ring-emerald-600/15"
                 }`}
               >
-                <ScanBarcode className="w-5 h-5" />
-              </div>
-
-              <div>
-                <h2 className="text-sm font-extrabold tracking-tight">
-                  Lançamento de produtos
-                </h2>
-                <p className={`text-[10px] mt-0.5 ${muted}`}>
-                  Pesquise pelo nome ou código de barras
-                </p>
-              </div>
-            </div>
-
-            <span
-              className={`hidden sm:inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1.5 rounded-lg ${
-                isDarkMode
-                  ? "bg-purple-500/10 text-purple-300"
-                  : "bg-purple-50 text-purple-700"
-              }`}
-            >
-              <Sparkles className="w-3 h-3" />
-              Busca inteligente
-            </span>
-          </div>
-
-          <div className="px-4 pb-4">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                Leitor pronto
+              </span>
+            }
+          />
+          <div className="p-5">
             <PDVProductSearch
               searchTerm={pdv.searchTerm}
               setSearchTerm={pdv.setSearchTerm}
@@ -83,57 +113,29 @@ export const PDVActiveState = React.memo(function PDVActiveState({
           </div>
         </section>
 
-        {/* CARRINHO / BANNER */}
         <section
-          className={`flex-1 min-h-0 rounded-2xl border overflow-hidden flex flex-col transition-colors duration-200 ${surface}`}
+          className={`flex min-h-[320px] flex-1 flex-col overflow-hidden lg:min-h-0 ${card}`}
         >
-          {/* CABEÇALHO DO CARRINHO */}
-          <div
-            className={`shrink-0 px-4 py-3 border-b flex items-center justify-between ${
-              isDarkMode ? "border-slate-800" : "border-slate-100"
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <div
-                className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+          <CardHeader
+            isDarkMode={isDarkMode}
+            icon={<ShoppingCart className="h-[18px] w-[18px]" />}
+            title="Carrinho"
+            subtitle="Produtos da venda atual"
+            right={
+              <span
+                className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums ring-1 ring-inset ${
                   isDarkMode
-                    ? "bg-indigo-500/15 text-indigo-400"
-                    : "bg-indigo-50 text-indigo-600"
+                    ? "bg-slate-800 text-slate-200 ring-slate-700"
+                    : "bg-slate-100 text-slate-700 ring-slate-200"
                 }`}
               >
-                <ShoppingCart className="w-4.5 h-4.5" />
-              </div>
-
-              <div>
-                <h2
-                  className={`text-sm font-extrabold ${
-                    isDarkMode ? "text-white" : "text-slate-800"
-                  }`}
-                >
-                  Carrinho de compras
-                </h2>
-
-                <p className={`text-[10px] mt-0.5 ${muted}`}>
-                  Produtos da venda atual
-                </p>
-              </div>
-            </div>
-
-            <span
-              className={`text-[10px] font-bold px-3 py-1.5 rounded-lg ${
-                isDarkMode
-                  ? "bg-slate-800 text-slate-300"
-                  : "bg-slate-100 text-slate-600"
-              }`}
-            >
-              {pdv.cart.length} {pdv.cart.length === 1 ? "ITEM" : "ITENS"}
-            </span>
-          </div>
-
-          {/* CONTEÚDO DINÂMICO */}
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            {pdv.cart.length === 0 ? (
-              <div className="h-full min-h-[180px] flex items-center justify-center p-3">
+                {itemCount} {itemCount === 1 ? "item" : "itens"}
+              </span>
+            }
+          />
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {itemCount === 0 ? (
+              <div className="flex h-full min-h-[220px] items-center justify-center p-5">
                 <div className="w-full max-w-3xl">
                   <POSPromoBanner
                     isDarkMode={isDarkMode}
@@ -143,7 +145,7 @@ export const PDVActiveState = React.memo(function PDVActiveState({
                 </div>
               </div>
             ) : (
-              <div className="p-3 sm:p-4 min-h-full flex flex-col">
+              <div className="flex min-h-full flex-col p-4 sm:p-5">
                 <PDVCartList
                   cart={pdv.cart}
                   onRequestAction={pdv.requestManagerAction}
@@ -161,30 +163,34 @@ export const PDVActiveState = React.memo(function PDVActiveState({
         </section>
       </div>
 
-      {/* COLUNA DIREITA: CHECKOUT */}
-      <div className="lg:col-span-5 flex flex-col min-h-0 lg:h-full">
+      {/* DIREITA — resumo e pagamento (fixo) */}
+      <aside className="flex min-h-0 min-w-0 flex-col lg:h-full">
         <section
-          className={`flex-1 min-h-0 rounded-2xl border overflow-y-auto shadow-sm transition-colors duration-200 ${surface}`}
+          className={`flex flex-1 min-h-0 flex-col overflow-hidden ${card}`}
         >
           <div
-            className={`px-4 py-3 border-b ${
-              isDarkMode ? "border-slate-800" : "border-slate-100"
+            className={`shrink-0 px-5 py-5 ${
+              isDarkMode
+                ? "bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-900 border-b border-slate-800"
+                : "bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950"
             }`}
           >
-            <h2
-              className={`text-sm font-extrabold ${
-                isDarkMode ? "text-white" : "text-slate-800"
-              }`}
-            >
-              Resumo da venda
-            </h2>
-
-            <p className={`text-[10px] mt-1 ${muted}`}>
-              Cliente, convênios e pagamento
+            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.14em] text-emerald-300/90">
+              <Receipt className="h-4 w-4" /> Resumo da venda
+            </div>
+            <p className="mt-3 text-[11px] font-medium text-slate-400">
+              Total a pagar
+            </p>
+            <p className="mt-0.5 text-4xl font-semibold tracking-tight tabular-nums text-white">
+              {brl.format(Number(pdv.totalCart) || 0)}
+            </p>
+            <p className="mt-1 text-xs text-slate-400 tabular-nums">
+              {itemCount}{" "}
+              {itemCount === 1 ? "item no carrinho" : "itens no carrinho"}
             </p>
           </div>
 
-          <div className="p-3 sm:p-4">
+          <div className="min-h-0 flex-1 overflow-y-auto p-5">
             <PDVCheckoutPanel
               partners={pdv.partners}
               selectedPartnerId={pdv.selectedPartnerId}
@@ -200,7 +206,7 @@ export const PDVActiveState = React.memo(function PDVActiveState({
             />
           </div>
         </section>
-      </div>
+      </aside>
     </div>
   );
 });

@@ -7,6 +7,21 @@ import {
   ArrowLeftRight,
   ArrowRight,
 } from "lucide-react";
+import { getCompanyId } from "@/lib/companySession";
+
+interface CompanyReceiptInfo {
+  name?: string;
+  tradeName?: string;
+  document?: string;
+  stateRegistration?: string;
+  cep?: string;
+  address?: string;
+  number?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  phone?: string;
+}
 
 interface SuccessModalProps {
   isOpen: boolean;
@@ -81,6 +96,24 @@ const extrairTributosRTC = (resultado: unknown) => {
   };
 };
 
+const formatCnpj = (value: string) => {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length !== 14) return value;
+
+  return digits.replace(
+    /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,
+    "$1.$2.$3/$4-$5",
+  );
+};
+
+const formatReceiptAddress = (company: CompanyReceiptInfo) => {
+  const street = [company.address, company.number].filter(Boolean).join(", ");
+  const district = company.neighborhood;
+  const location = [company.city, company.state].filter(Boolean).join(" - ");
+
+  return [street, district, location].filter(Boolean).join(" - ");
+};
+
 export function SuccessModal({
   isOpen,
   saleId,
@@ -92,6 +125,37 @@ export function SuccessModal({
   const [selectedAction, setSelectedAction] = useState<"print" | "newSale">(
     "newSale",
   );
+  const [companyInfo, setCompanyInfo] = useState<CompanyReceiptInfo>({});
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const controller = new AbortController();
+    const companyId = getCompanyId();
+
+    if (!companyId) {
+      return;
+    }
+
+    void fetch(`/api/company?companyId=${encodeURIComponent(companyId)}`, {
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error("Não foi possível carregar os dados da empresa.");
+        }
+        return (await response.json()) as CompanyReceiptInfo;
+      })
+      .then((company) => setCompanyInfo(company))
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
+        console.error("[PDV] Erro ao carregar dados da empresa:", error);
+        setCompanyInfo({});
+      });
+
+    return () => controller.abort();
+  }, [isOpen]);
 
   const handlePrintReceipt = useCallback(() => {
     const printFrame = document.createElement("iframe");
@@ -131,6 +195,23 @@ export function SuccessModal({
       : "";
     const operator = escapeHtml(saleData?.operatorName || "Operador de Caixa");
     const discountTotal = saleData?.discountTotal || 0;
+    const storeName = escapeHtml(
+      companyInfo.tradeName || companyInfo.name || "Empresa não cadastrada",
+    );
+    const storeCnpj = escapeHtml(
+      companyInfo.document
+        ? formatCnpj(companyInfo.document)
+        : "CNPJ não informado",
+    );
+    const storeStateRegistration = escapeHtml(
+      companyInfo.stateRegistration || "Não informada",
+    );
+    const storeAddress = escapeHtml(
+      formatReceiptAddress(companyInfo) || "Endereço não informado",
+    );
+    const storePhone = companyInfo.phone
+      ? `<div class="small">Telefone: ${escapeHtml(companyInfo.phone)}</div>`
+      : "";
 
     // Cálculo dinâmico de Cashback (Ex: 5% padrão ou valor fornecido)
     const calculatedCashback =
@@ -222,12 +303,12 @@ export function SuccessModal({
         <body>
           <main id="thermal-receipt">
             <header class="header center">
-              <div class="store-name">Melo Perfumaria 🌸</div>
+              <div class="store-name">${storeName} 🌸</div>
               <div class="tagline">Beleza que te faz bem! 💖</div>
-              <div class="small">CNPJ: 00.123.456/0001-99</div>
-              <div class="small">IE: 123.456.789.110</div>
-              <div class="small">Av. Paulo Faccini, 200 - Centro</div>
-              <div class="small">Guarulhos - SP</div>
+              <div class="small">CNPJ: ${storeCnpj}</div>
+              <div class="small">IE: ${storeStateRegistration}</div>
+              <div class="small">${storeAddress}</div>
+              ${storePhone}
             </header>
             <section class="sale-data">
               <div class="data-line"><span>EXTRATO Nº:</span><strong>${receiptId}</strong></div>
@@ -275,7 +356,7 @@ export function SuccessModal({
       printWindow.focus();
       printWindow.print();
     }, 50);
-  }, [changeAmount, saleData, saleId]);
+  }, [changeAmount, companyInfo, saleData, saleId]);
 
   useEffect(() => {
     if (!isOpen) return;

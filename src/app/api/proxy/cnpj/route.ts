@@ -14,18 +14,35 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "CNPJ inválido" }, { status: 400 });
       }
 
-      const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`, {
-        headers: {
-          "User-Agent": "EconomiaCerta-ERP/1.0",
+      const response = await fetch(
+        `https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`,
+        {
+          headers: {
+            "User-Agent": "EconomiaCerta-ERP/1.0",
+          },
         },
-      });
+      );
 
       if (!response.ok) {
-        return NextResponse.json({ error: "CNPJ não encontrado na base pública." }, { status: 404 });
+        return NextResponse.json(
+          { error: "CNPJ não encontrado na base pública." },
+          { status: 404 },
+        );
       }
 
       const data = await response.json();
-      return NextResponse.json(data);
+      const registration =
+        data.inscricao_estadual ||
+        data.inscricaoEstadual ||
+        data.estabelecimento?.inscricoes_estaduais?.[0]?.inscricao_estadual ||
+        data.estabelecimento?.inscricoes_estaduais?.[0]?.inscricaoEstadual ||
+        null;
+
+      return NextResponse.json({
+        ...data,
+        inscricao_estadual:
+          typeof registration === "string" ? registration : null,
+      });
     }
 
     if (cep) {
@@ -34,14 +51,20 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "CEP inválido" }, { status: 400 });
       }
 
-      const response = await fetch(`https://brasilapi.com.br/api/cep/v2/${cleanCep}`, {
-        headers: {
-          "User-Agent": "EconomiaCerta-ERP/1.0",
+      const response = await fetch(
+        `https://brasilapi.com.br/api/cep/v2/${cleanCep}`,
+        {
+          headers: {
+            "User-Agent": "EconomiaCerta-ERP/1.0",
+          },
         },
-      });
+      );
 
       if (!response.ok) {
-        return NextResponse.json({ error: "CEP não encontrado." }, { status: 404 });
+        return NextResponse.json(
+          { error: "CEP não encontrado." },
+          { status: 404 },
+        );
       }
 
       const data = await response.json();
@@ -51,6 +74,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Parâmetro inválido" }, { status: 400 });
   } catch (error) {
     console.error("Erro no proxy de consulta:", error);
-    return NextResponse.json({ error: "Falha ao comunicar com o serviço externo." }, { status: 500 });
+    return NextResponse.json(
+      { error: "Falha ao comunicar com o serviço externo." },
+      { status: 500 },
+    );
   }
 }

@@ -29,6 +29,7 @@ interface NFCeSimulatorModalProps {
   companyInfo?: {
     name: string;
     cnpj?: string;
+    stateRegistration?: string;
     address?: string;
     phone?: string;
   };
@@ -50,8 +51,10 @@ export function NFCeSimulatorModal({
   const mockAccessKey = "35261000012345678900650010000001231000123456";
 
   // Dados dinâmicos vindos da tabela companies do Drizzle
-  const storeName = companyInfo?.name || "MELO PERFUMARIA 🌸";
-  const storeCNPJ = companyInfo?.cnpj || "00.123.456/0001-99";
+  const storeName = companyInfo?.name || "EMPRESA NÃO CADASTRADA";
+  const storeCNPJ = companyInfo?.cnpj || "CNPJ não informado";
+  const storeStateRegistration =
+    companyInfo?.stateRegistration || "Não informada";
   const storeAddress =
     companyInfo?.address || "Av. Paulo Faccini, 200 - Centro, Guarulhos - SP";
   const storePhone = companyInfo?.phone || "";
@@ -91,7 +94,7 @@ export function NFCeSimulatorModal({
             CNPJ: {storeCNPJ}
           </p>
           <p className="text-[10px] font-mono text-slate-600 dark:text-slate-400">
-            IE: 123.456.789.110
+            IE: {storeStateRegistration}
           </p>
           <p className="text-[10px] font-mono text-slate-600 dark:text-slate-400">
             {storeAddress}
