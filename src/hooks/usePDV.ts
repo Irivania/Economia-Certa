@@ -1,11 +1,24 @@
 "use client";
 
-import { useEffect, useCallback, useMemo } from "react";
+import { useEffect, useCallback, useMemo, useState } from "react";
 import { usePDVState } from "./pdv/usePDVState";
 import { usePDVCheckout } from "./pdv/usePDVCheckout";
+import { rtcClient, ItemCalculoRTC } from "@/services/rtcClient";
 
 interface PDVFeedback {
   showToast: (message: string, type: "success" | "error" | "warning") => void;
+}
+
+interface CartItemWithMetadata {
+  productId?: string | number;
+  sku?: string;
+  ncm?: string;
+  cst?: string;
+  classTrib?: string;
+  unit?: string;
+  unitPrice?: number;
+  quantity?: number;
+  subtotal?: number;
 }
 
 export function usePDV() {
@@ -26,6 +39,10 @@ export function usePDV() {
     loadData: state.loadData,
   });
 
+  // Estado para armazenar os tributos calculados pela API da Receita Federal
+  const [tributosRTC, setTributosRTC] = useState<unknown>(null);
+  const [loadingRTC, setLoadingRTC] = useState(false);
+
   // Feedback visual padronizado sem o alerta nativo do navegador
   const notify: PDVFeedback["showToast"] = useCallback((message, type) => {
     if (type === "error") {
@@ -36,6 +53,56 @@ export function usePDV() {
       console.log(`[PDV Info]: ${message}`);
     }
   }, []);
+
+  // Função para disparar o cálculo oficial da Reforma Tributária (LC 214/2025)
+  const calcularTributosOFiciais = useCallback(async () => {
+    if (!state.cart || state.cart.length === 0) return null;
+
+    setLoadingRTC(true);
+    try {
+      const itensFormatados: ItemCalculoRTC[] = state.cart.map(
+        (rawItem, index) => {
+          const item = rawItem as CartItemWithMetadata;
+          const subtotal = Number(
+            item.subtotal || (item.unitPrice || 0) * (item.quantity || 1),
+          );
+          return {
+            numero: index + 1,
+            ncm: item.ncm || "33049990",
+            cst: item.cst || "000",
+            cClassTrib: item.classTrib || "000001",
+            baseCalculo: subtotal,
+            quantidade: Number(item.quantity || 1),
+            unidade: item.unit || "UN",
+          };
+        },
+      );
+
+      const payload = {
+        id: crypto.randomUUID().replace(/-/g, ""),
+        versao: "0.0.1",
+        dhFatoGerador: new Date().toISOString().replace(/\.\d{3}Z$/, "-03:00"),
+        municipio: 3550308,
+        uf: "SP",
+        itens: itensFormatados,
+      };
+
+      // Chamada HTTP para a API local da Receita Federal na porta 8080
+      const resposta = await rtcClient.calcularRegimeGeral(payload);
+      setTributosRTC(resposta);
+      notify("Tributos calculados com sucesso via Calculadora RTC!", "success");
+      return resposta;
+    } catch (error) {
+      console.error("Erro ao comunicar com a Calculadora RTC:", error);
+      notify(
+        "Aviso: Motor fiscal offline. Utilizando cálculo padrão.",
+        "warning",
+      );
+      return null;
+    } finally {
+      setLoadingRTC(false);
+    }
+  }, [state.cart, notify]);
 
   // useCallback memoizado para remoção e edição de itens com validações estritas
   const requestManagerAction = useCallback(
@@ -102,12 +169,24 @@ export function usePDV() {
     [state, notify],
   );
 
-  // useCallback memoizado para o handler global de finalização (F10)
-  const handleF10Shortcut = useCallback(() => {
+  // Wrapper customizado para o checkout que executa o cálculo da Receita antes de concluir
+  const handleCheckoutComRTC = useCallback(async () => {
     if (state.cart.length > 0 && state.isRegisterOpen && !state.isPaused) {
+      await calcularTributosOFiciais();
       checkout.handleCheckout();
     }
-  }, [state.cart.length, state.isRegisterOpen, state.isPaused, checkout]);
+  }, [
+    state.cart.length,
+    state.isRegisterOpen,
+    state.isPaused,
+    calcularTributosOFiciais,
+    checkout,
+  ]);
+
+  // useCallback memoizado para o handler global de finalização (F10)
+  const handleF10Shortcut = useCallback(() => {
+    handleCheckoutComRTC();
+  }, [handleCheckoutComRTC]);
 
   // Centralização robusta de atalhos
   const handleGlobalKeyDown = useCallback(
@@ -162,13 +241,14 @@ export function usePDV() {
       setEditQty: state.setEditQty,
       handleSaveItemEdit,
 
-      // Pagamento & Checkout
+      // Pagamento & Checkout (integrado com a Receita Federal)
       paymentMethod: checkout.paymentMethod,
       setPaymentMethod: checkout.setPaymentMethod,
-      loading: checkout.loading,
-      handleCheckout: checkout.handleCheckout,
+      loading: checkout.loading || loadingRTC,
+      handleCheckout: handleCheckoutComRTC,
       completedSale: checkout.completedSale,
       clearCompletedSale: checkout.clearCompletedSale,
+      tributosRTC,
 
       // Parceiros & Clientes
       partners: state.partners,
@@ -190,6 +270,9 @@ export function usePDV() {
     [
       state,
       checkout,
+      loadingRTC,
+      tributosRTC,
+      handleCheckoutComRTC,
       requestManagerAction,
       handleManagerAuthorized,
       handleSaveItemEdit,

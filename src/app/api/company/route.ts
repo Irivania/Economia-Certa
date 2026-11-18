@@ -11,7 +11,10 @@ export async function GET(request: NextRequest) {
     const companyId = searchParams.get("companyId");
 
     if (!companyId) {
-      return NextResponse.json({ error: "ID da empresa não fornecido." }, { status: 400 });
+      return NextResponse.json(
+        { error: "ID da empresa não fornecido." },
+        { status: 400 },
+      );
     }
 
     let [company] = await db
@@ -32,6 +35,8 @@ export async function GET(request: NextRequest) {
         id: newId,
         name: "Melo Perfumaria",
         type: "Matriz",
+        city: "São Paulo",
+        state: "SP",
       });
       const [createdCompany] = await db
         .select()
@@ -57,31 +62,37 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Erro ao buscar empresa:", error);
-    return NextResponse.json({ error: "Erro interno ao buscar dados." }, { status: 500 });
+    return NextResponse.json(
+      { error: "Erro interno ao buscar dados." },
+      { status: 500 },
+    );
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { 
-      companyId, 
-      name, 
-      tradeName, 
-      document, 
-      email, 
-      phone, 
-      cep, 
-      address, 
-      number, 
-      neighborhood, 
-      city, 
-      state, 
-      type 
+    const {
+      companyId,
+      name,
+      tradeName,
+      document,
+      email,
+      phone,
+      cep,
+      address,
+      number,
+      neighborhood,
+      city,
+      state,
+      type,
     } = body;
 
     if (!companyId) {
-      return NextResponse.json({ error: "ID da empresa não fornecido." }, { status: 400 });
+      return NextResponse.json(
+        { error: "ID da empresa não fornecido." },
+        { status: 400 },
+      );
     }
 
     // Garante que a empresa existe antes de atualizar (upsert seguro)
@@ -126,9 +137,15 @@ export async function PUT(request: NextRequest) {
         .where(eq(companies.id, companyId));
     }
 
-    return NextResponse.json({ success: true, message: "Dados da empresa atualizados com sucesso!" });
+    return NextResponse.json({
+      success: true,
+      message: "Dados da empresa atualizados com sucesso!",
+    });
   } catch (error) {
     console.error("Erro ao atualizar empresa:", error);
-    return NextResponse.json({ error: "Erro interno ao atualizar dados." }, { status: 500 });
+    return NextResponse.json(
+      { error: "Erro interno ao atualizar dados." },
+      { status: 500 },
+    );
   }
 }

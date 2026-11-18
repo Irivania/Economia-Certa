@@ -12,6 +12,9 @@ interface ProductItem {
   salePrice: string | null;
   stockCurrent: number;
   imageUrl: string | null;
+  ncm?: string | null;
+  classTrib?: string | null;
+  unit?: string | null;
 }
 
 interface CartItem {
@@ -21,6 +24,10 @@ interface CartItem {
   quantity: number;
   subtotal: number;
   imageUrl: string | null;
+  ncm?: string | null;
+  cst?: string | null;
+  classTrib?: string | null;
+  unit?: string | null;
 }
 
 interface PartnerItem {
@@ -211,7 +218,15 @@ export function usePDVState() {
           const newQty = existing.quantity + qtyToAdd;
           return prev.map((item) =>
             item.productId === product.id
-              ? { ...item, quantity: newQty, subtotal: newQty * item.unitPrice }
+              ? {
+                  ...item,
+                  quantity: newQty,
+                  subtotal: newQty * item.unitPrice,
+                  ncm: product.ncm,
+                  cst: "000",
+                  classTrib: product.classTrib,
+                  unit: product.unit || "UN",
+                }
               : item,
           );
         }
@@ -224,6 +239,10 @@ export function usePDVState() {
             quantity: qtyToAdd,
             subtotal: price * qtyToAdd,
             imageUrl: product.imageUrl,
+            ncm: product.ncm,
+            cst: "000",
+            classTrib: product.classTrib,
+            unit: product.unit || "UN",
           },
         ];
       });
