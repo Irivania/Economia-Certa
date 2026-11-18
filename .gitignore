@@ -20,6 +20,9 @@
 # production
 /build
 
+# local calculator project
+/calculadora-rtc-regime-regular/
+
 # misc
 .DS_Store
 *.pem
