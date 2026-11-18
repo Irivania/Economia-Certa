@@ -27,6 +27,7 @@ interface SuccessModalProps {
       unitPrice: number;
       subtotal: number;
     }>;
+    tributosRTC?: unknown;
   } | null;
   onClose: () => void;
   isDarkMode: boolean;
@@ -44,6 +45,41 @@ const escapeHtml = (value: string) =>
         "'": "&#039;",
       })[character] || character,
   );
+
+type RecordValue = Record<string, unknown>;
+
+const isRecord = (value: unknown): value is RecordValue =>
+  typeof value === "object" && value !== null;
+
+const toMoney = (value: unknown): number => {
+  const numeric =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value)
+        : 0;
+  return Number.isFinite(numeric) ? numeric : 0;
+};
+
+const extrairTributosRTC = (resultado: unknown) => {
+  if (!isRecord(resultado)) return { cbs: 0, ibs: 0, impostoSeletivo: 0 };
+
+  const total = isRecord(resultado.total) ? resultado.total : null;
+  const tribCalc = total && isRecord(total.tribCalc) ? total.tribCalc : null;
+  const isTotal = tribCalc && isRecord(tribCalc.ISTot) ? tribCalc.ISTot : null;
+  const ibsCbsTotal =
+    tribCalc && isRecord(tribCalc.IBSCBSTot) ? tribCalc.IBSCBSTot : null;
+  const gCbs =
+    ibsCbsTotal && isRecord(ibsCbsTotal.gCBS) ? ibsCbsTotal.gCBS : null;
+  const gIbs =
+    ibsCbsTotal && isRecord(ibsCbsTotal.gIBS) ? ibsCbsTotal.gIBS : null;
+
+  return {
+    cbs: toMoney(gCbs?.vCBS),
+    ibs: toMoney(gIbs?.vIBS),
+    impostoSeletivo: toMoney(isTotal?.vIS),
+  };
+};
 
 export function SuccessModal({
   isOpen,
@@ -132,6 +168,19 @@ export function SuccessModal({
       ? `<div class="data-line auth"><span>Auth / Detalhes:</span><span>${paymentDetails}</span></div>`
       : "";
 
+    const tributosRTC = extrairTributosRTC(saleData?.tributosRTC);
+    const tributosLine = `
+      <section class="rtc-block">
+        <div class="items-title">TRIBUTOS DA REFORMA TRIBUTARIA</div>
+        <div class="total-line"><span>CBS (Federal):</span><strong>R$ ${tributosRTC.cbs.toFixed(2)}</strong></div>
+        <div class="total-line"><span>IBS (Estadual/Municipal):</span><strong>R$ ${tributosRTC.ibs.toFixed(2)}</strong></div>
+        ${
+          tributosRTC.impostoSeletivo > 0
+            ? `<div class="total-line"><span>Imposto Seletivo:</span><strong>R$ ${tributosRTC.impostoSeletivo.toFixed(2)}</strong></div>`
+            : ""
+        }
+      </section>`;
+
     const mockAccessKey = "35261000012345678900650010000001231000123456";
 
     printDocument.open();
@@ -166,6 +215,8 @@ export function SuccessModal({
             .cashback-box { border: 1px solid #000; padding: 2mm; text-align: center; font-size: 10px; margin-bottom: 3mm; background: #f9f9f9; }
             .access-key { font-size: 9px; word-break: break-all; margin-top: 1mm; font-weight: bold; }
             .footer { border-top: 1px dashed #000; margin-top: 3mm; padding-top: 3mm; }
+            .rtc-block { border-bottom: 1px dashed #000; padding: 2mm 0 3mm; margin-bottom: 3mm; }
+            .rtc-block .items-title { margin-bottom: 2mm; }
           </style>
         </head>
         <body>
@@ -173,8 +224,10 @@ export function SuccessModal({
             <header class="header center">
               <div class="store-name">Melo Perfumaria 🌸</div>
               <div class="tagline">Beleza que te faz bem! 💖</div>
-              <div class="small">CNPJ: 00.000.000/0001-00</div>
-              <div class="small">São Paulo - SP</div>
+              <div class="small">CNPJ: 00.123.456/0001-99</div>
+              <div class="small">IE: 123.456.789.110</div>
+              <div class="small">Av. Paulo Faccini, 200 - Centro</div>
+              <div class="small">Guarulhos - SP</div>
             </header>
             <section class="sale-data">
               <div class="data-line"><span>EXTRATO Nº:</span><strong>${receiptId}</strong></div>
@@ -198,6 +251,7 @@ export function SuccessModal({
               <strong>✨ CASHBACK MELO FIDELIDADE ✨</strong><br/>
               Acumulou <strong>R$ ${calculatedCashback.toFixed(2)}</strong> para resgatar em kits Skala, Neutrox ou Kolene na próxima compra!
             </div>
+            ${tributosLine}
             <footer class="footer center small">
               <div>Consulta via Chave de Acesso NFC-e:</div>
               <div class="access-key">${mockAccessKey}</div>
@@ -250,6 +304,12 @@ export function SuccessModal({
 
   if (!isOpen) return null;
 
+  const tributosScreen = extrairTributosRTC(saleData?.tributosRTC);
+  const possuiTributos =
+    tributosScreen.cbs > 0 ||
+    tributosScreen.ibs > 0 ||
+    tributosScreen.impostoSeletivo > 0;
+
   const toggleAction = () => {
     setSelectedAction((current) => (current === "print" ? "newSale" : "print"));
   };
@@ -296,6 +356,49 @@ export function SuccessModal({
                   currency: "BRL",
                 })}
               </span>
+            </div>
+          )}
+
+          {possuiTributos && (
+            <div
+              className={`rounded-2xl border p-4 text-left font-mono text-xs ${
+                isDarkMode
+                  ? "border-slate-800 bg-slate-950"
+                  : "border-slate-200 bg-slate-50"
+              }`}
+            >
+              <div className="mb-2 text-[10px] font-black uppercase tracking-wider text-center opacity-70">
+                Tributos da Reforma Tributaria
+              </div>
+              <div className="flex justify-between py-1">
+                <span>CBS (Federal):</span>
+                <strong>
+                  {tributosScreen.cbs.toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                </strong>
+              </div>
+              <div className="flex justify-between py-1">
+                <span>IBS (Estadual/Municipal):</span>
+                <strong>
+                  {tributosScreen.ibs.toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                </strong>
+              </div>
+              {tributosScreen.impostoSeletivo > 0 && (
+                <div className="flex justify-between py-1">
+                  <span>Imposto Seletivo:</span>
+                  <strong>
+                    {tributosScreen.impostoSeletivo.toLocaleString("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    })}
+                  </strong>
+                </div>
+              )}
             </div>
           )}
 

@@ -170,18 +170,24 @@ export function usePDV() {
   );
 
   // Wrapper customizado para o checkout que executa o cálculo da Receita antes de concluir
-  const handleCheckoutComRTC = useCallback(async () => {
-    if (state.cart.length > 0 && state.isRegisterOpen && !state.isPaused) {
-      await calcularTributosOFiciais();
-      checkout.handleCheckout();
-    }
-  }, [
-    state.cart.length,
-    state.isRegisterOpen,
-    state.isPaused,
-    calcularTributosOFiciais,
-    checkout,
-  ]);
+  const handleCheckoutComRTC = useCallback(
+    async (
+      splits?: Array<{ method: string; amount: number }>,
+      changeAmount?: number,
+    ) => {
+      if (state.cart.length > 0 && state.isRegisterOpen && !state.isPaused) {
+        const tributosRTC = await calcularTributosOFiciais();
+        checkout.handleCheckout(splits, changeAmount, tributosRTC);
+      }
+    },
+    [
+      state.cart.length,
+      state.isRegisterOpen,
+      state.isPaused,
+      calcularTributosOFiciais,
+      checkout,
+    ],
+  );
 
   // useCallback memoizado para o handler global de finalização (F10)
   const handleF10Shortcut = useCallback(() => {

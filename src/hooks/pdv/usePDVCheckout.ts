@@ -32,6 +32,7 @@ interface CompletedSale {
   paymentMethod: string;
   total: number;
   items: CartItem[];
+  tributosRTC?: unknown;
 }
 
 interface UsePDVCheckoutProps {
@@ -74,7 +75,11 @@ export function usePDVCheckout({
   );
 
   const handleCheckout = useCallback(
-    async (splits?: PaymentSplit[], changeAmount?: number) => {
+    async (
+      splits?: PaymentSplit[],
+      changeAmount?: number,
+      tributosRTC?: unknown,
+    ) => {
       if (cart.length === 0) {
         alert("O carrinho está vazio.");
         return;
@@ -138,6 +143,7 @@ export function usePDVCheckout({
           paymentMethod: primaryMethod,
           total: totalCart,
           items: [...cart],
+          tributosRTC,
         });
 
         setCart([]);
