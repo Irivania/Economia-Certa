@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { apiFetch } from "@/lib/apiClient";
 import type { CartItem, PartnerItem } from "@/types/pdv";
+import { formatBRL } from "@/lib/pdv/format";
 
 interface CompletedSale {
   saleId: string;
@@ -82,7 +83,7 @@ export function usePDVCheckout({
           const currentDebt = Number(partner.currentBalance || 0);
           if (currentDebt + totalCart > limit) {
             alert(
-              `Limite de crédito excedido para ${partner.name}!\nLimite: R$ ${limit.toFixed(2)} | Saldo Devedor: R$ ${currentDebt.toFixed(2)}`,
+              `Limite de crédito excedido para ${partner.name}!\nLimite: ${formatBRL(limit)} | Saldo Devedor: ${formatBRL(currentDebt)}`,
             );
             return;
           }

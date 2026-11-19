@@ -64,4 +64,27 @@ export interface PDVPaymentModalProps {
     message: string,
     type: "success" | "error" | "warning" | "info",
   ) => void;
+  controller: PDVPaymentModalController;
+}
+
+export interface PDVPaymentModalController {
+  modalContainerRef: React.RefObject<HTMLDivElement | null>;
+  amountInputRef: React.RefObject<HTMLInputElement | null>;
+  remainingAmount: number;
+  changeAmount: number;
+  notification: NotificationState | null;
+  setNotification: React.Dispatch<
+    React.SetStateAction<NotificationState | null>
+  >;
+  selectedMethodIndex: number;
+  handleSelectMethod: (index: number) => void;
+  activeMethod: PaymentMethodId;
+  displayAmount: string;
+  handleAmountChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleAddSplit: () => void;
+  handleQuickCash: (value: number) => void;
+  splits: PaymentSplit[];
+  handleRemoveSplit: (id: string) => void;
+  handleFinish: () => void;
+  totalPaid: number;
 }

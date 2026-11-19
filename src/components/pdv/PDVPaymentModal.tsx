@@ -5,8 +5,6 @@ import { PaymentMethodsGrid } from "./payment/PaymentMethodsGrid";
 import { PaymentSplitsList } from "./payment/PaymentSplitsList";
 import { PaymentNotification } from "./payment/PaymentNotification";
 
-import { usePDVPaymentModal } from "@/hooks/pdv/payment/usePDVPaymentModal";
-
 import type { PDVPaymentModalProps } from "@/types/pdv";
 
 export function PDVPaymentModal({
@@ -18,6 +16,7 @@ export function PDVPaymentModal({
   onConfirmPayment,
   isDarkMode,
   onNotify,
+  controller,
 }: PDVPaymentModalProps) {
   const {
     modalContainerRef,
@@ -37,13 +36,7 @@ export function PDVPaymentModal({
     handleRemoveSplit,
     handleFinish,
     totalPaid,
-  } = usePDVPaymentModal({
-    isOpen,
-    totalCart,
-    onClose,
-    onConfirmPayment,
-    onNotify,
-  });
+  } = controller;
 
   if (!isOpen) return null;
 

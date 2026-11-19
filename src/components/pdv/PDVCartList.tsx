@@ -1,6 +1,7 @@
 "use client";
 
 import { Package, Pencil, X, Check, ShoppingCart } from "lucide-react";
+import { formatBRL } from "@/lib/pdv/format";
 import type { CartItem } from "@/types/pdv";
 
 interface PDVCartListProps {
@@ -82,16 +83,16 @@ export function PDVCartList({
                         {item.quantity} un
                       </span>
                       <span className="tabular-nums sm:hidden">
-                        × R$ {item.unitPrice.toFixed(2)}
+                        × {formatBRL(item.unitPrice)}
                       </span>
                     </div>
                   </div>
                 </div>
                 <div className="hidden text-right text-sm tabular-nums text-slate-500 dark:text-slate-400 sm:block">
-                  R$ {item.unitPrice.toFixed(2)}
+                  {formatBRL(item.unitPrice)}
                 </div>
                 <div className="text-right text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-50">
-                  R$ {item.subtotal.toFixed(2)}
+                  {formatBRL(item.subtotal)}
                 </div>
               </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 
 import { PAYMENT_METHODS } from "@/constants/pdvPaymentConstants";
 
@@ -11,8 +11,9 @@ import {
 } from "@/utils/pdvPaymentUtils";
 
 import { usePDVPaymentModalShortcuts } from "@/hooks/pdv/usePDVPaymentModalShortcuts";
+import { formatBRL } from "@/lib/pdv/format";
 
-import type { PaymentSplit, NotificationState } from "@/types/pdv/payment";
+import type { PaymentSplit, NotificationState } from "@/types/pdv";
 
 interface UsePDVPaymentModalProps {
   isOpen: boolean;
@@ -54,6 +55,23 @@ export function usePDVPaymentModal({
 
   const modalContainerRef = useRef<HTMLDivElement>(null);
   const amountInputRef = useRef<HTMLInputElement>(null);
+  const wasOpenRef = useRef(isOpen);
+
+  useEffect(() => {
+    if (isOpen && !wasOpenRef.current) {
+      const nextCents = Math.round(initialRemaining * 100);
+      setSplits([]);
+      setSelectedMethodIndex(0);
+      setRawAmount(nextCents);
+      setDisplayAmount(
+        (nextCents / 100).toLocaleString("pt-BR", {
+          minimumFractionDigits: 2,
+        }),
+      );
+      setNotification(null);
+    }
+    wasOpenRef.current = isOpen;
+  }, [initialRemaining, isOpen]);
 
   // Notificações
   const notify = useCallback(
@@ -89,7 +107,7 @@ export function usePDVPaymentModal({
   const handleFinish = useCallback(() => {
     if (totalPaid < totalCart) {
       notify(
-        `Falta pagar R$ ${remainingAmount.toFixed(2)}. Adicione mais formas de pagamento.`,
+        `Falta pagar ${formatBRL(remainingAmount)}. Adicione mais formas de pagamento.`,
         "warning",
       );
 
@@ -131,7 +149,7 @@ export function usePDVPaymentModal({
     );
 
     notify(
-      `Parcela de ${formatMethodName(lastSplit.method)} (R$ ${lastSplit.amount.toFixed(2)}) removida.`,
+      `Parcela de ${formatMethodName(lastSplit.method)} (${formatBRL(lastSplit.amount)}) removida.`,
       "info",
     );
   }, [splits, totalCart, notify]);
@@ -260,7 +278,7 @@ export function usePDVPaymentModal({
     if (nextRemaining <= 0) {
       notify(
         newTotals.changeAmount > 0
-          ? `Troco: R$ ${newTotals.changeAmount.toFixed(2)}. Pressione F10 para finalizar.`
+          ? `Troco: ${formatBRL(newTotals.changeAmount)}. Pressione F10 para finalizar.`
           : "Venda totalmente quitada! Pressione F10 para finalizar.",
         "success",
       );
@@ -268,7 +286,7 @@ export function usePDVPaymentModal({
       focusAmountInput();
     } else {
       notify(
-        `Falta pagar R$ ${nextRemaining.toFixed(2)}. Escolha o próximo método ([F1-F5]).`,
+        `Falta pagar ${formatBRL(nextRemaining)}. Escolha o próximo método ([F1-F5]).`,
         "warning",
       );
 

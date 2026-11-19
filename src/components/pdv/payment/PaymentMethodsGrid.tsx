@@ -9,6 +9,7 @@ import {
   PaymentMethodId,
 } from "@/constants/pdvPaymentConstants";
 import { formatMethodName } from "@/utils/pdvPaymentUtils";
+import { formatBRL } from "@/lib/pdv/format";
 
 interface PaymentMethodsGridProps {
   selectedMethodIndex: number;
@@ -126,7 +127,9 @@ export function PaymentMethodsGrid({
               onClick={() => onQuickCash(remainingAmount)}
               className="px-2 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-mono font-bold transition cursor-pointer shrink-0"
             >
-              {PDV_PAYMENT_TEXTS.exactCash(remainingAmount.toFixed(2))}
+              {PDV_PAYMENT_TEXTS.exactCash(
+                formatBRL(remainingAmount).replace("R$ ", ""),
+              )}
             </button>
             {QUICK_CASH_AMOUNTS.map((amt) => (
               <button

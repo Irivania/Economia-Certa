@@ -5,6 +5,7 @@ import { Check, Trash2 } from "lucide-react";
 import { PDV_PAYMENT_TEXTS } from "@/constants/pdvPaymentConstants";
 import { formatCurrency, formatMethodName } from "@/utils/pdvPaymentUtils";
 import type { PaymentSplit } from "@/types/pdv";
+import { formatBRL } from "@/lib/pdv/format";
 
 interface PaymentSplitsListProps {
   splits: PaymentSplit[];
@@ -89,7 +90,9 @@ export function PaymentSplitsList({
           className="px-6 py-2.5 rounded-lg text-xs font-extrabold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/25 transition cursor-pointer disabled:opacity-50 inline-flex items-center gap-2"
         >
           <Check className="w-4 h-4" />{" "}
-          {PDV_PAYMENT_TEXTS.finishButton(changeAmount.toFixed(2))}
+          {PDV_PAYMENT_TEXTS.finishButton(
+            formatBRL(changeAmount).replace("R$ ", ""),
+          )}
         </button>
       </div>
     </div>

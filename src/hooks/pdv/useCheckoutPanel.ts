@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePDVPaymentModal } from "@/hooks/pdv/payment/usePDVPaymentModal";
 import type { PaymentSplit } from "@/types/pdv";
 
 interface UseCheckoutPanelOptions {
@@ -31,6 +32,13 @@ export function useCheckoutPanel({
     },
     [onCheckout],
   );
+
+  const paymentModalController = usePDVPaymentModal({
+    isOpen: isPaymentModalOpen,
+    totalCart,
+    onClose: () => setIsPaymentModalOpen(false),
+    onConfirmPayment: handleConfirmPayment,
+  });
 
   useEffect(() => {
     const handleGlobalKeyDown = (event: KeyboardEvent) => {
@@ -70,5 +78,6 @@ export function useCheckoutPanel({
     partnerRef,
     handleTriggerCheckout,
     handleConfirmPayment,
+    paymentModalController,
   };
 }

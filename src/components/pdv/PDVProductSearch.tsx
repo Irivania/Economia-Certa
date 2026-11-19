@@ -1,6 +1,7 @@
 "use client";
 
 import { Search, Package, Plus } from "lucide-react";
+import { formatBRL } from "@/lib/pdv/format";
 import type { ProductItem } from "@/types/pdv";
 
 interface PDVProductSearchProps {
@@ -165,7 +166,7 @@ export function PDVProductSearch({
                   <div
                     className={`shrink-0 text-right text-sm font-semibold tabular-nums ${isDarkMode ? "text-emerald-400" : "text-emerald-700"}`}
                   >
-                    R$ {Number(p.salePrice || 0).toFixed(2)}
+                    {formatBRL(Number(p.salePrice || 0))}
                   </div>
                 </button>
               );

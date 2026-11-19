@@ -3,6 +3,7 @@
 import { PDVPaymentModal } from "./PDVPaymentModal";
 import type { PartnerItem, PaymentSplit } from "@/types/pdv";
 import { useCheckoutPanel } from "@/hooks/pdv/useCheckoutPanel";
+import { formatBRL } from "@/lib/pdv/format";
 
 interface PDVCheckoutPanelProps {
   partners: PartnerItem[];
@@ -134,7 +135,7 @@ export function PDVCheckoutPanel({
             Total a Pagar:
           </span>
           <span className="font-mono text-xl font-black text-emerald-600 dark:text-emerald-400">
-            R$ {totalCart.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            {formatBRL(totalCart)}
           </span>
         </div>
 
@@ -160,6 +161,7 @@ export function PDVCheckoutPanel({
         onConfirmPayment={handleConfirmPayment}
         isDarkMode={isDarkMode}
         onNotify={onNotify}
+        controller={checkoutPanel.paymentModalController}
       />
     </div>
   );

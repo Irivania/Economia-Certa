@@ -9,6 +9,7 @@ import { usePDV } from "@/hooks/usePDV";
 import { useProductSearchKeyboard } from "@/hooks/pdv/useProductSearchKeyboard";
 import { useCheckoutPanel } from "@/hooks/pdv/useCheckoutPanel";
 import { ShoppingCart, ScanBarcode, Receipt } from "lucide-react";
+import { formatBRL } from "@/lib/pdv/format";
 
 interface PDVActiveStateProps {
   pdv: ReturnType<typeof usePDV>;
@@ -16,11 +17,6 @@ interface PDVActiveStateProps {
   productSearchKeyboard: ReturnType<typeof useProductSearchKeyboard>;
   checkoutPanel: ReturnType<typeof useCheckoutPanel>;
 }
-
-const brl = new Intl.NumberFormat("pt-BR", {
-  style: "currency",
-  currency: "BRL",
-});
 
 function CardHeader({
   icon,
@@ -191,7 +187,7 @@ export const PDVActiveState = React.memo(function PDVActiveState({
               Total a pagar
             </p>
             <p className="mt-0.5 text-4xl font-semibold tracking-tight tabular-nums text-white">
-              {brl.format(Number(pdv.totalCart) || 0)}
+              {formatBRL(Number(pdv.totalCart) || 0)}
             </p>
             <p className="mt-1 text-xs text-slate-400 tabular-nums">
               {itemCount}{" "}
