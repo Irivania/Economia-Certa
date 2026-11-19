@@ -1,5 +1,7 @@
 "use client";
 
+import { Package, Pencil, X, Check, ShoppingCart } from "lucide-react";
+
 interface CartItem {
   productId: string;
   description: string;
@@ -21,6 +23,9 @@ interface PDVCartListProps {
   onCancelEdit: () => void;
 }
 
+const inputCls =
+  "h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold tabular-nums text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-50";
+
 export function PDVCartList({
   cart,
   onRequestAction,
@@ -32,118 +37,138 @@ export function PDVCartList({
   onSaveEdit,
   onCancelEdit,
 }: PDVCartListProps) {
+  if (cart.length === 0) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 py-12 text-center text-slate-400 dark:text-slate-500">
+        <ShoppingCart className="h-8 w-8" />
+        <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+          Caixa livre
+        </p>
+        <p className="text-xs">Aguardando leitura de produtos…</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <h3 className="text-sm font-black uppercase tracking-wider border-b pb-3 border-slate-500/10">
-        Carrinho da Venda
-      </h3>
+      {/* Cabeçalho da tabela */}
+      <div className="hidden grid-cols-[minmax(0,1fr)_110px_110px] gap-4 border-b border-slate-100 px-3 pb-2 text-[11px] font-medium uppercase tracking-wider text-slate-400 dark:border-slate-800 dark:text-slate-500 sm:grid">
+        <span>Produto</span>
+        <span className="text-right">Unitário</span>
+        <span className="text-right">Subtotal</span>
+      </div>
 
-      <div className="flex-1 min-h-0 divide-y divide-slate-500/10 overflow-y-auto my-3 font-mono text-xs pr-1">
-        {cart.length === 0 ? (
-          <div className="text-center py-12 opacity-40 font-sans space-y-2">
-            <div className="text-3xl">🛒</div>
-            <p className="text-xs font-bold">Caixa Livre</p>
-            <p className="text-[10px]">Aguardando leitura de produtos...</p>
-          </div>
-        ) : (
-          cart.map((item) => {
-            const isEditing = editingProductId === item.productId;
+      <ul className="min-h-0 flex-1 divide-y divide-slate-100 overflow-y-auto dark:divide-slate-800">
+        {cart.map((item, idx) => {
+          const isEditing = editingProductId === item.productId;
 
-            return (
-              <div key={item.productId} className="py-2.5 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 flex-1">
-                    <div className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-800 flex items-center justify-center overflow-hidden shrink-0 border border-slate-500/20">
-                      {item.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={item.imageUrl}
-                          alt={item.description}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-xs">📦</span>
-                      )}
-                    </div>
-                    <div>
-                      <div className="font-bold font-sans text-xs line-clamp-1">
-                        {item.description}
-                      </div>
-                      <div className="text-[10px] opacity-60 font-bold text-indigo-600 dark:text-indigo-400">
-                        {item.quantity} un x R$ {item.unitPrice.toFixed(2)}
-                      </div>
-                    </div>
+          return (
+            <li key={item.productId} className="group px-3 py-3">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 sm:grid-cols-[minmax(0,1fr)_110px_110px]">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="w-5 shrink-0 text-right font-mono text-xs text-slate-400 dark:text-slate-500">
+                    {String(idx + 1).padStart(2, "0")}
+                  </span>
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100 ring-1 ring-inset ring-slate-200 dark:bg-slate-800 dark:ring-slate-700">
+                    {item.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={item.imageUrl}
+                        alt={item.description}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <Package className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+                    )}
                   </div>
-                  <div className="text-right font-bold text-xs shrink-0">
-                    R$ {item.subtotal.toFixed(2)}
+                  <div className="min-w-0">
+                    <div className="line-clamp-1 text-sm font-semibold text-slate-900 dark:text-slate-50">
+                      {item.description}
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                      <span className="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 font-semibold tabular-nums text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">
+                        {item.quantity} un
+                      </span>
+                      <span className="tabular-nums sm:hidden">
+                        × R$ {item.unitPrice.toFixed(2)}
+                      </span>
+                    </div>
                   </div>
                 </div>
-
-                {!isEditing ? (
-                  <div className="flex justify-end gap-3 text-[10px]">
-                    <button
-                      type="button"
-                      onClick={() => onRequestAction("EDIT", item.productId)}
-                      className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline cursor-pointer"
-                    >
-                      ⚙️ Alterar (Gerente)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onRequestAction("REMOVE", item.productId)}
-                      className="text-rose-500 font-bold hover:underline cursor-pointer"
-                    >
-                      ✕ Cancelar
-                    </button>
-                  </div>
-                ) : (
-                  <div className="p-2.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <span className="text-[9px] opacity-70 block">
-                          Preço (R$)
-                        </span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={editPrice}
-                          onChange={(e) => setEditPrice(e.target.value)}
-                          className="w-full px-2 py-1 border rounded bg-white dark:bg-slate-950 font-bold text-xs"
-                        />
-                      </div>
-                      <div>
-                        <span className="text-[9px] opacity-70 block">Qtd</span>
-                        <input
-                          type="number"
-                          value={editQty}
-                          onChange={(e) => setEditQty(e.target.value)}
-                          className="w-full px-2 py-1 border rounded bg-white dark:bg-slate-950 font-bold text-xs"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={onCancelEdit}
-                        className="px-2 py-1 text-[10px] opacity-70"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onSaveEdit(item.productId)}
-                        className="px-2.5 py-1 bg-indigo-600 text-white text-[10px] font-extrabold rounded"
-                      >
-                        Salvar ✓
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <div className="hidden text-right text-sm tabular-nums text-slate-500 dark:text-slate-400 sm:block">
+                  R$ {item.unitPrice.toFixed(2)}
+                </div>
+                <div className="text-right text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-50">
+                  R$ {item.subtotal.toFixed(2)}
+                </div>
               </div>
-            );
-          })
-        )}
-      </div>
+
+              {!isEditing ? (
+                <div className="mt-2 flex justify-end gap-1">
+                  <button
+                    type="button"
+                    onClick={() => onRequestAction("EDIT", item.productId)}
+                    className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 text-xs font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                  >
+                    <Pencil className="h-3.5 w-3.5" /> Alterar (gerente)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onRequestAction("REMOVE", item.productId)}
+                    className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 text-xs font-medium text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-500/10"
+                  >
+                    <X className="h-3.5 w-3.5" /> Cancelar item
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-3 space-y-3 rounded-xl border border-emerald-500/30 bg-emerald-50/60 p-3 dark:bg-emerald-500/5">
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="space-y-1">
+                      <span className="block text-xs font-medium text-slate-600 dark:text-slate-300">
+                        Preço (R$)
+                      </span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editPrice}
+                        onChange={(e) => setEditPrice(e.target.value)}
+                        className={inputCls}
+                      />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="block text-xs font-medium text-slate-600 dark:text-slate-300">
+                        Quantidade
+                      </span>
+                      <input
+                        type="number"
+                        value={editQty}
+                        onChange={(e) => setEditQty(e.target.value)}
+                        className={inputCls}
+                      />
+                    </label>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={onCancelEdit}
+                      className="h-8 rounded-lg px-3 text-xs font-medium text-slate-600 transition hover:bg-white dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onSaveEdit(item.productId)}
+                      className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+                    >
+                      <Check className="h-3.5 w-3.5" /> Salvar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

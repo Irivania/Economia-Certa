@@ -51,7 +51,6 @@ export function PDVCheckoutPanel({
     setIsPaymentModalOpen(true);
   };
 
-  // Atalho global F9 para abrir a gestão de pagamento
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.key === "F9") {
@@ -83,9 +82,8 @@ export function PDVCheckoutPanel({
 
   return (
     <div
-      className={`p-6 rounded-3xl border shadow-xl space-y-4 ${isDarkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"}`}
+      className={`space-y-4 rounded-3xl border p-6 shadow-xl ${isDarkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}
     >
-      {/* Nome do Cliente */}
       <div className="space-y-1">
         <label className="block text-xs font-bold uppercase tracking-wider opacity-75">
           Cliente da Venda
@@ -95,7 +93,7 @@ export function PDVCheckoutPanel({
           placeholder="Nome do cliente (Opcional)"
           value={customerName}
           onChange={(e) => setCustomerName(e.target.value)}
-          className="w-full px-3.5 py-2.5 text-xs border rounded-xl bg-slate-50 dark:bg-slate-950 outline-none font-bold"
+          className="w-full rounded-xl border bg-slate-50 px-3.5 py-2.5 text-xs font-bold outline-none dark:bg-slate-950"
         />
       </div>
 
@@ -125,9 +123,9 @@ export function PDVCheckoutPanel({
           onChange={(e) => setCustomerDocument(e.target.value)}
           onFocus={() => setIsDocumentFocused(true)}
           onBlur={() => setIsDocumentFocused(false)}
-          className={`w-full px-3.5 py-2.5 text-xs border rounded-xl bg-slate-50 dark:bg-slate-950 outline-none font-bold transition ${
+          className={`w-full rounded-xl border bg-slate-50 px-3.5 py-2.5 text-xs font-bold outline-none transition dark:bg-slate-950 ${
             isDocumentFocused
-              ? "border-emerald-500 ring-4 ring-emerald-500/20 bg-emerald-50/60 dark:bg-emerald-950/30"
+              ? "border-emerald-500 bg-emerald-50/60 ring-4 ring-emerald-500/20 dark:bg-emerald-950/30"
               : "border-slate-200 dark:border-slate-800"
           }`}
         />
@@ -138,7 +136,6 @@ export function PDVCheckoutPanel({
         )}
       </div>
 
-      {/* Seleção rápida de Convênio */}
       <div className="space-y-1">
         <label className="flex items-center justify-between text-xs font-bold uppercase tracking-wider opacity-75">
           <span>Convênio Principal (Opcional)</span>
@@ -150,7 +147,7 @@ export function PDVCheckoutPanel({
           ref={partnerRef}
           value={selectedPartnerId}
           onChange={(e) => setSelectedPartnerId(e.target.value)}
-          className="w-full px-3.5 py-2.5 text-xs border rounded-xl bg-slate-50 dark:bg-slate-950 font-bold outline-none cursor-pointer"
+          className="w-full cursor-pointer rounded-xl border bg-slate-50 px-3.5 py-2.5 text-xs font-bold outline-none dark:bg-slate-950"
         >
           <option value="">Nenhum convênio selecionado</option>
           {partners.map((p) => (
@@ -161,13 +158,12 @@ export function PDVCheckoutPanel({
         </select>
       </div>
 
-      {/* Resumo do Total e Botão de Fecho com [F9] */}
-      <div className="pt-4 border-t border-slate-500/10 space-y-4">
-        <div className="flex justify-between items-center">
-          <span className="text-xs uppercase font-extrabold opacity-60">
+      <div className="space-y-4 border-t border-slate-500/10 pt-4">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-extrabold uppercase opacity-60">
             Total a Pagar:
           </span>
-          <span className="text-xl font-black font-mono text-emerald-600 dark:text-emerald-400">
+          <span className="font-mono text-xl font-black text-emerald-600 dark:text-emerald-400">
             R$ {totalCart.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
           </span>
         </div>
@@ -176,7 +172,7 @@ export function PDVCheckoutPanel({
           type="button"
           disabled={loading || totalCart <= 0}
           onClick={handleTriggerCheckout}
-          className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-xl shadow-emerald-600/25 transition cursor-pointer disabled:opacity-50 inline-flex items-center justify-center gap-2"
+          className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-4 text-xs font-black text-white shadow-xl shadow-emerald-600/25 transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading
             ? "A processar venda..."
@@ -184,7 +180,6 @@ export function PDVCheckoutPanel({
         </button>
       </div>
 
-      {/* Modal de Pagamento Misto & Troco (Com atalho F10 para concluir) */}
       <PDVPaymentModal
         key={isPaymentModalOpen ? "open" : "closed"}
         isOpen={isPaymentModalOpen}
