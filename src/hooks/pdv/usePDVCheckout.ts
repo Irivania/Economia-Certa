@@ -2,27 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { apiFetch } from "@/lib/apiClient";
-
-interface CartItem {
-  productId: string;
-  description: string;
-  unitPrice: number;
-  quantity: number;
-  subtotal: number;
-  imageUrl: string | null;
-}
-
-interface PartnerItem {
-  id: string;
-  name: string;
-  creditLimit: string;
-  currentBalance: string;
-}
-
-interface PaymentSplit {
-  method: string;
-  amount: number;
-}
+import type { CartItem, PartnerItem } from "@/types/pdv";
 
 interface CompletedSale {
   saleId: string;
@@ -76,7 +56,7 @@ export function usePDVCheckout({
 
   const handleCheckout = useCallback(
     async (
-      splits?: PaymentSplit[],
+      splits?: Array<{ method: string; amount: number }>,
       changeAmount?: number,
       tributosRTC?: unknown,
     ) => {

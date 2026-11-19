@@ -6,11 +6,15 @@ import { PDVCartList } from "@/components/pdv/PDVCartList";
 import { PDVCheckoutPanel } from "@/components/pdv/PDVCheckoutPanel";
 import { POSPromoBanner } from "@/components/pdv/POSPromoBanner";
 import { usePDV } from "@/hooks/usePDV";
+import { useProductSearchKeyboard } from "@/hooks/pdv/useProductSearchKeyboard";
+import { useCheckoutPanel } from "@/hooks/pdv/useCheckoutPanel";
 import { ShoppingCart, ScanBarcode, Receipt } from "lucide-react";
 
 interface PDVActiveStateProps {
   pdv: ReturnType<typeof usePDV>;
   isDarkMode: boolean;
+  productSearchKeyboard: ReturnType<typeof useProductSearchKeyboard>;
+  checkoutPanel: ReturnType<typeof useCheckoutPanel>;
 }
 
 const brl = new Intl.NumberFormat("pt-BR", {
@@ -68,6 +72,8 @@ function CardHeader({
 export const PDVActiveState = React.memo(function PDVActiveState({
   pdv,
   isDarkMode,
+  productSearchKeyboard,
+  checkoutPanel,
 }: PDVActiveStateProps) {
   const card = `rounded-2xl border transition-colors duration-200 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.10)] ${
     isDarkMode
@@ -104,9 +110,12 @@ export const PDVActiveState = React.memo(function PDVActiveState({
               searchTerm={pdv.searchTerm}
               setSearchTerm={pdv.setSearchTerm}
               filteredProducts={pdv.filteredProducts}
-              onSelectProduct={pdv.handleAddToCart}
               inputRef={pdv.searchInputRef}
-              onKeyDown={pdv.handleKeyDown}
+              selectedIndex={productSearchKeyboard.selectedIndex}
+              setSelectedIndex={productSearchKeyboard.setSelectedIndex}
+              itemRefs={productSearchKeyboard.itemRefs}
+              onKeyDown={productSearchKeyboard.handleKeyDown}
+              selectProduct={productSearchKeyboard.selectProduct}
               isDarkMode={isDarkMode}
               isOperator={pdv.isOperator}
             />
@@ -203,6 +212,7 @@ export const PDVActiveState = React.memo(function PDVActiveState({
               loading={pdv.loading}
               onCheckout={pdv.handleCheckout}
               isDarkMode={isDarkMode}
+              checkoutPanel={checkoutPanel}
             />
           </div>
         </section>

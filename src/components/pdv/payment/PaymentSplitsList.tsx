@@ -4,7 +4,7 @@ import React from "react";
 import { Check, Trash2 } from "lucide-react";
 import { PDV_PAYMENT_TEXTS } from "@/constants/pdvPaymentConstants";
 import { formatCurrency, formatMethodName } from "@/utils/pdvPaymentUtils";
-import type { PaymentSplit } from "@/types/pdv/payment";
+import type { PaymentSplit } from "@/types/pdv";
 
 interface PaymentSplitsListProps {
   splits: PaymentSplit[];

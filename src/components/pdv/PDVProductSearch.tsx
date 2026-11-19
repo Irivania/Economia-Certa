@@ -1,24 +1,18 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
 import { Search, Package, Plus } from "lucide-react";
-
-interface ProductItem {
-  id: string;
-  description: string;
-  ean: string | null;
-  salePrice: string | null;
-  stockCurrent: number;
-  imageUrl: string | null;
-}
+import type { ProductItem } from "@/types/pdv";
 
 interface PDVProductSearchProps {
   searchTerm: string;
   setSearchTerm: (val: string) => void;
   filteredProducts: ProductItem[];
-  onSelectProduct: (product: ProductItem, customQty?: number) => void;
   inputRef: React.RefObject<HTMLInputElement | null>;
+  selectedIndex: number;
+  setSelectedIndex: React.Dispatch<React.SetStateAction<number>>;
+  itemRefs: React.MutableRefObject<(HTMLButtonElement | null)[]>;
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  selectProduct: (product: ProductItem) => void;
   isDarkMode: boolean;
   isOperator?: boolean;
 }
@@ -27,65 +21,15 @@ export function PDVProductSearch({
   searchTerm,
   setSearchTerm,
   filteredProducts,
-  onSelectProduct,
   inputRef,
+  selectedIndex,
+  itemRefs,
+  setSelectedIndex,
   onKeyDown,
+  selectProduct,
   isDarkMode,
   isOperator = false,
 }: PDVProductSearchProps) {
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
-
-  useEffect(() => {
-    if (itemRefs.current[selectedIndex]) {
-      itemRefs.current[selectedIndex]?.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-      });
-    }
-  }, [selectedIndex]);
-
-  const handleInternalKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      let qty = 1;
-      let query = searchTerm.trim();
-      if (query.includes("*")) {
-        const parts = query.split("*");
-        const parsed = parseInt(parts[0], 10);
-        if (!isNaN(parsed) && parsed > 0) qty = parsed;
-        query = (parts[1] || "").trim();
-      }
-      if (!query && filteredProducts.length === 0) return;
-      const target = filteredProducts[selectedIndex] || filteredProducts[0];
-      if (target) {
-        onSelectProduct(target, qty);
-        setSearchTerm("");
-        setSelectedIndex(0);
-        return;
-      }
-    }
-
-    if (filteredProducts.length > 0 && searchTerm.trim().length > 0) {
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setSelectedIndex((prev) =>
-          prev < filteredProducts.length - 1 ? prev + 1 : 0,
-        );
-        return;
-      }
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setSelectedIndex((prev) =>
-          prev > 0 ? prev - 1 : filteredProducts.length - 1,
-        );
-        return;
-      }
-    }
-
-    onKeyDown(e);
-  };
-
   const showResults = searchTerm.trim().length > 0;
 
   return (
@@ -103,7 +47,7 @@ export function PDVProductSearch({
             setSearchTerm(e.target.value);
             setSelectedIndex(0);
           }}
-          onKeyDown={handleInternalKeyDown}
+          onKeyDown={onKeyDown}
           className={`h-14 w-full rounded-xl border pl-12 pr-24 text-base font-medium outline-none transition placeholder:font-normal focus:ring-4 ${
             isDarkMode
               ? "border-slate-700 bg-slate-950 text-slate-50 placeholder:text-slate-500 focus:border-emerald-500 focus:ring-emerald-500/15"
@@ -163,15 +107,7 @@ export function PDVProductSearch({
                   }}
                   type="button"
                   onClick={() => {
-                    let qty = 1;
-                    if (searchTerm.includes("*")) {
-                      const parts = searchTerm.split("*");
-                      const parsed = parseInt(parts[0], 10);
-                      if (!isNaN(parsed) && parsed > 0) qty = parsed;
-                    }
-                    onSelectProduct(p, qty);
-                    setSearchTerm("");
-                    setSelectedIndex(0);
+                    selectProduct(p);
                   }}
                   onMouseEnter={() => setSelectedIndex(idx)}
                   className={`flex w-full cursor-pointer items-center justify-between gap-3 rounded-lg p-2.5 text-left transition ${

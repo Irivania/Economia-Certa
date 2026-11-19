@@ -2,7 +2,7 @@
 
 import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
 
-import type { NotificationState } from "@/types/pdv/payment";
+import type { NotificationState } from "@/types/pdv";
 
 interface PaymentNotificationProps {
   notification: NotificationState | null;

@@ -1,13 +1,8 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
 import { PDVPaymentModal } from "./PDVPaymentModal";
-import type { PaymentSplit } from "@/types/pdv/payment";
-
-interface PartnerItem {
-  id: string;
-  name: string;
-}
+import type { PartnerItem, PaymentSplit } from "@/types/pdv";
+import { useCheckoutPanel } from "@/hooks/pdv/useCheckoutPanel";
 
 interface PDVCheckoutPanelProps {
   partners: PartnerItem[];
@@ -40,45 +35,20 @@ export function PDVCheckoutPanel({
   onCheckout,
   isDarkMode,
   onNotify,
-}: PDVCheckoutPanelProps) {
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [isDocumentFocused, setIsDocumentFocused] = useState(false);
-  const customerDocumentRef = useRef<HTMLInputElement>(null);
-  const partnerRef = useRef<HTMLSelectElement>(null);
-
-  const handleTriggerCheckout = () => {
-    if (totalCart <= 0) return;
-    setIsPaymentModalOpen(true);
-  };
-
-  useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "F9") {
-        e.preventDefault();
-        if (totalCart > 0 && !loading && !isPaymentModalOpen) {
-          setIsPaymentModalOpen(true);
-        }
-      }
-      if (e.key === "F2" && !isPaymentModalOpen) {
-        e.preventDefault();
-        const documentInput = customerDocumentRef.current;
-        if (documentInput) {
-          setIsDocumentFocused(true);
-          documentInput.scrollIntoView({ behavior: "smooth", block: "center" });
-          documentInput.focus({ preventScroll: true });
-        }
-      }
-      if (e.key === "F3" && !isPaymentModalOpen) {
-        e.preventDefault();
-        partnerRef.current?.focus();
-      }
-    };
-
-    window.addEventListener("keydown", handleGlobalKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleGlobalKeyDown);
-    };
-  }, [totalCart, loading, isPaymentModalOpen]);
+  checkoutPanel,
+}: PDVCheckoutPanelProps & {
+  checkoutPanel: ReturnType<typeof useCheckoutPanel>;
+}) {
+  const {
+    isPaymentModalOpen,
+    setIsPaymentModalOpen,
+    isDocumentFocused,
+    setIsDocumentFocused,
+    customerDocumentRef,
+    partnerRef,
+    handleTriggerCheckout,
+    handleConfirmPayment,
+  } = checkoutPanel;
 
   return (
     <div
@@ -187,10 +157,7 @@ export function PDVCheckoutPanel({
         totalCart={totalCart}
         customerDocument={customerDocument}
         setCustomerDocument={setCustomerDocument}
-        onConfirmPayment={(splits, change) => {
-          setIsPaymentModalOpen(false);
-          onCheckout(splits, change);
-        }}
+        onConfirmPayment={handleConfirmPayment}
         isDarkMode={isDarkMode}
         onNotify={onNotify}
       />

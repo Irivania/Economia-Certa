@@ -10,6 +10,8 @@ import { CommandMenu } from "@/components/CommandMenu";
 import { useToast } from "@/features/dashboard/hooks/useToast";
 import { usePDV } from "@/hooks/usePDV";
 import { usePDVShortcuts } from "@/hooks/pdv/usePDVShortcuts";
+import { useProductSearchKeyboard } from "@/hooks/pdv/useProductSearchKeyboard";
+import { useCheckoutPanel } from "@/hooks/pdv/useCheckoutPanel";
 import { PDV_TEXTS } from "@/constants/pdvConstants";
 import { PDVLoadingState } from "@/components/pdv/states/PDVLoadingState";
 import { PDVClosedState } from "@/components/pdv/states/PDVClosedState";
@@ -63,6 +65,18 @@ export default function PDVPage() {
   const { toasts } = useToast();
 
   const pdv = usePDV();
+  const productSearchKeyboard = useProductSearchKeyboard({
+    searchTerm: pdv.searchTerm,
+    setSearchTerm: pdv.setSearchTerm,
+    filteredProducts: pdv.filteredProducts,
+    onSelectProduct: pdv.handleAddToCart,
+    onKeyDown: pdv.handleKeyDown,
+  });
+  const checkoutPanel = useCheckoutPanel({
+    totalCart: pdv.totalCart,
+    loading: pdv.loading,
+    onCheckout: pdv.handleCheckout,
+  });
 
   const handleOpenShortcuts = useCallback(() => setIsShortcutsOpen(true), []);
   const handleCloseShortcuts = useCallback(() => setIsShortcutsOpen(false), []);
@@ -216,7 +230,12 @@ export default function PDVPage() {
           ) : pdv.isPaused ? (
             <PDVPausedState isDarkMode={isDarkMode} />
           ) : (
-            <PDVActiveState pdv={pdv} isDarkMode={isDarkMode} />
+            <PDVActiveState
+              pdv={pdv}
+              isDarkMode={isDarkMode}
+              productSearchKeyboard={productSearchKeyboard}
+              checkoutPanel={checkoutPanel}
+            />
           )}
         </div>
       </main>

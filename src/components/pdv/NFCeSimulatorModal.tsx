@@ -2,14 +2,7 @@
 
 import React from "react";
 import { Printer, X, ShieldCheck } from "lucide-react";
-
-interface CartItem {
-  productId: string;
-  description: string;
-  unitPrice: number;
-  quantity: number;
-  subtotal: number;
-}
+import type { CartItem } from "@/types/pdv";
 
 interface SaleDataType {
   saleId: string;

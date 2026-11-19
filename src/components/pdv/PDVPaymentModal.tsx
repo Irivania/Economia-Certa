@@ -7,7 +7,7 @@ import { PaymentNotification } from "./payment/PaymentNotification";
 
 import { usePDVPaymentModal } from "@/hooks/pdv/payment/usePDVPaymentModal";
 
-import type { PDVPaymentModalProps } from "@/types/pdv/payment";
+import type { PDVPaymentModalProps } from "@/types/pdv";
 
 export function PDVPaymentModal({
   isOpen,

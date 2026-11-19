@@ -1,15 +1,7 @@
 "use client";
 
 import { Package, Pencil, X, Check, ShoppingCart } from "lucide-react";
-
-interface CartItem {
-  productId: string;
-  description: string;
-  unitPrice: number;
-  quantity: number;
-  subtotal: number;
-  imageUrl: string | null;
-}
+import type { CartItem } from "@/types/pdv";
 
 interface PDVCartListProps {
   cart: CartItem[];

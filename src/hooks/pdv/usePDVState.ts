@@ -4,42 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getCompanyId } from "@/lib/companySession";
 import { apiFetch } from "@/lib/apiClient";
-
-interface ProductItem {
-  id: string;
-  description: string;
-  ean: string | null;
-  salePrice: string | null;
-  stockCurrent: number;
-  imageUrl: string | null;
-  ncm?: string | null;
-  classTrib?: string | null;
-  unit?: string | null;
-}
-
-interface CartItem {
-  productId: string;
-  description: string;
-  unitPrice: number;
-  quantity: number;
-  subtotal: number;
-  imageUrl: string | null;
-  ncm?: string | null;
-  cst?: string | null;
-  classTrib?: string | null;
-  unit?: string | null;
-}
-
-interface PartnerItem {
-  id: string;
-  type: "EMPLOYEE" | "COMPANY_PARTNER";
-  name: string;
-  document: string | null;
-  creditLimit: string;
-  currentBalance: string;
-  discountPercentage: string;
-  active: boolean;
-}
+import type { CartItem, PartnerItem, ProductItem } from "@/types/pdv";
 
 export function usePDVState() {
   const router = useRouter();
