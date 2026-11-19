@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Search, X, Users, Check } from "lucide-react";
 import type { PartnerItem } from "@/types/pdv";
+import { formatBRL } from "@/lib/pdv/format";
 
 interface PDVPartnerSearchModalProps {
   isOpen: boolean;
@@ -112,7 +113,7 @@ export function PDVPartnerSearchModal({
                     <div className="text-[10px] opacity-60 font-mono">
                       Crédito Disponível:{" "}
                       <span className="text-emerald-600 dark:text-emerald-400 font-bold">
-                        R$ {available.toFixed(2)}
+                        {formatBRL(available)}
                       </span>
                     </div>
                   </div>

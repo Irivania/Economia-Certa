@@ -1,6 +1,7 @@
 "use client";
 
 import { ShieldAlert, ArrowRight } from "lucide-react";
+import { formatBRL } from "@/lib/pdv/format";
 
 interface CashLimitAlertBannerProps {
   currentCashBalance: number;
@@ -39,16 +40,9 @@ export function CashLimitAlertBanner({
           <p className="text-[11px] opacity-80">
             Gaveta com{" "}
             <span className="font-bold font-mono">
-              {currentCashBalance.toLocaleString("pt-BR", {
-                style: "currency",
-                currency: "BRL",
-              })}
+              {formatBRL(currentCashBalance)}
             </span>{" "}
-            em dinheiro vivo (Limite:{" "}
-            {limitThreshold.toLocaleString("pt-BR", {
-              style: "currency",
-              currency: "BRL",
-            })}
+            em dinheiro vivo (Limite: {formatBRL(limitThreshold)}
             ). Recomenda-se realizar uma sangria de segurança.
           </p>
         </div>

@@ -3,6 +3,7 @@
 import React from "react";
 import { Printer, X, ShieldCheck } from "lucide-react";
 import type { CartItem } from "@/types/pdv";
+import { formatBRL } from "@/lib/pdv/format";
 
 interface SaleDataType {
   saleId: string;
@@ -135,11 +136,11 @@ export function NFCeSimulatorModal({
                     {item.description}
                   </div>
                   <div className="text-[10px] opacity-70">
-                    {item.quantity} un x R$ {item.unitPrice.toFixed(2)}
+                    {item.quantity} un x {formatBRL(item.unitPrice)}
                   </div>
                 </div>
                 <div className="font-bold text-emerald-600 dark:text-emerald-400 print:text-black">
-                  R$ {item.subtotal.toFixed(2)}
+                  {formatBRL(item.subtotal)}
                 </div>
               </div>
             ))}
@@ -156,14 +157,14 @@ export function NFCeSimulatorModal({
           {Number(saleData.changeGiven || 0) > 0 && (
             <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-bold print:text-black">
               <span>Troco Devolvido:</span>
-              <span>R$ {Number(saleData.changeGiven).toFixed(2)}</span>
+              <span>{formatBRL(Number(saleData.changeGiven))}</span>
             </div>
           )}
 
           <div className="flex justify-between text-base font-black pt-1 border-t border-dashed border-slate-500/30">
             <span>TOTAL A PAGAR:</span>
             <span className="text-emerald-600 dark:text-emerald-400 print:text-black">
-              R$ {saleData.total.toFixed(2)}
+              {formatBRL(saleData.total)}
             </span>
           </div>
         </div>
